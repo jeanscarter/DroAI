@@ -1,0 +1,6 @@
+# Renombra este archivo a db.properties y llena con tus credenciales
+DB_SERVER=localhost
+DB_PORT=1433
+DB_DATABASE=mi_base_de_datos
+DB_USER=sa
+DB_PASSWORD=tu_password_seguro
