@@ -9,8 +9,9 @@
     <plugins>
       <plugin>
         <artifactId>maven-compiler-plugin</artifactId>
-        <version>3.11.0</version>
+        <version>3.13.0</version>
         <configuration>
+          <release>25</release>
           <encoding>UTF-8</encoding>
         </configuration>
       </plugin>
@@ -55,9 +56,8 @@
     </plugins>
   </build>
   <properties>
+    <maven.compiler.release>25</maven.compiler.release>
     <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
-    <maven.compiler.target>25</maven.compiler.target>
     <project.reporting.outputEncoding>UTF-8</project.reporting.outputEncoding>
-    <maven.compiler.source>25</maven.compiler.source>
   </properties>
 </project>
