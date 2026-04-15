@@ -12,21 +12,13 @@ import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
 import java.util.List;
 
-/**
- * Exporta a Excel (.xlsx) con 5 hojas:
- * 1. Listado Completo
- * 2. Simulador
- * 3. Descuentos x Volumen
- * 4. Descuento x Producto
- * 5. Resumen General
- */
 public class ExcelExporter {
 
     public File export(List<FacturaRow> listado, List<ResumenRow> dctoVol,
                        List<ResumenRow> dctoProd, double tasa) throws IOException {
 
         String timestamp = LocalDateTime.now().format(DateTimeFormatter.ofPattern("yyyyMMdd_HHmmss"));
-        File file = new File(System.getProperty("user.dir"), "ListadoPrecios_" + timestamp + ".xlsx");
+        File file = new File(System.getProperty("user.dir"), "MatrizVentas_" + timestamp + ".xlsx");
 
         try (SXSSFWorkbook wb = new SXSSFWorkbook(100)) {
 
@@ -34,21 +26,17 @@ public class ExcelExporter {
             CellStyle numberStyle = createNumberStyle(wb);
             CellStyle currencyStyle = createCurrencyStyle(wb);
 
-            // Sheet 1: Listado Completo
+            // Sheet 1: Matriz Original
             writeListado(wb, headerStyle, numberStyle, currencyStyle, listado, tasa);
+            wb.setSheetName(0, "Matriz");
 
-            // Sheet 2: Simulador (same data, placeholder)
-            writeListado(wb, headerStyle, numberStyle, currencyStyle, listado, tasa);
-            wb.setSheetName(1, "Simulador");
-            wb.setSheetName(0, "Listado Completo");
-
-            // Sheet 3: Descuentos x Volumen
+            // Sheet 2: Descuentos x Volumen
             writeResumen(wb, "Descuentos x Volumen", headerStyle, numberStyle, currencyStyle, dctoVol);
 
-            // Sheet 4: Descuento x Producto
+            // Sheet 3: Descuento x Producto
             writeResumen(wb, "Descuento x Producto", headerStyle, numberStyle, currencyStyle, dctoProd);
 
-            // Sheet 5: Resumen General
+            // Sheet 4: Resumen General
             writeResumenGeneral(wb, headerStyle, numberStyle, currencyStyle, listado, tasa);
 
             try (FileOutputStream fos = new FileOutputStream(file)) {
@@ -58,15 +46,17 @@ public class ExcelExporter {
         return file;
     }
 
-    // ---------- Hojas ----------
-
     private void writeListado(SXSSFWorkbook wb, CellStyle hs, CellStyle ns,
                               CellStyle cs, List<FacturaRow> data, double tasa) {
         Sheet sheet = wb.createSheet();
-        String[] headers = {"Codigo", "Descripcion", "Referencia", "Existencia", "UdM",
-                "Costo Fabrica", "Arancel%", "Costo OM", "Util %", "Precio1", "%IVA", "Precio C/IVA"};
+        String[] headers = {
+            "Numero", "Fecha", "CI/Rif", "Nombre o Razon Social", "Vendedor", "Nombre Vendedor",
+            "Tasa", "codigo art", "Descripcion", "Cantidad", "Precio", "DP", "DCT", "DA", "DV",
+            "Desc.%", "Total Renglon", "Desc.%Global", "Renglon-DG", "Monto IVA", "Tot.Renglon+IVA",
+            "Costo de Venta", "Total Costo Venta", "Tot.CV-DP", "Monto Utilidad", "% Utilidad",
+            "Costo Actual", "Stock Actual", "Cod.Linea", "Linea"
+        };
 
-        // Header row
         Row hr = sheet.createRow(0);
         for (int i = 0; i < headers.length; i++) {
             Cell c = hr.createCell(i);
@@ -74,22 +64,39 @@ public class ExcelExporter {
             c.setCellStyle(hs);
         }
 
-        // Data rows
         int rowIdx = 1;
         for (FacturaRow r : data) {
             Row row = sheet.createRow(rowIdx++);
-            row.createCell(0).setCellValue(r.getCodigo());
-            row.createCell(1).setCellValue(r.getDescripcion());
-            row.createCell(2).setCellValue(r.getReferencia());
-            setCellNum(row, 3, r.getExistencia(), ns);
-            row.createCell(4).setCellValue(r.getUdm());
-            setCellNum(row, 5, r.getCostoFabrica(), cs);
-            setCellNum(row, 6, r.getArancelPct(), ns);
-            setCellNum(row, 7, r.getCostoOM(), cs);
-            setCellNum(row, 8, r.getUtilPct(), ns);
-            setCellNum(row, 9, r.getPrecio1(), cs);
-            setCellNum(row, 10, r.getIvaPct(), ns);
-            setCellNum(row, 11, r.getPrecioCIVA(), cs);
+            row.createCell(0).setCellValue(r.getNumero());
+            row.createCell(1).setCellValue(r.getFecha());
+            row.createCell(2).setCellValue(r.getCiRif());
+            row.createCell(3).setCellValue(r.getNombreRazonSocial());
+            row.createCell(4).setCellValue(r.getCoVen());
+            row.createCell(5).setCellValue(r.getNombreVendedor());
+            setCellNum(row, 6, r.getTasa(), ns);
+            row.createCell(7).setCellValue(r.getCodigoArt());
+            row.createCell(8).setCellValue(r.getDescripcionArt());
+            setCellNum(row, 9, r.getCantidad(), ns);
+            setCellNum(row, 10, r.getPrecio(), cs);
+            setCellNum(row, 11, r.getDp(), ns);
+            setCellNum(row, 12, r.getDct(), ns);
+            setCellNum(row, 13, r.getDa(), ns);
+            setCellNum(row, 14, r.getDv(), ns);
+            setCellNum(row, 15, r.getDescPct(), ns);
+            setCellNum(row, 16, r.getTotalRenglon(), cs);
+            setCellNum(row, 17, r.getDescPctGlobal(), ns);
+            setCellNum(row, 18, r.getRenglonDg(), cs);
+            setCellNum(row, 19, r.getMontoIva(), cs);
+            setCellNum(row, 20, r.getTotRenglonIva(), cs);
+            setCellNum(row, 21, r.getCostoVenta(), cs);
+            setCellNum(row, 22, r.getTotalCostoVenta(), cs);
+            setCellNum(row, 23, r.getTotCvDp(), cs);
+            setCellNum(row, 24, r.getMontoUtilidad(), cs);
+            setCellNum(row, 25, r.getUtilPct(), ns);
+            setCellNum(row, 26, r.getCostoActual(), cs);
+            setCellNum(row, 27, r.getStockActual(), ns);
+            row.createCell(28).setCellValue(r.getCodLinea());
+            row.createCell(29).setCellValue(r.getLinea());
         }
 
         sheet.createFreezePane(0, 1);
@@ -133,18 +140,16 @@ public class ExcelExporter {
             c.setCellStyle(hs);
         }
 
-        double totalPrecios = data.stream().mapToDouble(FacturaRow::getPrecio1).sum();
-        double totalCIVA    = data.stream().mapToDouble(FacturaRow::getPrecioCIVA).sum();
+        double totalPrecios = data.stream().mapToDouble(FacturaRow::getPrecio).sum();
+        double totalIva     = data.stream().mapToDouble(FacturaRow::getMontoIva).sum();
+        double totalCIVA    = data.stream().mapToDouble(FacturaRow::getTotRenglonIva).sum();
 
-        addSummaryRow(sheet, 1, "Total Registros", data.size(), ns);
-        addSummaryRow(sheet, 2, "Suma Precio1", totalPrecios, cs);
-        addSummaryRow(sheet, 3, "Suma Precio C/IVA", totalCIVA, cs);
-        addSummaryRow(sheet, 4, "Tasa de Cambio", tasa, ns);
-        addSummaryRow(sheet, 5, "Total USD (Precio1 / Tasa)",
-                tasa > 0 ? totalPrecios / tasa : 0, cs);
+        addSummaryRow(sheet, 1, "Total Registros/Ventas", data.size(), ns);
+        addSummaryRow(sheet, 2, "Suma Total Precio (Base)", totalPrecios, cs);
+        addSummaryRow(sheet, 3, "Suma Mto IVA", totalIva, cs);
+        addSummaryRow(sheet, 4, "Suma Total C/IVA", totalCIVA, cs);
+        addSummaryRow(sheet, 5, "Tasa de Cambio Gral.", tasa, ns);
     }
-
-    // ---------- Helpers ----------
 
     private void setCellNum(Row row, int col, double val, CellStyle style) {
         Cell c = row.createCell(col);
@@ -159,8 +164,6 @@ public class ExcelExporter {
         c.setCellValue(val);
         c.setCellStyle(style);
     }
-
-    // ---------- Styles ----------
 
     private CellStyle createHeaderStyle(Workbook wb) {
         CellStyle s = wb.createCellStyle();

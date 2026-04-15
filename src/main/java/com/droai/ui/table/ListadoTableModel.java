@@ -1,29 +1,24 @@
 package com.droai.ui.table;
 
 import com.droai.model.FacturaRow;
-
 import javax.swing.table.AbstractTableModel;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Locale;
 
 /**
- * Modelo editable para la pestaña "Listado de Productos".
- * Columnas exactas: Codigo, Descripcion, Referencia, Existencia, UdM,
- * Costo Fabrica, Arancel%, Costo OM, Util%, Precio1, %IVA, Precio C/IVA.
- *
- * Editable: Costo Fabrica(5), Arancel%(6), Util%(8), Precio1(9), %IVA(10).
+ * Modelo para visualizar la "Matriz de Ventas".
+ * Columnas: 30 columnas extraídas de Profit Plus y cálculos adicionales.
  */
 public class ListadoTableModel extends AbstractTableModel {
 
     private static final String[] COLUMNS = {
-        "Codigo", "Descripcion", "Referencia", "Existencia", "UdM",
-        "Costo Fabrica", "Arancel%", "Costo OM", "Util %",
-        "Precio1", "%IVA", "Precio C/IVA"
+        "Numero", "Fecha", "CI/Rif", "Nombre o Razon Social", "Vendedor", "Nombre Vendedor",
+        "Tasa", "codigo art", "Descripcion", "Cantidad", "Precio", "DP", "DCT", "DA", "DV",
+        "Desc.%", "Total Renglon", "Desc.%Global", "Renglon-DG", "Monto IVA", "Tot.Renglon+IVA",
+        "Costo de Venta", "Total Costo Venta", "Tot.CV-DP", "Monto Utilidad", "% Utilidad",
+        "Costo Actual", "Stock Actual", "Cod.Linea", "Linea"
     };
-
-    // Columnas editables por índice
-    private static final int[] EDITABLE = {5, 6, 8, 9, 10};
 
     private List<FacturaRow> allData = new ArrayList<>();
     private List<FacturaRow> filteredData = new ArrayList<>();
@@ -36,14 +31,14 @@ public class ListadoTableModel extends AbstractTableModel {
     @Override
     public Class<?> getColumnClass(int col) {
         return switch (col) {
-            case 0, 1, 2, 4 -> String.class;
+            case 0, 1, 2, 3, 4, 5, 7, 8, 28, 29 -> String.class;
             default -> Double.class;
         };
     }
 
     @Override
     public boolean isCellEditable(int row, int col) {
-        for (int e : EDITABLE) if (e == col) return true;
+        // La matriz general histórica normalmente es solo lectura.
         return false;
     }
 
@@ -51,45 +46,45 @@ public class ListadoTableModel extends AbstractTableModel {
     public Object getValueAt(int row, int col) {
         FacturaRow r = filteredData.get(row);
         return switch (col) {
-            case 0  -> r.getCodigo();
-            case 1  -> r.getDescripcion();
-            case 2  -> r.getReferencia();
-            case 3  -> r.getExistencia();
-            case 4  -> r.getUdm();
-            case 5  -> r.getCostoFabrica();
-            case 6  -> r.getArancelPct();
-            case 7  -> r.getCostoOM();
-            case 8  -> r.getUtilPct();
-            case 9  -> r.getPrecio1();
-            case 10 -> r.getIvaPct();
-            case 11 -> r.getPrecioCIVA();
+            case 0 -> r.getNumero();
+            case 1 -> r.getFecha();
+            case 2 -> r.getCiRif();
+            case 3 -> r.getNombreRazonSocial();
+            case 4 -> r.getCoVen();
+            case 5 -> r.getNombreVendedor();
+            case 6 -> r.getTasa();
+            case 7 -> r.getCodigoArt();
+            case 8 -> r.getDescripcionArt();
+            case 9 -> r.getCantidad();
+            case 10 -> r.getPrecio();
+            case 11 -> r.getDp();
+            case 12 -> r.getDct();
+            case 13 -> r.getDa();
+            case 14 -> r.getDv();
+            case 15 -> r.getDescPct();
+            case 16 -> r.getTotalRenglon();
+            case 17 -> r.getDescPctGlobal();
+            case 18 -> r.getRenglonDg();
+            case 19 -> r.getMontoIva();
+            case 20 -> r.getTotRenglonIva();
+            case 21 -> r.getCostoVenta();
+            case 22 -> r.getTotalCostoVenta();
+            case 23 -> r.getTotCvDp();
+            case 24 -> r.getMontoUtilidad();
+            case 25 -> r.getUtilPct();
+            case 26 -> r.getCostoActual();
+            case 27 -> r.getStockActual();
+            case 28 -> r.getCodLinea();
+            case 29 -> r.getLinea();
             default -> null;
         };
     }
 
-    @Override
-    public void setValueAt(Object value, int row, int col) {
-        FacturaRow r = filteredData.get(row);
-        double v = (value instanceof Number n) ? n.doubleValue() : 0.0;
-        switch (col) {
-            case 5  -> r.setCostoFabrica(v);
-            case 6  -> r.setArancelPct(v);
-            case 8  -> r.setUtilPct(v);
-            case 9  -> r.setPrecio1(v);
-            case 10 -> r.setIvaPct(v);
-        }
-        // Recalcular Precio C/IVA
-        r.setPrecioCIVA(r.getPrecio1() * (1 + r.getIvaPct() / 100.0));
-        fireTableRowsUpdated(row, row);
-    }
-
-    /** Carga nuevos datos desde DAO. */
     public void setData(List<FacturaRow> data) {
         this.allData = new ArrayList<>(data);
         applyFilter();
     }
 
-    /** Filtro de búsqueda in-memory por texto (codigo o descripcion). */
     public void setFilter(String text) {
         this.filterText = text == null ? "" : text.trim().toLowerCase(Locale.ROOT);
         applyFilter();
@@ -100,25 +95,16 @@ public class ListadoTableModel extends AbstractTableModel {
             filteredData = new ArrayList<>(allData);
         } else {
             filteredData = allData.stream()
-                .filter(r -> r.getCodigo().toLowerCase(Locale.ROOT).contains(filterText)
-                          || r.getDescripcion().toLowerCase(Locale.ROOT).contains(filterText)
-                          || r.getReferencia().toLowerCase(Locale.ROOT).contains(filterText))
+                .filter(r -> r.getCodigoArt().toLowerCase(Locale.ROOT).contains(filterText)
+                          || (r.getDescripcionArt() != null && r.getDescripcionArt().toLowerCase(Locale.ROOT).contains(filterText))
+                          || (r.getNombreRazonSocial() != null && r.getNombreRazonSocial().toLowerCase(Locale.ROOT).contains(filterText))
+                          || (r.getNumero() != null && r.getNumero().toLowerCase(Locale.ROOT).contains(filterText)))
                 .collect(java.util.stream.Collectors.toList());
         }
         fireTableDataChanged();
     }
 
-    /** Obtiene solo filas modificadas para guardar en BD. */
-    public List<FacturaRow> getModifiedRows() {
-        return allData.stream().filter(FacturaRow::isModified)
-                .collect(java.util.stream.Collectors.toList());
-    }
-
-    /** Todos los datos filtrados (para exportar). */
     public List<FacturaRow> getFilteredData() { return filteredData; }
-
-    /** Todos los datos sin filtrar. */
     public List<FacturaRow> getAllData() { return allData; }
-
     public int getTotalCount() { return allData.size(); }
 }

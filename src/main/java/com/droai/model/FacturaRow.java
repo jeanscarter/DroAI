@@ -1,87 +1,105 @@
 package com.droai.model;
 
 /**
- * Modelo de una fila del Listado de Precios.
- * Mapea columnas: Codigo, Descripcion, Referencia, Existencia, UdM,
- * Costo Fabrica, Arancel%, Costo OM, Util%, Precio1, %IVA, Precio C/IVA.
+ * Modelo de una fila de la Matriz de Ventas.
+ * Mapea las 30 columnas extraídas de Profit Plus simulando el archivo Excel original.
  */
 public class FacturaRow {
 
-    private String  codigo;
-    private String  descripcion;
-    private String  referencia;
-    private double  existencia;
-    private String  udm;
-    private double  costoFabrica;
-    private double  arancelPct;
-    private double  costoOM;
-    private double  utilPct;
-    private double  precio1;
-    private double  ivaPct;
-    private double  precioCIVA;
-
-    // --- Metadata para tracking de edición ---
-    private boolean modified;
+    private String numero;
+    private String fecha;
+    private String ciRif;
+    private String nombreRazonSocial;
+    private String coVen;
+    private String nombreVendedor;
+    private double tasa;
+    private String codigoArt;
+    private String descripcionArt;
+    private double cantidad;
+    private double precio;
+    private double dp;
+    private double dct;
+    private double da;
+    private double dv;
+    private double descPct;
+    private double totalRenglon;
+    private double descPctGlobal;
+    private double renglonDg;
+    private double montoIva;
+    private double totRenglonIva;
+    private double costoVenta;
+    private double totalCostoVenta;
+    private double totCvDp;
+    private double montoUtilidad;
+    private double utilPct;
+    private double costoActual;
+    private double stockActual;
+    private String codLinea;
+    private String linea;
 
     public FacturaRow() {}
 
-    public FacturaRow(String codigo, String descripcion, String referencia,
-                      double existencia, String udm, double costoFabrica,
-                      double arancelPct, double costoOM, double utilPct,
-                      double precio1, double ivaPct, double precioCIVA) {
-        this.codigo       = codigo;
-        this.descripcion  = descripcion;
-        this.referencia   = referencia;
-        this.existencia   = existencia;
-        this.udm          = udm;
-        this.costoFabrica = costoFabrica;
-        this.arancelPct   = arancelPct;
-        this.costoOM      = costoOM;
-        this.utilPct      = utilPct;
-        this.precio1      = precio1;
-        this.ivaPct       = ivaPct;
-        this.precioCIVA   = precioCIVA;
-    }
+    // Getters
+    public String getNumero() { return numero; }
+    public String getFecha() { return fecha; }
+    public String getCiRif() { return ciRif; }
+    public String getNombreRazonSocial() { return nombreRazonSocial; }
+    public String getCoVen() { return coVen; }
+    public String getNombreVendedor() { return nombreVendedor; }
+    public double getTasa() { return tasa; }
+    public String getCodigoArt() { return codigoArt; }
+    public String getDescripcionArt() { return descripcionArt; }
+    public double getCantidad() { return cantidad; }
+    public double getPrecio() { return precio; }
+    public double getDp() { return dp; }
+    public double getDct() { return dct; }
+    public double getDa() { return da; }
+    public double getDv() { return dv; }
+    public double getDescPct() { return descPct; }
+    public double getTotalRenglon() { return totalRenglon; }
+    public double getDescPctGlobal() { return descPctGlobal; }
+    public double getRenglonDg() { return renglonDg; }
+    public double getMontoIva() { return montoIva; }
+    public double getTotRenglonIva() { return totRenglonIva; }
+    public double getCostoVenta() { return costoVenta; }
+    public double getTotalCostoVenta() { return totalCostoVenta; }
+    public double getTotCvDp() { return totCvDp; }
+    public double getMontoUtilidad() { return montoUtilidad; }
+    public double getUtilPct() { return utilPct; }
+    public double getCostoActual() { return costoActual; }
+    public double getStockActual() { return stockActual; }
+    public String getCodLinea() { return codLinea; }
+    public String getLinea() { return linea; }
 
-    // ---------- Getters / Setters ----------
-
-    public String getCodigo()        { return codigo; }
-    public void setCodigo(String v)  { this.codigo = v; }
-
-    public String getDescripcion()        { return descripcion; }
-    public void setDescripcion(String v)  { this.descripcion = v; }
-
-    public String getReferencia()        { return referencia; }
-    public void setReferencia(String v)  { this.referencia = v; }
-
-    public double getExistencia()        { return existencia; }
-    public void setExistencia(double v)  { this.existencia = v; }
-
-    public String getUdm()        { return udm; }
-    public void setUdm(String v)  { this.udm = v; }
-
-    public double getCostoFabrica()        { return costoFabrica; }
-    public void setCostoFabrica(double v)  { this.costoFabrica = v; markModified(); }
-
-    public double getArancelPct()        { return arancelPct; }
-    public void setArancelPct(double v)  { this.arancelPct = v; markModified(); }
-
-    public double getCostoOM()        { return costoOM; }
-    public void setCostoOM(double v)  { this.costoOM = v; }
-
-    public double getUtilPct()        { return utilPct; }
-    public void setUtilPct(double v)  { this.utilPct = v; markModified(); }
-
-    public double getPrecio1()        { return precio1; }
-    public void setPrecio1(double v)  { this.precio1 = v; markModified(); }
-
-    public double getIvaPct()        { return ivaPct; }
-    public void setIvaPct(double v)  { this.ivaPct = v; markModified(); }
-
-    public double getPrecioCIVA()        { return precioCIVA; }
-    public void setPrecioCIVA(double v)  { this.precioCIVA = v; }
-
-    public boolean isModified()   { return modified; }
-    public void markModified()    { this.modified = true; }
-    public void clearModified()   { this.modified = false; }
+    // Setters
+    public void setNumero(String numero) { this.numero = numero; }
+    public void setFecha(String fecha) { this.fecha = fecha; }
+    public void setCiRif(String ciRif) { this.ciRif = ciRif; }
+    public void setNombreRazonSocial(String nombreRazonSocial) { this.nombreRazonSocial = nombreRazonSocial; }
+    public void setCoVen(String coVen) { this.coVen = coVen; }
+    public void setNombreVendedor(String nombreVendedor) { this.nombreVendedor = nombreVendedor; }
+    public void setTasa(double tasa) { this.tasa = tasa; }
+    public void setCodigoArt(String codigoArt) { this.codigoArt = codigoArt; }
+    public void setDescripcionArt(String descripcionArt) { this.descripcionArt = descripcionArt; }
+    public void setCantidad(double cantidad) { this.cantidad = cantidad; }
+    public void setPrecio(double precio) { this.precio = precio; }
+    public void setDp(double dp) { this.dp = dp; }
+    public void setDct(double dct) { this.dct = dct; }
+    public void setDa(double da) { this.da = da; }
+    public void setDv(double dv) { this.dv = dv; }
+    public void setDescPct(double descPct) { this.descPct = descPct; }
+    public void setTotalRenglon(double totalRenglon) { this.totalRenglon = totalRenglon; }
+    public void setDescPctGlobal(double descPctGlobal) { this.descPctGlobal = descPctGlobal; }
+    public void setRenglonDg(double renglonDg) { this.renglonDg = renglonDg; }
+    public void setMontoIva(double montoIva) { this.montoIva = montoIva; }
+    public void setTotRenglonIva(double totRenglonIva) { this.totRenglonIva = totRenglonIva; }
+    public void setCostoVenta(double costoVenta) { this.costoVenta = costoVenta; }
+    public void setTotalCostoVenta(double totalCostoVenta) { this.totalCostoVenta = totalCostoVenta; }
+    public void setTotCvDp(double totCvDp) { this.totCvDp = totCvDp; }
+    public void setMontoUtilidad(double montoUtilidad) { this.montoUtilidad = montoUtilidad; }
+    public void setUtilPct(double utilPct) { this.utilPct = utilPct; }
+    public void setCostoActual(double costoActual) { this.costoActual = costoActual; }
+    public void setStockActual(double stockActual) { this.stockActual = stockActual; }
+    public void setCodLinea(String codLinea) { this.codLinea = codLinea; }
+    public void setLinea(String linea) { this.linea = linea; }
 }

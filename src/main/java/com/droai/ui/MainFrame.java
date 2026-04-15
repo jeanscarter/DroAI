@@ -77,9 +77,6 @@ public class MainFrame extends JFrame {
         getRootPane().putClientProperty(FlatClientProperties.TITLE_BAR_BACKGROUND, BG);
         getRootPane().putClientProperty(FlatClientProperties.TITLE_BAR_FOREGROUND, Color.WHITE);
 
-        // Load sample data on startup (demo)
-        SwingUtilities.invokeLater(this::loadDemoData);
-
         // Verify DB connection in background and show Toast result
         new SwingWorker<Boolean, Void>() {
             @Override
@@ -92,12 +89,15 @@ public class MainFrame extends JFrame {
                     boolean ok = get();
                     if (ok) {
                         Toast.show("✔ Conexión a la base de datos exitosa", Toast.Type.SUCCESS);
+                        loadData(); 
                     } else {
                         Toast.show("✘ La conexión a la base de datos no es válida", Toast.Type.ERROR);
+                        loadDemoData();
                     }
                 } catch (Exception ex) {
                     String msg = ex.getCause() != null ? ex.getCause().getMessage() : ex.getMessage();
                     Toast.show("✘ Sin conexión a BD: " + msg, Toast.Type.ERROR);
+                    loadDemoData();
                 }
             }
         }.execute();
@@ -152,29 +152,7 @@ public class MainFrame extends JFrame {
 
     /** Guarda filas modificadas a la BD. */
     private void saveData() {
-        List<FacturaRow> modified = dataTabs.getListadoModel().getModifiedRows();
-        if (modified.isEmpty()) {
-            Toast.show("No hay cambios para guardar", Toast.Type.INFO);
-            return;
-        }
-        Toast.show("Guardando " + modified.size() + " registros...", Toast.Type.INFO);
-        new SwingWorker<Void, Void>() {
-            @Override
-            protected Void doInBackground() throws Exception {
-                dao.updatePrecios(modified);
-                return null;
-            }
-
-            @Override
-            protected void done() {
-                try {
-                    get();
-                    Toast.show("Guardado exitoso", Toast.Type.SUCCESS);
-                } catch (Exception ex) {
-                    Toast.show("Error al guardar: " + ex.getMessage(), Toast.Type.ERROR);
-                }
-            }
-        }.execute();
+        Toast.show("No se puede editar directamente la Matriz de Ventas histórica", Toast.Type.INFO);
     }
 
     /** Exporta a Excel en background. */
@@ -210,48 +188,9 @@ public class MainFrame extends JFrame {
     // ========== DEMO DATA (sin BD) ==========
 
     private void loadDemoData() {
-        List<FacturaRow> demo = new java.util.ArrayList<>();
-        String[][] items = {
-            {"004544", "ATORVASTATINA TAB 40MG X 1", "890800703"},
-            {"004545", "CEFADROXILO CAPS 500MG X 1", "890612099"},
-            {"004546", "LORATADINA/BETAMETASON/A", "890800703"},
-            {"004547", "LEVONORGESTREL TAB 1.5MG", "890612099"},
-            {"004548", "AMOXICILINA/ACIDO CLAVULA", "890612099"},
-            {"004549", "LOPERAMIDA CAPS 2MG X 10", "890800703"},
-            {"004550", "BETAHISTINA TAB 16MG X 10", "890800703"},
-            {"004551", "CREMA ANTISEPTICA SANALO", "759113807"},
-            {"004552", "CREMA ANTISEPTICA SANALO", "759113807"},
-            {"004553", "JAB ANTIBACTERIAL SANALO",  "759113807"},
-            {"004554", "ALCOHOL SANOL X 1000ML VAL", "759113807"},
-            {"004555", "ALCOHOL SANOL X 500ML VAR", "759113807"},
-            {"004556", "ALCOHOL SANOL X 240ML VAR", "759113807"},
-            {"004557", "ALCOHOL SANOL X 120ML VAR", "759113807"},
-        };
-        double[][] nums = {
-            {0.00, 0, 0, 2.24, 23.02, 2.91, 0.00, 2.91},
-            {149.00, 0, 0, 4.65, 22.97, 6.04, 0.00, 6.04},
-            {139.00, 0, 0, 2.77, 22.94, 3.60, 0.00, 3.60},
-            {20.00, 0, 0, 2.35, 23.11, 3.05, 0.00, 3.05},
-            {43.00, 0, 0, 12.45, 22.98, 16.16, 0.00, 16.16},
-            {105.00, 0, 0, 2.70, 23.03, 3.51, 0.00, 3.51},
-            {72.00, 0, 0, 2.70, 22.98, 3.51, 0.00, 3.51},
-            {96.00, 0, 0, 4.50, 18.03, 5.49, 16.00, 6.36},
-            {144.00, 0, 0, 3.00, 18.03, 3.66, 16.00, 4.24},
-            {72.00, 0, 0, 2.30, 17.86, 2.80, 16.00, 3.24},
-            {0.00, 0, 0, 3.28, 18.00, 4.00, 0.00, 4.00},
-            {0.00, 0, 0, 2.20, 17.91, 2.68, 0.00, 2.68},
-            {0.00, 0, 0, 1.06, 17.83, 1.29, 0.00, 1.29},
-            {0.00, 0, 0, 0.60, 17.81, 0.73, 0.00, 0.73},
-        };
-        for (int i = 0; i < items.length; i++) {
-            demo.add(new FacturaRow(
-                items[i][0], items[i][1], items[i][2],
-                nums[i][0], "UND",
-                nums[i][3], nums[i][2], nums[i][3],
-                nums[i][4], nums[i][5], nums[i][6], nums[i][7]
-            ));
-        }
-        dataTabs.getListadoModel().setData(demo);
-        footer.setRegistroCount(demo.size());
+        // Enforce using live database connection for proper testing limit!
+        dataTabs.getListadoModel().setData(new java.util.ArrayList<>());
+        footer.setRegistroCount(0);
+        Toast.show("Sin conexión. Conecta a la Base de Datos para ver la Matriz de Ventas.", Toast.Type.ERROR);
     }
 }

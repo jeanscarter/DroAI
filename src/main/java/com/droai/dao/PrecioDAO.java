@@ -9,33 +9,49 @@ import java.time.LocalDate;
 import java.util.ArrayList;
 import java.util.List;
 
-/**
- * Acceso a datos: consultas y actualizaciones sobre factura/reng_fac/art
- * en la base Profit Plus (DROA_A_DEV).
- */
 public class PrecioDAO {
 
-    // ---------- Listado principal (Tab 1) ----------
-
+    // ---------- Matriz de Ventas (Tab 1) ----------
     private static final String SQL_LISTADO = """
-        SELECT
-            a.co_art       AS codigo,
-            a.art_des      AS descripcion,
-            r.co_alma      AS referencia,
-            r.total_art    AS existencia,
-            a.uni_venta    AS udm,
-            r.cost_unit_om AS costo_fabrica,
-            r.otros1       AS arancel_pct,
-            r.cost_unit_om AS costo_om,
-            r.prec_vta     AS util_pct,
-            r.prec_vta     AS precio1,
-            r.porc_imp     AS iva_pct,
-            r.prec_vta * (1 + r.porc_imp / 100.0) AS precio_civa
-        FROM reng_fac r
-        INNER JOIN factura f ON f.fact_num = r.fact_num
-        INNER JOIN art     a ON a.co_art   = r.co_art
+        SELECT TOP 1000
+            f.doc_num      AS numero,
+            CONVERT(varchar, f.fec_emis, 23) AS fecha,
+            c.co_cli       AS ciRif,
+            c.cli_des      AS nombreRazonSocial,
+            v.co_ven       AS coVen,
+            v.ven_des      AS nombreVendedor,
+            f.tasa         AS tasa,
+            a.co_art       AS codigoArt,
+            a.art_des      AS descripcionArt,
+            r.total_art    AS cantidad,
+            r.prec_vta     AS precio,
+            r.porc_desc    AS dp,
+            0              AS dct,
+            0              AS da,
+            0              AS dv,
+            r.porc_desc    AS descPct,
+            (r.prec_vta * r.total_art) AS totalRenglon,
+            0              AS descPctGlobal,
+            (r.prec_vta * r.total_art) AS renglonDg,
+            r.monto_imp    AS montoIva,
+            (r.prec_vta * r.total_art) + r.monto_imp AS totRenglonIva,
+            r.cost_vta     AS costoVenta,
+            (r.cost_vta * r.total_art) AS totalCostoVenta,
+            0              AS totCvDp,
+            ((r.prec_vta * r.total_art) - (r.cost_vta * r.total_art)) AS montoUtilidad,
+            0              AS utilPct,
+            0              AS costoActual,
+            0              AS stockActual,
+            l.co_lin       AS codLinea,
+            l.lin_des      AS linea
+        FROM saFacturaVenta f
+        JOIN saFacturaVentaReng r ON f.doc_num = r.doc_num
+        JOIN saArticulo     a ON a.co_art  = r.co_art
+        LEFT JOIN saCliente c ON f.co_cli = c.co_cli
+        LEFT JOIN saVendedor v ON f.co_ven = v.co_ven
+        LEFT JOIN saLineaArticulo l ON a.co_lin = l.co_lin
         WHERE f.fec_emis BETWEEN ? AND ?
-        ORDER BY a.co_art
+        ORDER BY f.fec_emis DESC, f.doc_num DESC
         """;
 
     public List<FacturaRow> fetchListado(LocalDate from, LocalDate to) throws SQLException {
@@ -46,20 +62,38 @@ public class PrecioDAO {
             ps.setDate(2, Date.valueOf(to));
             try (ResultSet rs = ps.executeQuery()) {
                 while (rs.next()) {
-                    rows.add(new FacturaRow(
-                        rs.getString("codigo"),
-                        rs.getString("descripcion"),
-                        rs.getString("referencia"),
-                        rs.getDouble("existencia"),
-                        rs.getString("udm"),
-                        rs.getDouble("costo_fabrica"),
-                        rs.getDouble("arancel_pct"),
-                        rs.getDouble("costo_om"),
-                        rs.getDouble("util_pct"),
-                        rs.getDouble("precio1"),
-                        rs.getDouble("iva_pct"),
-                        rs.getDouble("precio_civa")
-                    ));
+                    FacturaRow row = new FacturaRow();
+                    row.setNumero(rs.getString("numero"));
+                    row.setFecha(rs.getString("fecha"));
+                    row.setCiRif(rs.getString("ciRif"));
+                    row.setNombreRazonSocial(rs.getString("nombreRazonSocial"));
+                    row.setCoVen(rs.getString("coVen"));
+                    row.setNombreVendedor(rs.getString("nombreVendedor"));
+                    row.setTasa(rs.getDouble("tasa"));
+                    row.setCodigoArt(rs.getString("codigoArt"));
+                    row.setDescripcionArt(rs.getString("descripcionArt"));
+                    row.setCantidad(rs.getDouble("cantidad"));
+                    row.setPrecio(rs.getDouble("precio"));
+                    row.setDp(rs.getDouble("dp"));
+                    row.setDct(rs.getDouble("dct"));
+                    row.setDa(rs.getDouble("da"));
+                    row.setDv(rs.getDouble("dv"));
+                    row.setDescPct(rs.getDouble("descPct"));
+                    row.setTotalRenglon(rs.getDouble("totalRenglon"));
+                    row.setDescPctGlobal(rs.getDouble("descPctGlobal"));
+                    row.setRenglonDg(rs.getDouble("renglonDg"));
+                    row.setMontoIva(rs.getDouble("montoIva"));
+                    row.setTotRenglonIva(rs.getDouble("totRenglonIva"));
+                    row.setCostoVenta(rs.getDouble("costoVenta"));
+                    row.setTotalCostoVenta(rs.getDouble("totalCostoVenta"));
+                    row.setTotCvDp(rs.getDouble("totCvDp"));
+                    row.setMontoUtilidad(rs.getDouble("montoUtilidad"));
+                    row.setUtilPct(rs.getDouble("utilPct"));
+                    row.setCostoActual(rs.getDouble("costoActual"));
+                    row.setStockActual(rs.getDouble("stockActual"));
+                    row.setCodLinea(rs.getString("codLinea"));
+                    row.setLinea(rs.getString("linea"));
+                    rows.add(row);
                 }
             }
         }
@@ -67,7 +101,6 @@ public class PrecioDAO {
     }
 
     // ---------- Descuentos x Volumen (Tab 3) ----------
-
     private static final String SQL_DV = """
         SELECT
             a.co_art       AS clave,
@@ -76,9 +109,9 @@ public class PrecioDAO {
             SUM(r.prec_vta * r.total_art * r.porc_desc / 100.0) AS descuento,
             SUM(r.prec_vta * r.total_art * (1 - r.porc_desc / 100.0)) AS neto,
             AVG(r.porc_desc) AS porcentaje
-        FROM reng_fac r
-        INNER JOIN factura f ON f.fact_num = r.fact_num
-        INNER JOIN art     a ON a.co_art   = r.co_art
+        FROM saFacturaVentaReng r
+        INNER JOIN saFacturaVenta f ON f.doc_num = r.doc_num
+        INNER JOIN saArticulo     a ON a.co_art  = r.co_art
         WHERE f.fec_emis BETWEEN ? AND ?
         GROUP BY a.co_art, a.art_des
         ORDER BY a.co_art
@@ -89,18 +122,17 @@ public class PrecioDAO {
     }
 
     // ---------- Descuento x Producto (Tab 4) ----------
-
     private static final String SQL_DP = """
         SELECT
             a.co_art       AS clave,
             a.art_des      AS descripcion,
             SUM(r.prec_vta * r.total_art) AS total,
-            SUM(r.prec_vta * r.total_art * r.porc_desc2 / 100.0) AS descuento,
-            SUM(r.prec_vta * r.total_art * (1 - r.porc_desc2 / 100.0)) AS neto,
-            AVG(r.porc_desc2) AS porcentaje
-        FROM reng_fac r
-        INNER JOIN factura f ON f.fact_num = r.fact_num
-        INNER JOIN art     a ON a.co_art   = r.co_art
+            SUM(r.prec_vta * r.total_art * r.porc_desc / 100.0) AS descuento,
+            SUM(r.prec_vta * r.total_art * (1 - r.porc_desc / 100.0)) AS neto,
+            AVG(r.porc_desc) AS porcentaje
+        FROM saFacturaVentaReng r
+        INNER JOIN saFacturaVenta f ON f.doc_num = r.doc_num
+        INNER JOIN saArticulo     a ON a.co_art  = r.co_art
         WHERE f.fec_emis BETWEEN ? AND ?
         GROUP BY a.co_art, a.art_des
         ORDER BY a.co_art
@@ -110,35 +142,9 @@ public class PrecioDAO {
         return executeResumen(SQL_DP, from, to);
     }
 
-    // ---------- UPDATE descuentos ----------
-
-    private static final String SQL_UPDATE = """
-        UPDATE reng_fac
-        SET cost_unit_om = ?, otros1 = ?, prec_vta = ?, porc_imp = ?
-        WHERE co_art = ?
-        """;
-
     public void updatePrecios(List<FacturaRow> modified) throws SQLException {
-        try (Connection conn = DatabaseConfig.getDataSource().getConnection();
-             PreparedStatement ps = conn.prepareStatement(SQL_UPDATE)) {
-            conn.setAutoCommit(false);
-            for (FacturaRow row : modified) {
-                if (!row.isModified()) continue;
-                ps.setDouble(1, row.getCostoFabrica());
-                ps.setDouble(2, row.getArancelPct());
-                ps.setDouble(3, row.getPrecio1());
-                ps.setDouble(4, row.getIvaPct());
-                ps.setString(5, row.getCodigo());
-                ps.addBatch();
-            }
-            ps.executeBatch();
-            conn.commit();
-            // Limpiar flags
-            modified.forEach(FacturaRow::clearModified);
-        }
+        // No-op for read-only Matrix
     }
-
-    // ---------- Helper ----------
 
     private List<ResumenRow> executeResumen(String sql, LocalDate from, LocalDate to) throws SQLException {
         List<ResumenRow> rows = new ArrayList<>();
