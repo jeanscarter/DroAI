@@ -1,5 +1,6 @@
 package com.droai.ui;
 
+import com.droai.config.DatabaseConfig;
 import com.droai.dao.PrecioDAO;
 import com.droai.model.FacturaRow;
 import com.droai.model.ResumenRow;
@@ -78,6 +79,28 @@ public class MainFrame extends JFrame {
 
         // Load sample data on startup (demo)
         SwingUtilities.invokeLater(this::loadDemoData);
+
+        // Verify DB connection in background and show Toast result
+        new SwingWorker<Boolean, Void>() {
+            @Override
+            protected Boolean doInBackground() {
+                return DatabaseConfig.testConnection();
+            }
+            @Override
+            protected void done() {
+                try {
+                    boolean ok = get();
+                    if (ok) {
+                        Toast.show("✔ Conexión a la base de datos exitosa", Toast.Type.SUCCESS);
+                    } else {
+                        Toast.show("✘ La conexión a la base de datos no es válida", Toast.Type.ERROR);
+                    }
+                } catch (Exception ex) {
+                    String msg = ex.getCause() != null ? ex.getCause().getMessage() : ex.getMessage();
+                    Toast.show("✘ Sin conexión a BD: " + msg, Toast.Type.ERROR);
+                }
+            }
+        }.execute();
     }
 
     // ========== DATA OPERATIONS ==========

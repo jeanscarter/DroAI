@@ -72,6 +72,29 @@ public class DatabaseConfig {
         return dataSource;
     }
 
+    /**
+     * Verifica la conexión con la base de datos.
+     * Obtiene una conexión real del pool, la valida y la cierra inmediatamente.
+     *
+     * @return true si la conexión fue exitosa.
+     * @throws RuntimeException con la causa si la conexión falla.
+     */
+    public static boolean testConnection() {
+        try (java.sql.Connection conn = getDataSource().getConnection()) {
+            boolean valid = conn.isValid(5); // timeout de 5 segundos
+            if (valid) {
+                System.out.println("[DroAI-DB] ✔ Conexión exitosa a: "
+                        + conn.getMetaData().getURL());
+            } else {
+                System.err.println("[DroAI-DB] ✘ La conexión no es válida.");
+            }
+            return valid;
+        } catch (java.sql.SQLException e) {
+            System.err.println("[DroAI-DB] ✘ Error al conectar: " + e.getMessage());
+            throw new RuntimeException("No se pudo conectar a la base de datos: " + e.getMessage(), e);
+        }
+    }
+
     public static void shutdown() {
         if (dataSource != null && !dataSource.isClosed()) {
             dataSource.close();
