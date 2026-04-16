@@ -1,6 +1,6 @@
 package com.droai.ui;
 
-import com.droai.ui.table.ListadoTableModel;
+import com.droai.ui.table.MatrizVentasTableModel;
 import com.droai.ui.table.ResumenTableModel;
 import com.formdev.flatlaf.FlatClientProperties;
 
@@ -9,21 +9,14 @@ import javax.swing.table.DefaultTableCellRenderer;
 import javax.swing.table.JTableHeader;
 import java.awt.*;
 
-/**
- * JTabbedPane estilizado con 4 pestañas:
- * 1. Listado de Productos (editable)
- * 2. Simulador
- * 3. Descuentos x Volumen (read-only)
- * 4. Descuento x Producto (read-only)
- */
 public class DataTabbedPane extends JTabbedPane {
 
-    private final JTable tblListado;
+    private final JTable tblMatriz;
     private final JTable tblSimulador;
     private final JTable tblDctoVolumen;
     private final JTable tblDctoProducto;
 
-    private final ListadoTableModel listadoModel;
+    private final MatrizVentasTableModel matrizModel;
     private final ResumenTableModel simuladorModel;
     private final ResumenTableModel dctoVolumenModel;
     private final ResumenTableModel dctoProductoModel;
@@ -33,35 +26,38 @@ public class DataTabbedPane extends JTabbedPane {
         setBackground(new Color(30, 33, 42));
         putClientProperty(FlatClientProperties.TABBED_PANE_TAB_TYPE, "underlined");
 
-        // ----- Tab 1: Listado de Productos -----
-        listadoModel = new ListadoTableModel();
-        tblListado = createStyledTable(listadoModel);
-        addTab("  Listado de Productos  ", wrapTable(tblListado));
+        matrizModel = new MatrizVentasTableModel();
+        tblMatriz = createStyledTable(matrizModel);
+        addTab("  Matriz de Ventas  ", wrapTable(tblMatriz));
 
-        // ----- Tab 2: Simulador -----
         simuladorModel = new ResumenTableModel();
         tblSimulador = createStyledTable(simuladorModel);
         addTab("  Simulador  ", wrapTable(tblSimulador));
 
-        // ----- Tab 3: Descuentos x Volumen -----
         dctoVolumenModel = new ResumenTableModel();
         tblDctoVolumen = createStyledTable(dctoVolumenModel);
         addTab("  Descuentos x Volumen  ", wrapTable(tblDctoVolumen));
 
-        // ----- Tab 4: Descuento x Producto -----
         dctoProductoModel = new ResumenTableModel();
         tblDctoProducto = createStyledTable(dctoProductoModel);
         addTab("  Descuento x Producto  ", wrapTable(tblDctoProducto));
     }
 
-    // ========== Public API ==========
+    public MatrizVentasTableModel getMatrizModel() {
+        return matrizModel;
+    }
 
-    public ListadoTableModel getListadoModel()         { return listadoModel; }
-    public ResumenTableModel getSimuladorModel()        { return simuladorModel; }
-    public ResumenTableModel getDctoVolumenModel()      { return dctoVolumenModel; }
-    public ResumenTableModel getDctoProductoModel()     { return dctoProductoModel; }
+    public ResumenTableModel getSimuladorModel() {
+        return simuladorModel;
+    }
 
-    // ========== Styling ==========
+    public ResumenTableModel getDctoVolumenModel() {
+        return dctoVolumenModel;
+    }
+
+    public ResumenTableModel getDctoProductoModel() {
+        return dctoProductoModel;
+    }
 
     private JTable createStyledTable(javax.swing.table.TableModel model) {
         JTable table = new JTable(model);
@@ -78,12 +74,10 @@ public class DataTabbedPane extends JTabbedPane {
         table.setFillsViewportHeight(true);
         table.setAutoResizeMode(JTable.AUTO_RESIZE_OFF);
 
-        // Alternating row colors
         table.setDefaultRenderer(Object.class, new AlternatingRenderer());
         table.setDefaultRenderer(Double.class, new AlternatingDoubleRenderer());
         table.setDefaultRenderer(String.class, new AlternatingRenderer());
 
-        // Header styling
         JTableHeader header = table.getTableHeader();
         header.setFont(new Font("Segoe UI", Font.BOLD, 11));
         header.setBackground(new Color(35, 38, 48));
@@ -91,9 +85,17 @@ public class DataTabbedPane extends JTabbedPane {
         header.setPreferredSize(new Dimension(0, 34));
         header.setReorderingAllowed(false);
 
-        // Column widths for Listado
-        if (model instanceof ListadoTableModel) {
-            int[] widths = {80, 280, 100, 80, 50, 100, 80, 80, 70, 80, 60, 100};
+        if (model instanceof MatrizVentasTableModel) {
+            int[] widths = {
+                    80, 100, 100, 280, 70, 150,
+                    70, 90, 280, 80, 80,
+                    50, 50, 50, 50, 60,
+                    100, 60, 100, 90, 110,
+                    90, 110, 110, 100, 70,
+                    90, 90, 80, 120, 80, 120,
+                    90, 180, 100, 80,
+                    100, 100, 150
+            };
             for (int i = 0; i < widths.length && i < table.getColumnCount(); i++) {
                 table.getColumnModel().getColumn(i).setPreferredWidth(widths[i]);
             }
@@ -104,19 +106,17 @@ public class DataTabbedPane extends JTabbedPane {
 
     private JScrollPane wrapTable(JTable table) {
         JScrollPane sp = new JScrollPane(table,
-            ScrollPaneConstants.VERTICAL_SCROLLBAR_AS_NEEDED,
-            ScrollPaneConstants.HORIZONTAL_SCROLLBAR_AS_NEEDED);
+                ScrollPaneConstants.VERTICAL_SCROLLBAR_AS_NEEDED,
+                ScrollPaneConstants.HORIZONTAL_SCROLLBAR_AS_NEEDED);
         sp.getViewport().setBackground(new Color(30, 33, 42));
         sp.setBorder(BorderFactory.createEmptyBorder());
         return sp;
     }
 
-    // ========== Custom Renderers ==========
-
     private static class AlternatingRenderer extends DefaultTableCellRenderer {
-        private static final Color EVEN  = new Color(30, 33, 42);
-        private static final Color ODD   = new Color(35, 38, 48);
-        private static final Color SEL   = new Color(50, 80, 140);
+        private static final Color EVEN = new Color(30, 33, 42);
+        private static final Color ODD = new Color(35, 38, 48);
+        private static final Color SEL = new Color(50, 80, 140);
 
         @Override
         public Component getTableCellRendererComponent(JTable table, Object value,
@@ -131,8 +131,8 @@ public class DataTabbedPane extends JTabbedPane {
 
     private static class AlternatingDoubleRenderer extends DefaultTableCellRenderer {
         private static final Color EVEN = new Color(30, 33, 42);
-        private static final Color ODD  = new Color(35, 38, 48);
-        private static final Color SEL  = new Color(50, 80, 140);
+        private static final Color ODD = new Color(35, 38, 48);
+        private static final Color SEL = new Color(50, 80, 140);
 
         @Override
         public Component getTableCellRendererComponent(JTable table, Object value,
