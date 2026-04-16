@@ -23,11 +23,7 @@ public class MatrizVentasDAO {
                 a.art_des AS descripcion,
                 r.total_art AS cantidad,
                 r.prec_vta AS precio,
-                r.porc_desc AS dp,
-                0 AS dct,
-                0 AS da,
-                0 AS dv,
-                r.porc_desc AS descPct,
+                r.porc_desc AS rawDiscounts,
                 (r.prec_vta * r.total_art) AS totalRenglon,
                 ISNULL(f.porc_desc_glob, 0) AS descPctGlobal,
                 ((r.prec_vta * r.total_art) * (1 - (ISNULL(f.porc_desc_glob, 0) / 100.0))) AS renglonDg,
@@ -90,11 +86,7 @@ public class MatrizVentasDAO {
                     row.setDescripcion(rs.getString("descripcion"));
                     row.setCantidad(getSafeDouble(rs, "cantidad", docNum));
                     row.setPrecio(getSafeDouble(rs, "precio", docNum));
-                    row.setDp(getSafeDouble(rs, "dp", docNum));
-                    row.setDct(getSafeDouble(rs, "dct", docNum));
-                    row.setDa(getSafeDouble(rs, "da", docNum));
-                    row.setDv(getSafeDouble(rs, "dv", docNum));
-                    row.setDescPct(getSafeDouble(rs, "descPct", docNum));
+                    parseCompositeDiscounts(rs.getString("rawDiscounts"), row);
                     row.setTotalRenglon(getSafeDouble(rs, "totalRenglon", docNum));
                     row.setDescPctGlobal(getSafeDouble(rs, "descPctGlobal", docNum));
                     row.setRenglonDg(getSafeDouble(rs, "renglonDg", docNum));
@@ -124,6 +116,39 @@ public class MatrizVentasDAO {
             }
         }
         return rows;
+    }
+
+    /**
+     * Parses a composite discount string like "10+0+0+3" into its components:
+     * Index 0: DP, Index 1: DCT, Index 2: DA, Index 3: DV.
+     */
+    private void parseCompositeDiscounts(String raw, MatrizVentasRow row) {
+        if (raw == null || raw.isBlank()) {
+            row.setDp(0);
+            row.setDct(0);
+            row.setDa(0);
+            row.setDv(0);
+            row.setDescPct(0);
+            return;
+        }
+
+        String[] parts = raw.split("\\+");
+        row.setDp(parsePart(parts, 0));
+        row.setDct(parsePart(parts, 1));
+        row.setDa(parsePart(parts, 2));
+        row.setDv(parsePart(parts, 3));
+        
+        // Use DP as the primary descPct for consistency with previous behavior
+        row.setDescPct(row.getDp());
+    }
+
+    private double parsePart(String[] parts, int index) {
+        if (index >= parts.length) return 0.0;
+        try {
+            return Double.parseDouble(parts[index].trim());
+        } catch (NumberFormatException e) {
+            return 0.0;
+        }
     }
 
     /**
