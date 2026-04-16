@@ -33,22 +33,19 @@ public class MatrizVentasDAO {
                 ((r.prec_vta * r.total_art) * (1 - (ISNULL(f.porc_desc_glob, 0) / 100.0))) AS renglonDg,
                 r.monto_imp AS montoIva,
                 ((r.prec_vta * r.total_art) + r.monto_imp) AS totRenglonIva,
-                r.cost_vta AS costoVenta,
-                (r.cost_vta * r.total_art) AS totalCostoVenta,
+                0 AS costoVenta,
+                0 AS totalCostoVenta,
                 0 AS totCvDp,
-                ((r.prec_vta * r.total_art) - (r.cost_vta * r.total_art)) AS montoUtilidad,
-                CASE
-                    WHEN (r.prec_vta * r.total_art) = 0 THEN 0
-                    ELSE (((r.prec_vta * r.total_art) - (r.cost_vta * r.total_art)) / (r.prec_vta * r.total_art)) * 100
-                END AS utilPct,
-                ISNULL(ap.prec_vta1, 0) AS costoActual,
+                ((r.prec_vta * r.total_art) - (0)) AS montoUtilidad,
+                100 AS utilPct,
+                0 AS costoActual,
                 ISNULL(sa.stock, 0) AS stockActual,
                 a.co_lin AS codLinea,
                 l.lin_des AS linea,
                 a.co_subl AS codSub,
                 sl.subl_des AS subLinea,
-                a.co_prov AS codProveedor,
-                p.prov_des AS nombreProveedor,
+                '' AS codProveedor,
+                '' AS nombreProveedor,
                 c.co_zon AS zona,
                 r.co_alma AS almacen,
                 f.campo1 AS pedidoWeb,
@@ -61,9 +58,7 @@ public class MatrizVentasDAO {
             LEFT JOIN saArticulo a ON r.co_art = a.co_art
             LEFT JOIN saLineaArticulo l ON a.co_lin = l.co_lin
             LEFT JOIN saSubLinea sl ON a.co_subl = sl.co_subl
-            LEFT JOIN saProveedor p ON a.co_prov = p.co_prov
             LEFT JOIN saStockAlmacen sa ON a.co_art = sa.co_art AND r.co_alma = sa.co_alma
-            LEFT JOIN saArtPrecio ap ON a.co_art = ap.co_art AND ap.co_precio = '01'
             WHERE f.fec_emis BETWEEN ? AND ?
             ORDER BY f.fec_emis DESC, f.doc_num DESC
             """;

@@ -14,10 +14,6 @@ import java.io.File;
 import java.time.LocalDate;
 import java.util.List;
 
-/**
- * Ventana principal de DroAI — Módulo Matriz de Ventas.
- * Actualizado para utilizar MatrizVentasService y MatrizVentasTableModel.
- */
 public class MainFrame extends JFrame {
 
     private static final Color BG = new Color(26, 29, 36);
@@ -86,7 +82,8 @@ public class MainFrame extends JFrame {
                         Toast.show("✘ La conexión a la base de datos no es válida", Toast.Type.ERROR);
                     }
                 } catch (Exception ex) {
-                    Toast.show("✘ Error de conexión: " + ex.getMessage(), Toast.Type.ERROR);
+                    ex.printStackTrace();
+                    Toast.show("✘ Error de conexión. Revisa la consola.", Toast.Type.ERROR);
                 }
             }
         }.execute();
@@ -97,7 +94,6 @@ public class MainFrame extends JFrame {
         new SwingWorker<List<MatrizVentasRow>, Void>() {
             @Override
             protected List<MatrizVentasRow> doInBackground() throws Exception {
-                // Rango por defecto: último mes
                 LocalDate from = LocalDate.now().minusMonths(1);
                 LocalDate to = LocalDate.now();
                 return service.obtenerMatrizVentas(from, to);
@@ -112,14 +108,14 @@ public class MainFrame extends JFrame {
                     Toast.show("Matriz cargada: " + rows.size() + " registros", Toast.Type.SUCCESS);
                     loadResumenTabs();
                 } catch (Exception ex) {
-                    Toast.show("Error al cargar matriz: " + ex.getMessage(), Toast.Type.ERROR);
+                    ex.printStackTrace();
+                    Toast.show("Error al cargar matriz. Revisa la consola.", Toast.Type.ERROR);
                 }
             }
         }.execute();
     }
 
     private void loadResumenTabs() {
-        // Implementación pendiente de DAOs de resumen actualizados si se requiere
     }
 
     private void saveData() {
@@ -132,7 +128,6 @@ public class MainFrame extends JFrame {
             @Override
             protected File doInBackground() throws Exception {
                 ExcelExporter exporter = new ExcelExporter();
-                // Nota: ExcelExporter debe actualizarse para aceptar List<MatrizVentasRow>
                 return exporter.exportMatriz(
                         dataTabs.getMatrizModel().getAllData(),
                         footer.getTasa());
@@ -147,7 +142,8 @@ public class MainFrame extends JFrame {
                         Desktop.getDesktop().open(file);
                     }
                 } catch (Exception ex) {
-                    Toast.show("Error en exportación: " + ex.getMessage(), Toast.Type.ERROR);
+                    ex.printStackTrace();
+                    Toast.show("Error en exportación. Revisa la consola.", Toast.Type.ERROR);
                 }
             }
         }.execute();
