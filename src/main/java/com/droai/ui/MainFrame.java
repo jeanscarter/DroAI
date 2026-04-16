@@ -22,6 +22,7 @@ public class MainFrame extends JFrame {
     private final DataTabbedPane dataTabs;
     private final FooterPanel footer;
     private final MatrizVentasService service;
+    private int currentLimit = 1000;
 
     public MainFrame() {
         setTitle("DroAI — Matriz de Ventas");
@@ -52,9 +53,19 @@ public class MainFrame extends JFrame {
             dataTabs.getMatrizModel().setFilter(query);
             footer.setRegistroCount(dataTabs.getMatrizModel().getRowCount());
         });
-        header.setOnFiltrar(this::loadData);
+        header.setOnFiltrar(() -> {
+            currentLimit = 1000;
+            loadData();
+        });
         header.setOnGuardar(this::saveData);
-        header.setOnDeshacer(this::loadData);
+        header.setOnDeshacer(() -> {
+            currentLimit = 1000;
+            loadData();
+        });
+        footer.setOnLoadMore(() -> {
+            currentLimit += 1000;
+            loadData();
+        });
         root.add(header, "growx");
 
         root.add(dataTabs, "grow");
@@ -94,9 +105,9 @@ public class MainFrame extends JFrame {
         new SwingWorker<List<MatrizVentasRow>, Void>() {
             @Override
             protected List<MatrizVentasRow> doInBackground() throws Exception {
-                LocalDate from = LocalDate.now().minusMonths(1);
+                LocalDate from = LocalDate.now().minusMonths(6);
                 LocalDate to = LocalDate.now();
-                return service.obtenerMatrizVentas(from, to);
+                return service.obtenerMatrizVentas(from, to, currentLimit);
             }
 
             @Override
