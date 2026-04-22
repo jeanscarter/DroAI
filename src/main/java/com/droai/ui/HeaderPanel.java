@@ -25,13 +25,14 @@ public class HeaderPanel extends JPanel {
     private final JRadioButton rbMatematica, rbFinanciera;
     private final JCheckBox chkCalcular, chkUtilid;
     private final RoundedButton btnFiltrar, btnBuscar;
-    private final RoundedButton btnImprimir, btnImportar, btnSubir, btnGuardar, btnDeshacer;
+    private final RoundedButton btnImprimir, btnImportar, btnSubir, btnGuardar, btnDeshacer, btnTema;
     private final JButton btnPreciosPct, btnTasaCambio;
 
     private Consumer<String> onSearch;
     private Runnable onFiltrar;
     private Runnable onGuardar;
     private Runnable onDeshacer;
+    private Runnable onCambiarTema;
 
     public HeaderPanel() {
         setLayout(new MigLayout(
@@ -133,15 +134,18 @@ public class HeaderPanel extends JPanel {
         btnSubir    = new RoundedButton("📤", "Subir");
         btnGuardar  = new RoundedButton("💾", "Guardar");
         btnDeshacer = new RoundedButton("↩️", "Deshacer");
+        btnTema     = new RoundedButton("🌓", "Tema");
 
         btnGuardar.addActionListener(e -> { if (onGuardar != null) onGuardar.run(); });
         btnDeshacer.addActionListener(e -> { if (onDeshacer != null) onDeshacer.run(); });
+        btnTema.addActionListener(e -> { if (onCambiarTema != null) onCambiarTema.run(); });
 
         add(btnImprimir);
         add(btnImportar);
         add(btnSubir);
         add(btnGuardar);
-        add(btnDeshacer, "wrap");
+        add(btnDeshacer);
+        add(btnTema, "wrap");
 
         // ============== ROW 2: compact search bar ==============
         JLabel lblSearch = styledLabel("🔍");
@@ -182,6 +186,7 @@ public class HeaderPanel extends JPanel {
     public void setOnFiltrar(Runnable cb)         { this.onFiltrar = cb; }
     public void setOnGuardar(Runnable cb)         { this.onGuardar = cb; }
     public void setOnDeshacer(Runnable cb)        { this.onDeshacer = cb; }
+    public void setOnCambiarTema(Runnable cb)     { this.onCambiarTema = cb; }
 
     // ========== Factory helpers ==========
 

@@ -16,9 +16,9 @@ public class FooterPanel extends JPanel {
     private final JCheckBox chkActualizar, chkCostoFabrica, chkVerExistencia;
     private final JComboBox<String> cmbColumna3, cmbNivelPrecio;
     private final JTextField txtTasa;
-    private final JButton btnExportar, btnFichaProducto, btnDescuentos, btnCargarMas;
+    private final JButton btnExportar, btnFichaProducto, btnDescuentos;
 
-    private Runnable onExportar, onLoadMore;
+    private Runnable onExportar;
 
     public FooterPanel() {
         setLayout(new MigLayout(
@@ -36,10 +36,6 @@ public class FooterPanel extends JPanel {
         lblRegistros.setForeground(new Color(100, 180, 255));
         add(lblRegistros);
 
-        // Cargar más
-        btnCargarMas = accentButton("➕ Cargar más", new Color(130, 100, 45));
-        btnCargarMas.addActionListener(e -> { if (onLoadMore != null) onLoadMore.run(); });
-        add(btnCargarMas);
 
         // Ficha Producto
         btnFichaProducto = accentButton("📋 Ficha Producto", new Color(45, 100, 180));
@@ -101,7 +97,6 @@ public class FooterPanel extends JPanel {
     }
 
     public void setOnExportar(Runnable cb) { this.onExportar = cb; }
-    public void setOnLoadMore(Runnable cb) { this.onLoadMore = cb; }
 
     public double getTasa() {
         try { return Double.parseDouble(txtTasa.getText().trim()); }

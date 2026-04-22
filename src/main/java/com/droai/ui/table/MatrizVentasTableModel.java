@@ -11,12 +11,8 @@ import java.util.stream.Collectors;
 public class MatrizVentasTableModel extends AbstractTableModel {
 
     private static final String[] COLUMNS = {
-            "Numero", "Fecha", "CI/Rif", "Nombre o Razon Social", "Vendedor", "Nombre Vendedor",
-            "Tasa", "codigo art", "Descripcion", "Cantidad", "Precio", "DP", "DCT", "DA", "DV",
-            "Desc.%", "Total Renglon", "Desc.%Global", "Renglon-DG", "Monto IVA", "Tot.Renglon+IVA",
-            "Costo de Venta", "Total Costo Venta", "Tot.CV-DP", "Monto Utilidad", "% Utilidad",
-            "Costo Actual", "Stock Actual", "Cod.Linea", "Linea", "Cod.Sub.", "SubLinea",
-            "Cod.Proveedor", "Nombre Proveedor", "Zona", "almacen", "Pedido Web", "Origen", "Usuario Web"
+            "Codigo", "Descripcion", "Marca", "Existencia", "UdM", "Costo Fabrica",
+            "Arancel%", "Costo OM", "Util %", "Precio1", "%IVA", "Precio C/IVA"
     };
 
     private List<MatrizVentasRow> allData = new ArrayList<>();
@@ -41,7 +37,7 @@ public class MatrizVentasTableModel extends AbstractTableModel {
     @Override
     public Class<?> getColumnClass(int col) {
         return switch (col) {
-            case 0, 1, 2, 3, 4, 5, 7, 8, 28, 29, 30, 31, 32, 33, 34, 35, 36, 37, 38 -> String.class;
+            case 0, 1, 2, 4 -> String.class;
             default -> Double.class;
         };
     }
@@ -55,45 +51,18 @@ public class MatrizVentasTableModel extends AbstractTableModel {
     public Object getValueAt(int row, int col) {
         MatrizVentasRow r = filteredData.get(row);
         return switch (col) {
-            case 0 -> r.getNumero();
-            case 1 -> r.getFecha();
-            case 2 -> r.getCiRif();
-            case 3 -> r.getNombreRazonSocial();
-            case 4 -> r.getCoVen();
-            case 5 -> r.getNombreVendedor();
-            case 6 -> r.getTasa();
-            case 7 -> r.getCodigoArt();
-            case 8 -> r.getDescripcion();
-            case 9 -> r.getCantidad();
-            case 10 -> r.getPrecio();
-            case 11 -> r.getDp();
-            case 12 -> r.getDct();
-            case 13 -> r.getDa();
-            case 14 -> r.getDv();
-            case 15 -> r.getDescPct();
-            case 16 -> r.getTotalRenglon();
-            case 17 -> r.getDescPctGlobal();
-            case 18 -> r.getRenglonDg();
-            case 19 -> r.getMontoIva();
-            case 20 -> r.getTotRenglonIva();
-            case 21 -> r.getCostoVenta();
-            case 22 -> r.getTotalCostoVenta();
-            case 23 -> r.getTotCvDp();
-            case 24 -> r.getMontoUtilidad();
-            case 25 -> r.getUtilPct();
-            case 26 -> r.getCostoActual();
-            case 27 -> r.getStockActual();
-            case 28 -> r.getCodLinea();
-            case 29 -> r.getLinea();
-            case 30 -> r.getCodSub();
-            case 31 -> r.getSubLinea();
-            case 32 -> r.getCodProveedor();
-            case 33 -> r.getNombreProveedor();
-            case 34 -> r.getZona();
-            case 35 -> r.getAlmacen();
-            case 36 -> r.getPedidoWeb();
-            case 37 -> r.getOrigen();
-            case 38 -> r.getUsuarioWeb();
+            case 0 -> r.getCodigoArt();
+            case 1 -> r.getDescripcion();
+            case 2 -> r.getMarca();
+            case 3 -> r.getStockActual();
+            case 4 -> r.getUdm();
+            case 5 -> r.getCostoFabrica();
+            case 6 -> r.getArancelPct();
+            case 7 -> r.getCostoOm();
+            case 8 -> r.getUtilPct();
+            case 9 -> r.getPrecio();
+            case 10 -> r.getIvaPct();
+            case 11 -> r.getPrecioCiva();
             default -> null;
         };
     }

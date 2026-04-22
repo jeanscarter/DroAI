@@ -19,7 +19,7 @@ public class MatrizVentasService {
         this.matrizVentasDAO = matrizVentasDAO;
     }
 
-    public List<MatrizVentasRow> obtenerMatrizVentas(LocalDate desde, LocalDate hasta, int limit) throws SQLException {
+    public List<MatrizVentasRow> obtenerMatrizVentas(LocalDate desde, LocalDate hasta) throws SQLException {
         if (desde == null || hasta == null) {
             throw new IllegalArgumentException("Las fechas 'desde' y 'hasta' no pueden ser nulas.");
         }
@@ -28,7 +28,7 @@ public class MatrizVentasService {
             throw new IllegalArgumentException("La fecha 'desde' no puede ser posterior a la fecha 'hasta'.");
         }
 
-        List<MatrizVentasRow> matriz = matrizVentasDAO.fetchMatrizVentas(desde, hasta, limit);
+        List<MatrizVentasRow> matriz = matrizVentasDAO.fetchMatrizVentas(desde, hasta);
 
         recalcularValoresNegocio(matriz);
 

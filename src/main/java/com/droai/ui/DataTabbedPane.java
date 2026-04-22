@@ -87,14 +87,8 @@ public class DataTabbedPane extends JTabbedPane {
 
         if (model instanceof MatrizVentasTableModel) {
             int[] widths = {
-                    80, 100, 100, 280, 70, 150,
-                    70, 90, 280, 80, 80,
-                    50, 50, 50, 50, 60,
-                    100, 60, 100, 90, 110,
-                    90, 110, 110, 100, 70,
-                    90, 90, 80, 120, 80, 120,
-                    90, 180, 100, 80,
-                    100, 100, 150
+                    100, 300, 120, 80, 60, 100,
+                    80, 100, 80, 100, 60, 100
             };
             for (int i = 0; i < widths.length && i < table.getColumnCount(); i++) {
                 table.getColumnModel().getColumn(i).setPreferredWidth(widths[i]);

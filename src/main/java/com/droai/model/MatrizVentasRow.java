@@ -41,6 +41,13 @@ public class MatrizVentasRow {
     private String pedidoWeb;
     private String origen;
     private String usuarioWeb;
+    private String marca;
+    private String udm;
+    private double costoFabrica;
+    private double arancelPct;
+    private double costoOm;
+    private double ivaPct;
+    private double precioCiva;
 
     public MatrizVentasRow() {
     }
@@ -355,5 +362,61 @@ public class MatrizVentasRow {
 
     public void setUsuarioWeb(String usuarioWeb) {
         this.usuarioWeb = usuarioWeb;
+    }
+
+    public String getMarca() {
+        return marca;
+    }
+
+    public void setMarca(String marca) {
+        this.marca = marca;
+    }
+
+    public String getUdm() {
+        return udm;
+    }
+
+    public void setUdm(String udm) {
+        this.udm = udm;
+    }
+
+    public double getCostoFabrica() {
+        return costoFabrica;
+    }
+
+    public void setCostoFabrica(double costoFabrica) {
+        this.costoFabrica = costoFabrica;
+    }
+
+    public double getArancelPct() {
+        return arancelPct;
+    }
+
+    public void setArancelPct(double arancelPct) {
+        this.arancelPct = arancelPct;
+    }
+
+    public double getCostoOm() {
+        return costoOm;
+    }
+
+    public void setCostoOm(double costoOm) {
+        this.costoOm = costoOm;
+    }
+
+    public double getIvaPct() {
+        return ivaPct;
+    }
+
+    public void setIvaPct(double ivaPct) {
+        this.ivaPct = ivaPct;
+    }
+
+    public double getPrecioCiva() {
+        return precioCiva;
+    }
+
+    public void setPrecioCiva(double precioCiva) {
+        this.precioCiva = precioCiva;
     }
 }

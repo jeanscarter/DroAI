@@ -22,7 +22,7 @@ public class MainFrame extends JFrame {
     private final DataTabbedPane dataTabs;
     private final FooterPanel footer;
     private final MatrizVentasService service;
-    private int currentLimit = 1000;
+    private boolean isDarkTheme = true;
 
     public MainFrame() {
         setTitle("DroAI — Matriz de Ventas");
@@ -53,19 +53,10 @@ public class MainFrame extends JFrame {
             dataTabs.getMatrizModel().setFilter(query);
             footer.setRegistroCount(dataTabs.getMatrizModel().getRowCount());
         });
-        header.setOnFiltrar(() -> {
-            currentLimit = 1000;
-            loadData();
-        });
+        header.setOnFiltrar(this::loadData);
         header.setOnGuardar(this::saveData);
-        header.setOnDeshacer(() -> {
-            currentLimit = 1000;
-            loadData();
-        });
-        footer.setOnLoadMore(() -> {
-            currentLimit += 1000;
-            loadData();
-        });
+        header.setOnDeshacer(this::loadData);
+        header.setOnCambiarTema(this::toggleTheme);
         root.add(header, "growx");
 
         root.add(dataTabs, "grow");
@@ -107,7 +98,7 @@ public class MainFrame extends JFrame {
             protected List<MatrizVentasRow> doInBackground() throws Exception {
                 LocalDate from = LocalDate.now().minusMonths(6);
                 LocalDate to = LocalDate.now();
-                return service.obtenerMatrizVentas(from, to, currentLimit);
+                return service.obtenerMatrizVentas(from, to);
             }
 
             @Override
@@ -158,5 +149,23 @@ public class MainFrame extends JFrame {
                 }
             }
         }.execute();
+    }
+
+    private void toggleTheme() {
+        isDarkTheme = !isDarkTheme;
+        try {
+            if (isDarkTheme) {
+                com.formdev.flatlaf.FlatDarkLaf.setup();
+            } else {
+                com.formdev.flatlaf.FlatLightLaf.setup();
+            }
+            SwingUtilities.updateComponentTreeUI(this);
+            getRootPane().putClientProperty(com.formdev.flatlaf.FlatClientProperties.TITLE_BAR_BACKGROUND,
+                    isDarkTheme ? BG : new Color(240, 240, 240));
+            getRootPane().putClientProperty(com.formdev.flatlaf.FlatClientProperties.TITLE_BAR_FOREGROUND,
+                    isDarkTheme ? Color.WHITE : Color.BLACK);
+        } catch (Exception ex) {
+            ex.printStackTrace();
+        }
     }
 }

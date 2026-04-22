@@ -11,7 +11,7 @@ import java.util.List;
 public class MatrizVentasDAO {
 
     private static final String SQL_MATRIZ_VENTAS = """
-            SELECT TOP (?)
+            SELECT
                 f.doc_num AS numero,
                 CONVERT(varchar, f.fec_emis, 23) AS fecha,
                 c.rif AS ciRif,
@@ -61,15 +61,14 @@ public class MatrizVentasDAO {
             ORDER BY f.fec_emis DESC, f.doc_num DESC
             """;
 
-    public List<MatrizVentasRow> fetchMatrizVentas(LocalDate from, LocalDate to, int limit) throws SQLException {
+    public List<MatrizVentasRow> fetchMatrizVentas(LocalDate from, LocalDate to) throws SQLException {
         List<MatrizVentasRow> rows = new ArrayList<>();
 
         try (Connection conn = DatabaseConfig.getDataSource().getConnection();
                 PreparedStatement ps = conn.prepareStatement(SQL_MATRIZ_VENTAS)) {
 
-            ps.setInt(1, limit);
-            ps.setDate(2, Date.valueOf(from));
-            ps.setDate(3, Date.valueOf(to));
+            ps.setDate(1, Date.valueOf(from));
+            ps.setDate(2, Date.valueOf(to));
 
             try (ResultSet rs = ps.executeQuery()) {
                 while (rs.next()) {
