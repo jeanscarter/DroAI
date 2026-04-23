@@ -13,7 +13,9 @@ import net.miginfocom.swing.MigLayout;
 import javax.swing.*;
 import java.awt.*;
 import java.io.File;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 
 public class MainFrame extends JFrame {
 
@@ -143,9 +145,22 @@ public class MainFrame extends JFrame {
     private void toggleTheme() {
         isDarkTheme = !isDarkTheme;
         try {
+            Map<String, String> palette = new HashMap<>();
             if (isDarkTheme) {
+                palette.put("@background", "#11151C");
+                palette.put("@control", "#1E232E");
+                palette.put("@accentColor", "#2A6BFF");
+                palette.put("Button.default.background", "#00D29E");
+                palette.put("@foreground", "#F8FAFC");
+                FlatLaf.setGlobalExtraDefaults(palette);
                 FlatDarkLaf.setup();
             } else {
+                palette.put("@background", "#F1F5F9");
+                palette.put("@control", "#FFFFFF");
+                palette.put("@accentColor", "#1D4ED8");
+                palette.put("Button.default.background", "#059669");
+                palette.put("@foreground", "#0F172A");
+                FlatLaf.setGlobalExtraDefaults(palette);
                 FlatLightLaf.setup();
             }
             FlatLaf.updateUI();
