@@ -35,7 +35,7 @@ public class ArticuloDAO {
                 ISNULL(p.prov_des, '')  AS nombreProveedor,
                 ISNULL(a.ref, '')       AS referencia,
                 ISNULL(a.modelo, '')    AS modelo,
-                ISNULL(a.procedencia, '') AS procedencia,
+                ISNULL(a.cod_proc, '')    AS procedencia,
                 ISNULL(a.peso, 0)       AS peso,
                 ISNULL(a.volumen, 0)    AS volumen
             FROM saArticulo a
@@ -47,8 +47,11 @@ public class ArticuloDAO {
                 ON a.co_lin = l.co_lin
             LEFT JOIN saSubLinea sl
                 ON a.co_subl = sl.co_subl
-            LEFT JOIN saImpuesto i
-                ON a.tipo_imp = i.tipo_imp
+            LEFT JOIN (
+                SELECT cod_impuesto, MAX(valor_porcent) AS porc
+                FROM saImpuestoReng
+                GROUP BY cod_impuesto
+            ) i ON a.tipo_imp = i.cod_impuesto
             LEFT JOIN (
                 SELECT co_art, SUM(stock) AS totalStock
                 FROM saStockAlmacen

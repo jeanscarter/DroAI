@@ -1,14 +1,13 @@
 package com.droai;
 
-import com.formdev.flatlaf.FlatDarkLaf;
 import javax.swing.*;
 import java.awt.*;
 
 public class App {
     public static void main(String[] args) {
-        FlatDarkLaf.setup();
+        com.droai.SchemaChecker.main(args);
 
-        // ----- Rounded corners & smooth scrolling (structural, theme-agnostic) -----
+        UIManager.put("Component.arc", 12);
         UIManager.put("Button.arc", 14);
         UIManager.put("TextComponent.arc", 10);
         UIManager.put("ScrollBar.thumbArc", 999);

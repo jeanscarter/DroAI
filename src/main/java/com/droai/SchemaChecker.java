@@ -8,16 +8,20 @@ public class SchemaChecker {
         try (Connection conn = DatabaseConfig.getDataSource().getConnection()) {
             DatabaseMetaData metaData = conn.getMetaData();
 
-            ResultSet rsCosto = metaData.getColumns(null, null, "saArtCosto", null);
-            System.out.println("Columns in saArtCosto:");
-            while (rsCosto.next()) {
-                System.out.println("- " + rsCosto.getString("COLUMN_NAME"));
+            System.out.println("--- Table: saImpuesto ---");
+            ResultSet rsImp = metaData.getColumns(null, null, "saImpuesto", null);
+            while (rsImp.next()) {
+                System.out.println("- " + rsImp.getString("COLUMN_NAME"));
+            }
+
+            System.out.println("\n--- Table: saImpuestoReng ---");
+            ResultSet rsImpR = metaData.getColumns(null, null, "saImpuestoReng", null);
+            while (rsImpR.next()) {
+                System.out.println("- " + rsImpR.getString("COLUMN_NAME"));
             }
 
         } catch (Exception e) {
             e.printStackTrace();
-        } finally {
-            DatabaseConfig.shutdown();
         }
     }
 }
