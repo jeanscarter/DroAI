@@ -15,7 +15,7 @@ import java.util.function.Consumer;
 /**
  * Panel superior (Norte): Logo, Filtros, Ordenar, Filtrar/Buscar,
  * Utilidad, Variaciones (botones), Toolbar acciones, Búsqueda.
- * Compacto — sin espacio vacío extra.
+ * Colores gestionados por FlatLaf — sin hardcoded.
  */
 public class HeaderPanel extends JPanel {
 
@@ -40,7 +40,6 @@ public class HeaderPanel extends JPanel {
             "[]6[]10[]6[]push[]4[]4[]4[]4[]",
             "[]4[]"
         ));
-        setBackground(new Color(32, 35, 44));
 
         // ============== ROW 1 ==============
 
@@ -60,7 +59,8 @@ public class HeaderPanel extends JPanel {
         JLabel lblFiltros = styledLabel("Filtros Aplicados:");
         add(lblFiltros);
 
-        txtFiltro = styledTextField(160);
+        txtFiltro = new JTextField();
+        txtFiltro.setFont(new Font("Segoe UI", Font.PLAIN, 12));
         add(txtFiltro, "w 160!");
 
         // -- Ordenado por --
@@ -89,7 +89,7 @@ public class HeaderPanel extends JPanel {
 
         // -- Utilidad card (compact) --
         RoundedPanel pnlUtilidad = new RoundedPanel(10, false);
-        pnlUtilidad.setBackground(new Color(38, 42, 52));
+        pnlUtilidad.setBackground(UIManager.getColor("Panel.background"));
         pnlUtilidad.setLayout(new MigLayout("insets 4 8 4 8, gap 2, wrap", "[]", ""));
         JLabel lblUtil = styledLabel("Utilidad");
         lblUtil.setFont(lblUtil.getFont().deriveFont(Font.BOLD, 11f));
@@ -111,19 +111,19 @@ public class HeaderPanel extends JPanel {
         pnlUtilidad.add(utilChks);
         add(pnlUtilidad);
 
-        // -- Variaciones card (buttons, not checkboxes) --
+        // -- Variaciones card --
         RoundedPanel pnlVar = new RoundedPanel(10, false);
-        pnlVar.setBackground(new Color(38, 42, 52));
+        pnlVar.setBackground(UIManager.getColor("Panel.background"));
         pnlVar.setLayout(new MigLayout("insets 4 8 4 8, gap 4, wrap", "[]", ""));
         JLabel lblVar = styledLabel("Variaciones");
         lblVar.setFont(lblVar.getFont().deriveFont(Font.BOLD, 11f));
         pnlVar.add(lblVar);
 
-        btnPreciosPct = accentButton("📊 Precios %", new Color(50, 70, 120));
+        btnPreciosPct = accentButton("📊 Precios %");
         btnPreciosPct.addActionListener(e -> openVariacionPrecios());
         pnlVar.add(btnPreciosPct, "growx");
 
-        btnTasaCambio = accentButton("💲 Tasa de Cambio", new Color(50, 70, 120));
+        btnTasaCambio = accentButton("💲 Tasa de Cambio");
         btnTasaCambio.addActionListener(e -> openTasaCambio());
         pnlVar.add(btnTasaCambio, "growx");
         add(pnlVar);
@@ -152,8 +152,9 @@ public class HeaderPanel extends JPanel {
         lblSearch.setFont(new Font("Segoe UI Emoji", Font.PLAIN, 13));
         add(lblSearch);
 
-        txtBuscar = styledTextField(0);
-        txtBuscar.putClientProperty("JTextField.placeholderText", "Buscar en listado...");
+        txtBuscar = new JTextField();
+        txtBuscar.setFont(new Font("Segoe UI", Font.PLAIN, 12));
+        txtBuscar.putClientProperty("JTextField.placeholderText", "Buscar en catálogo...");
         txtBuscar.getDocument().addDocumentListener(new DocumentListener() {
             public void insertUpdate(DocumentEvent e)  { fireSearch(); }
             public void removeUpdate(DocumentEvent e)  { fireSearch(); }
@@ -193,30 +194,12 @@ public class HeaderPanel extends JPanel {
     private JLabel styledLabel(String text) {
         JLabel lbl = new JLabel(text);
         lbl.setFont(new Font("Segoe UI", Font.PLAIN, 11));
-        lbl.setForeground(new Color(180, 190, 210));
         return lbl;
-    }
-
-    private JTextField styledTextField(int width) {
-        JTextField tf = new JTextField();
-        tf.setFont(new Font("Segoe UI", Font.PLAIN, 12));
-        tf.setBackground(new Color(42, 46, 58));
-        tf.setForeground(Color.WHITE);
-        tf.setCaretColor(new Color(100, 160, 255));
-        tf.setBorder(BorderFactory.createCompoundBorder(
-            BorderFactory.createLineBorder(new Color(55, 60, 75), 1),
-            BorderFactory.createEmptyBorder(3, 6, 3, 6)
-        ));
-        if (width > 0) {
-            tf.setPreferredSize(new Dimension(width, 26));
-        }
-        return tf;
     }
 
     private JRadioButton styledRadio(String text, boolean selected) {
         JRadioButton rb = new JRadioButton(text, selected);
         rb.setFont(new Font("Segoe UI", Font.PLAIN, 10));
-        rb.setForeground(new Color(180, 190, 210));
         rb.setOpaque(false);
         rb.setFocusPainted(false);
         return rb;
@@ -225,17 +208,14 @@ public class HeaderPanel extends JPanel {
     private JCheckBox styledCheck(String text, boolean selected) {
         JCheckBox cb = new JCheckBox(text, selected);
         cb.setFont(new Font("Segoe UI", Font.PLAIN, 10));
-        cb.setForeground(new Color(180, 190, 210));
         cb.setOpaque(false);
         cb.setFocusPainted(false);
         return cb;
     }
 
-    private JButton accentButton(String text, Color bg) {
+    private JButton accentButton(String text) {
         JButton btn = new JButton(text);
         btn.setFont(new Font("Segoe UI Emoji", Font.BOLD, 10));
-        btn.setBackground(bg);
-        btn.setForeground(new Color(180, 200, 255));
         btn.setFocusPainted(false);
         btn.setCursor(Cursor.getPredefinedCursor(Cursor.HAND_CURSOR));
         btn.setBorder(BorderFactory.createEmptyBorder(4, 10, 4, 10));

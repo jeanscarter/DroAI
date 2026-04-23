@@ -1,6 +1,6 @@
 package com.droai.ui;
 
-import com.droai.ui.table.MatrizVentasTableModel;
+import com.droai.ui.table.CatalogoTableModel;
 import com.droai.ui.table.ResumenTableModel;
 import com.formdev.flatlaf.FlatClientProperties;
 
@@ -11,24 +11,23 @@ import java.awt.*;
 
 public class DataTabbedPane extends JTabbedPane {
 
-    private final JTable tblMatriz;
+    private final JTable tblCatalogo;
     private final JTable tblSimulador;
     private final JTable tblDctoVolumen;
     private final JTable tblDctoProducto;
 
-    private final MatrizVentasTableModel matrizModel;
+    private final CatalogoTableModel catalogoModel;
     private final ResumenTableModel simuladorModel;
     private final ResumenTableModel dctoVolumenModel;
     private final ResumenTableModel dctoProductoModel;
 
     public DataTabbedPane() {
         setFont(new Font("Segoe UI", Font.BOLD, 13));
-        setBackground(new Color(30, 33, 42));
         putClientProperty(FlatClientProperties.TABBED_PANE_TAB_TYPE, "underlined");
 
-        matrizModel = new MatrizVentasTableModel();
-        tblMatriz = createStyledTable(matrizModel);
-        addTab("  Matriz de Ventas  ", wrapTable(tblMatriz));
+        catalogoModel = new CatalogoTableModel();
+        tblCatalogo = createStyledTable(catalogoModel);
+        addTab("  Catálogo de Productos  ", wrapTable(tblCatalogo));
 
         simuladorModel = new ResumenTableModel();
         tblSimulador = createStyledTable(simuladorModel);
@@ -43,8 +42,8 @@ public class DataTabbedPane extends JTabbedPane {
         addTab("  Descuento x Producto  ", wrapTable(tblDctoProducto));
     }
 
-    public MatrizVentasTableModel getMatrizModel() {
-        return matrizModel;
+    public CatalogoTableModel getCatalogoModel() {
+        return catalogoModel;
     }
 
     public ResumenTableModel getSimuladorModel() {
@@ -63,37 +62,20 @@ public class DataTabbedPane extends JTabbedPane {
         JTable table = new JTable(model);
         table.setRowHeight(30);
         table.setFont(new Font("Segoe UI", Font.PLAIN, 12));
-        table.setForeground(new Color(220, 225, 235));
-        table.setBackground(new Color(30, 33, 42));
-        table.setSelectionBackground(new Color(50, 80, 140));
-        table.setSelectionForeground(Color.WHITE);
-        table.setGridColor(new Color(45, 50, 62));
         table.setShowHorizontalLines(true);
         table.setShowVerticalLines(false);
         table.setIntercellSpacing(new Dimension(0, 1));
         table.setFillsViewportHeight(true);
-        table.setAutoResizeMode(JTable.AUTO_RESIZE_OFF);
+        // Columnas se expanden dinámicamente para llenar todo el ancho
+        table.setAutoResizeMode(JTable.AUTO_RESIZE_ALL_COLUMNS);
 
-        table.setDefaultRenderer(Object.class, new AlternatingRenderer());
-        table.setDefaultRenderer(Double.class, new AlternatingDoubleRenderer());
-        table.setDefaultRenderer(String.class, new AlternatingRenderer());
+        // Renderer para Double: solo formateo y alineación, sin colores hardcoded
+        table.setDefaultRenderer(Double.class, new DoubleRenderer());
 
         JTableHeader header = table.getTableHeader();
         header.setFont(new Font("Segoe UI", Font.BOLD, 11));
-        header.setBackground(new Color(35, 38, 48));
-        header.setForeground(new Color(170, 180, 200));
         header.setPreferredSize(new Dimension(0, 34));
         header.setReorderingAllowed(false);
-
-        if (model instanceof MatrizVentasTableModel) {
-            int[] widths = {
-                    100, 300, 120, 80, 60, 100,
-                    80, 100, 80, 100, 60, 100
-            };
-            for (int i = 0; i < widths.length && i < table.getColumnCount(); i++) {
-                table.getColumnModel().getColumn(i).setPreferredWidth(widths[i]);
-            }
-        }
 
         return table;
     }
@@ -102,32 +84,15 @@ public class DataTabbedPane extends JTabbedPane {
         JScrollPane sp = new JScrollPane(table,
                 ScrollPaneConstants.VERTICAL_SCROLLBAR_AS_NEEDED,
                 ScrollPaneConstants.HORIZONTAL_SCROLLBAR_AS_NEEDED);
-        sp.getViewport().setBackground(new Color(30, 33, 42));
         sp.setBorder(BorderFactory.createEmptyBorder());
         return sp;
     }
 
-    private static class AlternatingRenderer extends DefaultTableCellRenderer {
-        private static final Color EVEN = new Color(30, 33, 42);
-        private static final Color ODD = new Color(35, 38, 48);
-        private static final Color SEL = new Color(50, 80, 140);
-
-        @Override
-        public Component getTableCellRendererComponent(JTable table, Object value,
-                boolean selected, boolean focused, int row, int col) {
-            super.getTableCellRendererComponent(table, value, selected, focused, row, col);
-            setBackground(selected ? SEL : (row % 2 == 0 ? EVEN : ODD));
-            setForeground(selected ? Color.WHITE : new Color(220, 225, 235));
-            setBorder(BorderFactory.createEmptyBorder(0, 6, 0, 6));
-            return this;
-        }
-    }
-
-    private static class AlternatingDoubleRenderer extends DefaultTableCellRenderer {
-        private static final Color EVEN = new Color(30, 33, 42);
-        private static final Color ODD = new Color(35, 38, 48);
-        private static final Color SEL = new Color(50, 80, 140);
-
+    /**
+     * Renderer que solo formatea los Double a 2 decimales y alinea a la derecha.
+     * Los colores (fondo, texto, selección, filas alternadas) son gestionados por FlatLaf.
+     */
+    private static class DoubleRenderer extends DefaultTableCellRenderer {
         @Override
         public Component getTableCellRendererComponent(JTable table, Object value,
                 boolean selected, boolean focused, int row, int col) {
@@ -136,9 +101,6 @@ public class DataTabbedPane extends JTabbedPane {
             }
             super.getTableCellRendererComponent(table, value, selected, focused, row, col);
             setHorizontalAlignment(SwingConstants.RIGHT);
-            setBackground(selected ? SEL : (row % 2 == 0 ? EVEN : ODD));
-            setForeground(selected ? Color.WHITE : new Color(220, 225, 235));
-            setBorder(BorderFactory.createEmptyBorder(0, 6, 0, 6));
             return this;
         }
     }

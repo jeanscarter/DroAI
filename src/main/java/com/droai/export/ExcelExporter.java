@@ -1,6 +1,6 @@
 package com.droai.export;
 
-import com.droai.model.MatrizVentasRow;
+import com.droai.model.ArticuloRow;
 import org.apache.poi.ss.usermodel.*;
 import org.apache.poi.xssf.streaming.SXSSFWorkbook;
 
@@ -13,11 +13,13 @@ import java.util.List;
 
 public class ExcelExporter {
 
-    // Nuevo método para exportar la matriz con las 39 columnas
-    public File exportMatriz(List<MatrizVentasRow> listado, double tasa) throws IOException {
+    /**
+     * Exporta el catálogo completo de artículos con todas las columnas disponibles.
+     */
+    public File exportCatalogo(List<ArticuloRow> listado, double tasa) throws IOException {
 
         String timestamp = LocalDateTime.now().format(DateTimeFormatter.ofPattern("yyyyMMdd_HHmmss"));
-        File file = new File(System.getProperty("user.dir"), "MatrizVentas_" + timestamp + ".xlsx");
+        File file = new File(System.getProperty("user.dir"), "Catalogo_" + timestamp + ".xlsx");
 
         try (SXSSFWorkbook wb = new SXSSFWorkbook(100)) {
 
@@ -25,11 +27,8 @@ public class ExcelExporter {
             CellStyle numberStyle = createNumberStyle(wb);
             CellStyle currencyStyle = createCurrencyStyle(wb);
 
-            // Hoja 1: Matriz Completa
-            writeListadoMatriz(wb, headerStyle, numberStyle, currencyStyle, listado, tasa);
-            wb.setSheetName(0, "Matriz");
-
-            // (Aquí agregaremos más adelante las hojas de Vendedor, Línea, Origen, etc.)
+            writeCatalogo(wb, headerStyle, numberStyle, currencyStyle, listado, tasa);
+            wb.setSheetName(0, "Catalogo");
 
             try (FileOutputStream fos = new FileOutputStream(file)) {
                 wb.write(fos);
@@ -38,16 +37,16 @@ public class ExcelExporter {
         return file;
     }
 
-    private void writeListadoMatriz(SXSSFWorkbook wb, CellStyle hs, CellStyle ns,
-            CellStyle cs, List<MatrizVentasRow> data, double tasa) {
+    private void writeCatalogo(SXSSFWorkbook wb, CellStyle hs, CellStyle ns,
+            CellStyle cs, List<ArticuloRow> data, double tasa) {
         Sheet sheet = wb.createSheet();
         String[] headers = {
-                "Numero", "Fecha", "CI/Rif", "Nombre o Razon Social", "Vendedor", "Nombre Vendedor",
-                "Tasa", "codigo art", "Descripcion", "Cantidad", "Precio", "DP", "DCT", "DA", "DV",
-                "Desc.%", "Total Renglon", "Desc.%Global", "Renglon-DG", "Monto IVA", "Tot.Renglon+IVA",
-                "Costo de Venta", "Total Costo Venta", "Tot.CV-DP", "Monto Utilidad", "% Utilidad",
-                "Costo Actual", "Stock Actual", "Cod.Linea", "Linea", "Cod.Sub.", "SubLinea",
-                "Cod.Proveedor", "Nombre Proveedor", "Zona", "almacen", "Pedido Web", "Origen", "Usuario Web"
+                "Codigo", "Descripcion", "Marca", "Existencia", "UdM",
+                "Costo Fabrica", "Arancel%", "Costo OM", "Util %",
+                "Precio1", "Precio2", "Precio3", "%IVA", "Precio C/IVA",
+                "Cod.Linea", "Linea", "Cod.Sub.", "SubLinea",
+                "Cod.Proveedor", "Nombre Proveedor",
+                "Referencia", "Modelo", "Procedencia", "Peso", "Volumen"
         };
 
         Row hr = sheet.createRow(0);
@@ -58,47 +57,33 @@ public class ExcelExporter {
         }
 
         int rowIdx = 1;
-        for (MatrizVentasRow r : data) {
+        for (ArticuloRow r : data) {
             Row row = sheet.createRow(rowIdx++);
-            row.createCell(0).setCellValue(r.getNumero());
-            row.createCell(1).setCellValue(r.getFecha());
-            row.createCell(2).setCellValue(r.getCiRif());
-            row.createCell(3).setCellValue(r.getNombreRazonSocial());
-            row.createCell(4).setCellValue(r.getCoVen());
-            row.createCell(5).setCellValue(r.getNombreVendedor());
-            setCellNum(row, 6, r.getTasa(), ns);
-            row.createCell(7).setCellValue(r.getCodigoArt());
-            row.createCell(8).setCellValue(r.getDescripcion());
-            setCellNum(row, 9, r.getCantidad(), ns);
-            setCellNum(row, 10, r.getPrecio(), cs);
-            setCellNum(row, 11, r.getDp(), ns);
-            setCellNum(row, 12, r.getDct(), ns);
-            setCellNum(row, 13, r.getDa(), ns);
-            setCellNum(row, 14, r.getDv(), ns);
-            setCellNum(row, 15, r.getDescPct(), ns);
-            setCellNum(row, 16, r.getTotalRenglon(), cs);
-            setCellNum(row, 17, r.getDescPctGlobal(), ns);
-            setCellNum(row, 18, r.getRenglonDg(), cs);
-            setCellNum(row, 19, r.getMontoIva(), cs);
-            setCellNum(row, 20, r.getTotRenglonIva(), cs);
-            setCellNum(row, 21, r.getCostoVenta(), cs);
-            setCellNum(row, 22, r.getTotalCostoVenta(), cs);
-            setCellNum(row, 23, r.getTotCvDp(), cs);
-            setCellNum(row, 24, r.getMontoUtilidad(), cs);
-            setCellNum(row, 25, r.getUtilPct(), ns);
-            setCellNum(row, 26, r.getCostoActual(), cs);
-            setCellNum(row, 27, r.getStockActual(), ns);
-            row.createCell(28).setCellValue(r.getCodLinea());
-            row.createCell(29).setCellValue(r.getLinea());
-            row.createCell(30).setCellValue(r.getCodSub());
-            row.createCell(31).setCellValue(r.getSubLinea());
-            row.createCell(32).setCellValue(r.getCodProveedor());
-            row.createCell(33).setCellValue(r.getNombreProveedor());
-            row.createCell(34).setCellValue(r.getZona());
-            row.createCell(35).setCellValue(r.getAlmacen());
-            row.createCell(36).setCellValue(r.getPedidoWeb());
-            row.createCell(37).setCellValue(r.getOrigen());
-            row.createCell(38).setCellValue(r.getUsuarioWeb());
+            row.createCell(0).setCellValue(r.getCodigo());
+            row.createCell(1).setCellValue(r.getDescripcion());
+            row.createCell(2).setCellValue(r.getMarca());
+            setCellNum(row, 3, r.getExistencia(), ns);
+            row.createCell(4).setCellValue(r.getUdm());
+            setCellNum(row, 5, r.getCostoFabrica(), cs);
+            setCellNum(row, 6, r.getArancelPct(), ns);
+            setCellNum(row, 7, r.getCostoOm(), cs);
+            setCellNum(row, 8, r.getUtilPct(), ns);
+            setCellNum(row, 9, r.getPrecio1(), cs);
+            setCellNum(row, 10, r.getPrecio2(), cs);
+            setCellNum(row, 11, r.getPrecio3(), cs);
+            setCellNum(row, 12, r.getIvaPct(), ns);
+            setCellNum(row, 13, r.getPrecioCiva(), cs);
+            row.createCell(14).setCellValue(r.getCodLinea());
+            row.createCell(15).setCellValue(r.getLinea());
+            row.createCell(16).setCellValue(r.getCodSub());
+            row.createCell(17).setCellValue(r.getSubLinea());
+            row.createCell(18).setCellValue(r.getCodProveedor());
+            row.createCell(19).setCellValue(r.getNombreProveedor());
+            row.createCell(20).setCellValue(r.getReferencia());
+            row.createCell(21).setCellValue(r.getModelo());
+            row.createCell(22).setCellValue(r.getProcedencia());
+            setCellNum(row, 23, r.getPeso(), ns);
+            setCellNum(row, 24, r.getVolumen(), ns);
         }
 
         sheet.createFreezePane(0, 1);
