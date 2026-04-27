@@ -4,6 +4,8 @@ import net.miginfocom.swing.MigLayout;
 
 import javax.swing.*;
 import java.awt.*;
+import java.awt.event.ItemEvent;
+import java.util.function.Consumer;
 
 /**
  * Panel inferior (Sur): Registros count, Ficha Producto, Descuentos,
@@ -20,6 +22,7 @@ public class FooterPanel extends JPanel {
     private final JButton btnExportar, btnFichaProducto, btnDescuentos;
 
     private Runnable onExportar;
+    private Consumer<String> onColumna3Changed;
 
     public FooterPanel() {
         setLayout(new MigLayout(
@@ -47,8 +50,13 @@ public class FooterPanel extends JPanel {
         // Columna 3
         JLabel lblCol3 = styledLabel("Columna 3:");
         add(lblCol3);
-        cmbColumna3 = new JComboBox<>(new String[]{"", "Precio2", "Precio3", "Precio4"});
+        cmbColumna3 = new JComboBox<>(new String[]{"Marca", "Codigo de Barra", "Ubicacion", "Campo 1", "Campo 2"});
         cmbColumna3.setFont(new Font("Segoe UI", Font.PLAIN, 11));
+        cmbColumna3.addItemListener(e -> {
+            if (e.getStateChange() == ItemEvent.SELECTED && onColumna3Changed != null) {
+                onColumna3Changed.accept((String) e.getItem());
+            }
+        });
         add(cmbColumna3, "w 120!");
 
         // Exportar Excel
@@ -97,6 +105,8 @@ public class FooterPanel extends JPanel {
     }
 
     public void setOnExportar(Runnable cb) { this.onExportar = cb; }
+
+    public void setOnColumna3Changed(Consumer<String> cb) { this.onColumna3Changed = cb; }
 
     public double getTasa() {
         try { return Double.parseDouble(txtTasa.getText().trim()); }

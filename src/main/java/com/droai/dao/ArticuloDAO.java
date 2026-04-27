@@ -8,7 +8,8 @@ import java.util.ArrayList;
 import java.util.List;
 
 /**
- * DAO para obtener el catálogo maestro de productos desde saArticulo (Profit Plus).
+ * DAO para obtener el catálogo maestro de productos desde saArticulo (Profit
+ * Plus).
  * "Marca" se mapea al proveedor principal (prov_des).
  */
 public class ArticuloDAO {
@@ -37,7 +38,11 @@ public class ArticuloDAO {
                 ISNULL(a.modelo, '')    AS modelo,
                 ISNULL(a.cod_proc, '')    AS procedencia,
                 ISNULL(a.peso, 0)       AS peso,
-                ISNULL(a.volumen, 0)    AS volumen
+                ISNULL(a.volumen, 0)    AS volumen,
+                ISNULL((SELECT TOP 1 ref FROM saArtUnidad WHERE co_art = a.co_art), '') AS codigoBarra,
+                ISNULL(a.co_ubicacion, '') AS ubicacion,
+                ISNULL(a.campo1, '')    AS campo1,
+                ISNULL(a.campo2, '')    AS campo2
             FROM saArticulo a
             LEFT JOIN (SELECT co_art, co_prov FROM saArtProveedorReng WHERE reng_num = 1) ap
                 ON a.co_art = ap.co_art
@@ -72,8 +77,8 @@ public class ArticuloDAO {
         List<ArticuloRow> rows = new ArrayList<>();
 
         try (Connection conn = DatabaseConfig.getDataSource().getConnection();
-             PreparedStatement ps = conn.prepareStatement(SQL_CATALOGO);
-             ResultSet rs = ps.executeQuery()) {
+                PreparedStatement ps = conn.prepareStatement(SQL_CATALOGO);
+                ResultSet rs = ps.executeQuery()) {
 
             while (rs.next()) {
                 ArticuloRow row = new ArticuloRow();
@@ -101,6 +106,10 @@ public class ArticuloDAO {
                 row.setProcedencia(rs.getString("procedencia"));
                 row.setPeso(getSafeDouble(rs, "peso", codigo));
                 row.setVolumen(getSafeDouble(rs, "volumen", codigo));
+                row.setCodigoBarra(rs.getString("codigoBarra"));
+                row.setUbicacion(rs.getString("ubicacion"));
+                row.setCampo1(rs.getString("campo1"));
+                row.setCampo2(rs.getString("campo2"));
                 rows.add(row);
             }
         }
@@ -110,7 +119,8 @@ public class ArticuloDAO {
     private double getSafeDouble(ResultSet rs, String column, String codigo) {
         try {
             String raw = rs.getString(column);
-            if (raw == null || raw.isBlank()) return 0.0;
+            if (raw == null || raw.isBlank())
+                return 0.0;
             return Double.parseDouble(raw.trim());
         } catch (NumberFormatException e) {
             System.err.println("[WARN] co_art=" + codigo + " columna '" + column

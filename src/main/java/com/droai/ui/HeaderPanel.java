@@ -21,7 +21,7 @@ public class HeaderPanel extends JPanel {
 
     private final JTextField txtFiltro;
     private final JTextField txtBuscar;
-    private final JRadioButton rbCodigo, rbDescripcion, rbReferencia;
+    private final JRadioButton rbCodigo, rbDescripcion, rbDinamico;
     private final JRadioButton rbMatematica, rbFinanciera;
     private final JCheckBox chkCalcular, chkUtilid;
     private final RoundedButton btnFiltrar, btnBuscar;
@@ -33,6 +33,7 @@ public class HeaderPanel extends JPanel {
     private Runnable onGuardar;
     private Runnable onDeshacer;
     private Runnable onCambiarTema;
+    private Consumer<String> onSortChanged;
 
     public HeaderPanel() {
         setLayout(new MigLayout(
@@ -66,9 +67,19 @@ public class HeaderPanel extends JPanel {
         // -- Ordenado por --
         rbCodigo      = styledRadio("Codigo", true);
         rbDescripcion = styledRadio("Descripcion", false);
-        rbReferencia  = styledRadio("Referencia", false);
+        rbDinamico    = styledRadio("Marca", false);
         ButtonGroup bgOrden = new ButtonGroup();
-        bgOrden.add(rbCodigo); bgOrden.add(rbDescripcion); bgOrden.add(rbReferencia);
+        bgOrden.add(rbCodigo); bgOrden.add(rbDescripcion); bgOrden.add(rbDinamico);
+
+        java.awt.event.ActionListener sortListener = e -> {
+            if (onSortChanged != null) {
+                JRadioButton rb = (JRadioButton) e.getSource();
+                onSortChanged.accept(rb.getText());
+            }
+        };
+        rbCodigo.addActionListener(sortListener);
+        rbDescripcion.addActionListener(sortListener);
+        rbDinamico.addActionListener(sortListener);
 
         JPanel pnlOrden = new JPanel(new MigLayout("insets 0, gap 2", "[]2[]2[]2[]", ""));
         pnlOrden.setOpaque(false);
@@ -76,7 +87,7 @@ public class HeaderPanel extends JPanel {
         pnlOrden.add(lblOrd);
         pnlOrden.add(rbCodigo);
         pnlOrden.add(rbDescripcion);
-        pnlOrden.add(rbReferencia);
+        pnlOrden.add(rbDinamico);
         add(pnlOrden);
 
         // -- Filtrar / Buscar botones --
@@ -188,6 +199,11 @@ public class HeaderPanel extends JPanel {
     public void setOnGuardar(Runnable cb)         { this.onGuardar = cb; }
     public void setOnDeshacer(Runnable cb)        { this.onDeshacer = cb; }
     public void setOnCambiarTema(Runnable cb)     { this.onCambiarTema = cb; }
+    public void setOnSortChanged(Consumer<String> cb) { this.onSortChanged = cb; }
+
+    public void setTercerRadioText(String texto) {
+        rbDinamico.setText(texto);
+    }
 
     // ========== Factory helpers ==========
 

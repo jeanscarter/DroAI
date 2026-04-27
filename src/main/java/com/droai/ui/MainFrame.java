@@ -57,7 +57,17 @@ public class MainFrame extends JFrame {
         header.setOnGuardar(this::saveData);
         header.setOnDeshacer(this::loadData);
         header.setOnCambiarTema(this::toggleTheme);
+        header.setOnSortChanged(criterio -> {
+            dataTabs.getCatalogoModel().ordenarPor(criterio);
+        });
         root.add(header, "growx");
+
+        footer.setOnColumna3Changed(columna -> {
+            header.setTercerRadioText(columna);
+            dataTabs.getCatalogoModel().setColumnaDinamica(columna);
+            // Opcional: ordenar si es necesario al cambiar la columna
+            dataTabs.getCatalogoModel().ordenarPor(columna);
+        });
 
         root.add(dataTabs, "grow");
         root.add(footer, "growx");

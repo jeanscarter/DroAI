@@ -23,6 +23,7 @@ public class CatalogoTableModel extends AbstractTableModel {
     private List<ArticuloRow> allData = new ArrayList<>();
     private List<ArticuloRow> filteredData = new ArrayList<>();
     private String filterText = "";
+    private String columnaDinamicaActual = "Marca";
 
     @Override
     public int getRowCount() {
@@ -36,6 +37,7 @@ public class CatalogoTableModel extends AbstractTableModel {
 
     @Override
     public String getColumnName(int col) {
+        if (col == 2) return columnaDinamicaActual;
         return COLUMNS[col];
     }
 
@@ -55,10 +57,21 @@ public class CatalogoTableModel extends AbstractTableModel {
     @Override
     public Object getValueAt(int row, int col) {
         ArticuloRow r = filteredData.get(row);
+        if (col == 2) {
+            return switch (columnaDinamicaActual) {
+                case "Referencia" -> r.getReferencia();
+                case "Codigo de Barra" -> r.getCodigoBarra();
+                case "Marca" -> r.getMarca();
+                case "Modelo" -> r.getModelo();
+                case "Ubicacion" -> r.getUbicacion();
+                case "Campo 1" -> r.getCampo1();
+                case "Campo 2" -> r.getCampo2();
+                default -> r.getMarca();
+            };
+        }
         return switch (col) {
             case 0  -> r.getCodigo();
             case 1  -> r.getDescripcion();
-            case 2  -> r.getMarca();
             case 3  -> r.getExistencia();
             case 4  -> r.getUdm();
             case 5  -> r.getCostoFabrica();
@@ -75,6 +88,50 @@ public class CatalogoTableModel extends AbstractTableModel {
     public void setData(List<ArticuloRow> data) {
         this.allData = new ArrayList<>(data);
         applyFilter();
+    }
+
+    public void setColumnaDinamica(String columna) {
+        this.columnaDinamicaActual = columna;
+        fireTableStructureChanged();
+    }
+
+    public void ordenarPor(String criterio) {
+        java.util.Comparator<ArticuloRow> comparator;
+        switch (criterio) {
+            case "Codigo":
+                comparator = java.util.Comparator.comparing(r -> r.getCodigo() != null ? r.getCodigo() : "");
+                break;
+            case "Descripcion":
+                comparator = java.util.Comparator.comparing(r -> r.getDescripcion() != null ? r.getDescripcion() : "");
+                break;
+            case "Referencia":
+                comparator = java.util.Comparator.comparing(r -> r.getReferencia() != null ? r.getReferencia() : "");
+                break;
+            case "Codigo de Barra":
+                comparator = java.util.Comparator.comparing(r -> r.getCodigoBarra() != null ? r.getCodigoBarra() : "");
+                break;
+            case "Marca":
+                comparator = java.util.Comparator.comparing(r -> r.getMarca() != null ? r.getMarca() : "");
+                break;
+            case "Modelo":
+                comparator = java.util.Comparator.comparing(r -> r.getModelo() != null ? r.getModelo() : "");
+                break;
+            case "Ubicacion":
+                comparator = java.util.Comparator.comparing(r -> r.getUbicacion() != null ? r.getUbicacion() : "");
+                break;
+            case "Campo 1":
+                comparator = java.util.Comparator.comparing(r -> r.getCampo1() != null ? r.getCampo1() : "");
+                break;
+            case "Campo 2":
+                comparator = java.util.Comparator.comparing(r -> r.getCampo2() != null ? r.getCampo2() : "");
+                break;
+            default:
+                comparator = java.util.Comparator.comparing(r -> r.getCodigo() != null ? r.getCodigo() : "");
+                break;
+        }
+        allData.sort(comparator);
+        filteredData.sort(comparator);
+        fireTableDataChanged();
     }
 
     public void setFilter(String text) {

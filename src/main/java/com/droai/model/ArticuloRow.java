@@ -34,6 +34,10 @@ public class ArticuloRow {
     private String procedencia;
     private double peso;
     private double volumen;
+    private String codigoBarra;
+    private String ubicacion;
+    private String campo1;
+    private String campo2;
 
     public ArticuloRow() {}
 
@@ -113,4 +117,16 @@ public class ArticuloRow {
 
     public double getVolumen() { return volumen; }
     public void setVolumen(double volumen) { this.volumen = volumen; }
+
+    public String getCodigoBarra() { return codigoBarra; }
+    public void setCodigoBarra(String codigoBarra) { this.codigoBarra = codigoBarra; }
+
+    public String getUbicacion() { return ubicacion; }
+    public void setUbicacion(String ubicacion) { this.ubicacion = ubicacion; }
+
+    public String getCampo1() { return campo1; }
+    public void setCampo1(String campo1) { this.campo1 = campo1; }
+
+    public String getCampo2() { return campo2; }
+    public void setCampo2(String campo2) { this.campo2 = campo2; }
 }
