@@ -5,6 +5,7 @@ import com.droai.model.ArticuloRow;
 import com.droai.service.CatalogoService;
 import com.droai.export.ExcelExporter;
 import com.droai.ui.components.Toast;
+import com.droai.ui.dialog.FichaProductoDialog;
 import com.formdev.flatlaf.FlatDarkLaf;
 import com.formdev.flatlaf.FlatLaf;
 import com.formdev.flatlaf.FlatLightLaf;
@@ -47,6 +48,7 @@ public class MainFrame extends JFrame {
         dataTabs = new DataTabbedPane();
         footer = new FooterPanel();
         footer.setOnExportar(this::exportExcel);
+        footer.setOnFichaProducto(this::openFichaProducto);
 
         header = new HeaderPanel();
         header.setOnSearch(query -> {
@@ -123,6 +125,19 @@ public class MainFrame extends JFrame {
 
     private void saveData() {
         Toast.show("El catálogo es de solo lectura", Toast.Type.INFO);
+    }
+
+    private void openFichaProducto() {
+        javax.swing.JTable table = dataTabs.getCatalogoTable();
+        int viewRow = table.getSelectedRow();
+        if (viewRow < 0) {
+            Toast.show("Selecciona un producto de la tabla", Toast.Type.WARNING);
+            return;
+        }
+        int modelRow = table.convertRowIndexToModel(viewRow);
+        ArticuloRow selected = dataTabs.getCatalogoModel().getFilteredData().get(modelRow);
+        FichaProductoDialog dialog = new FichaProductoDialog(this, selected);
+        dialog.setVisible(true);
     }
 
     private void exportExcel() {

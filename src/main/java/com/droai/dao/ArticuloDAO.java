@@ -23,10 +23,11 @@ public class ArticuloDAO {
                 ISNULL(u.co_uni, '')    AS udm,
                 0                       AS costoFabrica,
                 ISNULL(a.porc_arancel, 0) AS arancelPct,
-                0                       AS costoOm,
+                ISNULL(a.prec_om, 0)    AS costoOm,
                 ISNULL(p1.monto, 0)     AS precio1,
                 ISNULL(p2.monto, 0)     AS precio2,
                 ISNULL(p3.monto, 0)     AS precio3,
+                ISNULL(p4.monto, 0)     AS precio4,
                 ISNULL(i.porc, 0)       AS ivaPct,
                 ISNULL(a.co_lin, '')    AS codLinea,
                 ISNULL(l.lin_des, '')   AS linea,
@@ -36,13 +37,21 @@ public class ArticuloDAO {
                 ISNULL(p.prov_des, '')  AS nombreProveedor,
                 ISNULL(a.ref, '')       AS referencia,
                 ISNULL(a.modelo, '')    AS modelo,
-                ISNULL(a.cod_proc, '')    AS procedencia,
+                ISNULL(a.cod_proc, '')  AS procedencia,
                 ISNULL(a.peso, 0)       AS peso,
                 ISNULL(a.volumen, 0)    AS volumen,
-                ISNULL((SELECT TOP 1 ref FROM saArtUnidad WHERE co_art = a.co_art), '') AS codigoBarra,
+                ISNULL(a.ref, '')       AS codigoBarra,
                 ISNULL(a.co_ubicacion, '') AS ubicacion,
                 ISNULL(a.campo1, '')    AS campo1,
-                ISNULL(a.campo2, '')    AS campo2
+                ISNULL(a.campo2, '')    AS campo2,
+                ISNULL(a.campo3, '')    AS campo3,
+                ISNULL(a.campo4, '')    AS campo4,
+                ISNULL(a.campo5, '')    AS campo5,
+                ISNULL(a.campo6, '')    AS campo6,
+                ISNULL(a.destaca, 0)    AS destacado,
+                ISNULL(a.anulado, 0)    AS anulado,
+                ISNULL(a.margen_min, 0) AS margenMin,
+                ISNULL(a.margen_max, 0) AS margenMax
             FROM saArticulo a
             LEFT JOIN (SELECT co_art, co_prov FROM saArtProveedorReng WHERE reng_num = 1) ap
                 ON a.co_art = ap.co_art
@@ -53,10 +62,10 @@ public class ArticuloDAO {
             LEFT JOIN saSubLinea sl
                 ON a.co_subl = sl.co_subl
             LEFT JOIN (
-                SELECT cod_impuesto, MAX(valor_porcent) AS porc
-                FROM saImpuestoReng
-                GROUP BY cod_impuesto
-            ) i ON a.tipo_imp = i.cod_impuesto
+                SELECT tipo_imp, MAX(porc_tasa) AS porc
+                FROM saImpuestoSobreVentaReng
+                GROUP BY tipo_imp
+            ) i ON a.tipo_imp = i.tipo_imp
             LEFT JOIN (
                 SELECT co_art, SUM(stock) AS totalStock
                 FROM saStockAlmacen
@@ -70,6 +79,8 @@ public class ArticuloDAO {
                 ON a.co_art = p2.co_art
             LEFT JOIN (SELECT co_art, MAX(monto) AS monto FROM saArtPrecio WHERE co_precio = '03' GROUP BY co_art) p3
                 ON a.co_art = p3.co_art
+            LEFT JOIN (SELECT co_art, MAX(monto) AS monto FROM saArtPrecio WHERE co_precio = '05' GROUP BY co_art) p4
+                ON a.co_art = p4.co_art
             ORDER BY a.co_art
             """;
 
@@ -94,6 +105,7 @@ public class ArticuloDAO {
                 row.setPrecio1(getSafeDouble(rs, "precio1", codigo));
                 row.setPrecio2(getSafeDouble(rs, "precio2", codigo));
                 row.setPrecio3(getSafeDouble(rs, "precio3", codigo));
+                row.setPrecio4(getSafeDouble(rs, "precio4", codigo));
                 row.setIvaPct(getSafeDouble(rs, "ivaPct", codigo));
                 row.setCodLinea(rs.getString("codLinea"));
                 row.setLinea(rs.getString("linea"));
@@ -110,6 +122,14 @@ public class ArticuloDAO {
                 row.setUbicacion(rs.getString("ubicacion"));
                 row.setCampo1(rs.getString("campo1"));
                 row.setCampo2(rs.getString("campo2"));
+                row.setCampo3(rs.getString("campo3"));
+                row.setCampo4(rs.getString("campo4"));
+                row.setCampo5(rs.getString("campo5"));
+                row.setCampo6(rs.getString("campo6"));
+                row.setDestacado(rs.getInt("destacado") == 1);
+                row.setAnulado(rs.getInt("anulado") == 1);
+                row.setMargenMin(getSafeDouble(rs, "margenMin", codigo));
+                row.setMargenMax(getSafeDouble(rs, "margenMax", codigo));
                 rows.add(row);
             }
         }

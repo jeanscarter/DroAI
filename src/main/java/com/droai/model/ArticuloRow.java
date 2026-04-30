@@ -23,6 +23,7 @@ public class ArticuloRow {
     // === Campos adicionales para exportación Excel ===
     private double precio2;
     private double precio3;
+    private double precio4;
     private String codLinea;
     private String linea;
     private String codSub;
@@ -38,6 +39,18 @@ public class ArticuloRow {
     private String ubicacion;
     private String campo1;
     private String campo2;
+    private String campo3;
+    private String campo4;
+    private String campo5;
+    private String campo6;
+
+    // === Campos para Ficha Producto ===
+    private double costoActual;
+    private double costoPromedio;
+    private boolean destacado;
+    private boolean anulado;
+    private double margenMin;
+    private double margenMax;
 
     public ArticuloRow() {}
 
@@ -129,4 +142,37 @@ public class ArticuloRow {
 
     public String getCampo2() { return campo2; }
     public void setCampo2(String campo2) { this.campo2 = campo2; }
+
+    public double getPrecio4() { return precio4; }
+    public void setPrecio4(double precio4) { this.precio4 = precio4; }
+
+    public String getCampo3() { return campo3; }
+    public void setCampo3(String campo3) { this.campo3 = campo3; }
+
+    public String getCampo4() { return campo4; }
+    public void setCampo4(String campo4) { this.campo4 = campo4; }
+
+    public String getCampo5() { return campo5; }
+    public void setCampo5(String campo5) { this.campo5 = campo5; }
+
+    public String getCampo6() { return campo6; }
+    public void setCampo6(String campo6) { this.campo6 = campo6; }
+
+    public double getCostoActual() { return costoActual; }
+    public void setCostoActual(double costoActual) { this.costoActual = costoActual; }
+
+    public double getCostoPromedio() { return costoPromedio; }
+    public void setCostoPromedio(double costoPromedio) { this.costoPromedio = costoPromedio; }
+
+    public boolean isDestacado() { return destacado; }
+    public void setDestacado(boolean destacado) { this.destacado = destacado; }
+
+    public boolean isAnulado() { return anulado; }
+    public void setAnulado(boolean anulado) { this.anulado = anulado; }
+
+    public double getMargenMin() { return margenMin; }
+    public void setMargenMin(double margenMin) { this.margenMin = margenMin; }
+
+    public double getMargenMax() { return margenMax; }
+    public void setMargenMax(double margenMax) { this.margenMax = margenMax; }
 }

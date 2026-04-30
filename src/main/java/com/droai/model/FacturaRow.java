@@ -36,6 +36,7 @@ public class FacturaRow {
     private double stockActual;
     private String codLinea;
     private String linea;
+    private double ivaPct;
 
     public FacturaRow() {}
 
@@ -70,6 +71,7 @@ public class FacturaRow {
     public double getStockActual() { return stockActual; }
     public String getCodLinea() { return codLinea; }
     public String getLinea() { return linea; }
+    public double getIvaPct() { return ivaPct; }
 
     // Setters
     public void setNumero(String numero) { this.numero = numero; }
@@ -102,4 +104,5 @@ public class FacturaRow {
     public void setStockActual(double stockActual) { this.stockActual = stockActual; }
     public void setCodLinea(String codLinea) { this.codLinea = codLinea; }
     public void setLinea(String linea) { this.linea = linea; }
+    public void setIvaPct(double ivaPct) { this.ivaPct = ivaPct; }
 }

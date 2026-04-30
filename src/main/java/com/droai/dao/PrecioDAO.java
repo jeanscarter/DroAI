@@ -34,6 +34,7 @@ public class PrecioDAO {
             0              AS descPctGlobal,
             (r.prec_vta * r.total_art) AS renglonDg,
             r.monto_imp    AS montoIva,
+            r.porc_imp     AS ivaPct,
             (r.prec_vta * r.total_art) + r.monto_imp AS totRenglonIva,
             r.cost_vta     AS costoVenta,
             (r.cost_vta * r.total_art) AS totalCostoVenta,
@@ -60,39 +61,40 @@ public class PrecioDAO {
              PreparedStatement ps = conn.prepareStatement(SQL_LISTADO)) {
             ps.setDate(1, Date.valueOf(from));
             ps.setDate(2, Date.valueOf(to));
-            try (ResultSet rs = ps.executeQuery()) {
-                while (rs.next()) {
+            try (ResultSet resultSet = ps.executeQuery()) {
+                while (resultSet.next()) {
                     FacturaRow row = new FacturaRow();
-                    row.setNumero(rs.getString("numero"));
-                    row.setFecha(rs.getString("fecha"));
-                    row.setCiRif(rs.getString("ciRif"));
-                    row.setNombreRazonSocial(rs.getString("nombreRazonSocial"));
-                    row.setCoVen(rs.getString("coVen"));
-                    row.setNombreVendedor(rs.getString("nombreVendedor"));
-                    row.setTasa(rs.getDouble("tasa"));
-                    row.setCodigoArt(rs.getString("codigoArt"));
-                    row.setDescripcionArt(rs.getString("descripcionArt"));
-                    row.setCantidad(rs.getDouble("cantidad"));
-                    row.setPrecio(rs.getDouble("precio"));
-                    row.setDp(rs.getDouble("dp"));
-                    row.setDct(rs.getDouble("dct"));
-                    row.setDa(rs.getDouble("da"));
-                    row.setDv(rs.getDouble("dv"));
-                    row.setDescPct(rs.getDouble("descPct"));
-                    row.setTotalRenglon(rs.getDouble("totalRenglon"));
-                    row.setDescPctGlobal(rs.getDouble("descPctGlobal"));
-                    row.setRenglonDg(rs.getDouble("renglonDg"));
-                    row.setMontoIva(rs.getDouble("montoIva"));
-                    row.setTotRenglonIva(rs.getDouble("totRenglonIva"));
-                    row.setCostoVenta(rs.getDouble("costoVenta"));
-                    row.setTotalCostoVenta(rs.getDouble("totalCostoVenta"));
-                    row.setTotCvDp(rs.getDouble("totCvDp"));
-                    row.setMontoUtilidad(rs.getDouble("montoUtilidad"));
-                    row.setUtilPct(rs.getDouble("utilPct"));
-                    row.setCostoActual(rs.getDouble("costoActual"));
-                    row.setStockActual(rs.getDouble("stockActual"));
-                    row.setCodLinea(rs.getString("codLinea"));
-                    row.setLinea(rs.getString("linea"));
+                    row.setNumero(resultSet.getString("numero"));
+                    row.setFecha(resultSet.getString("fecha"));
+                    row.setCiRif(resultSet.getString("ciRif"));
+                    row.setNombreRazonSocial(resultSet.getString("nombreRazonSocial"));
+                    row.setCoVen(resultSet.getString("coVen"));
+                    row.setNombreVendedor(resultSet.getString("nombreVendedor"));
+                    row.setTasa(resultSet.getDouble("tasa"));
+                    row.setCodigoArt(resultSet.getString("codigoArt"));
+                    row.setDescripcionArt(resultSet.getString("descripcionArt"));
+                    row.setCantidad(resultSet.getDouble("cantidad"));
+                    row.setPrecio(resultSet.getDouble("precio"));
+                    row.setDp(resultSet.getDouble("dp"));
+                    row.setDct(resultSet.getDouble("dct"));
+                    row.setDa(resultSet.getDouble("da"));
+                    row.setDv(resultSet.getDouble("dv"));
+                    row.setDescPct(resultSet.getDouble("descPct"));
+                    row.setTotalRenglon(resultSet.getDouble("totalRenglon"));
+                    row.setDescPctGlobal(resultSet.getDouble("descPctGlobal"));
+                    row.setRenglonDg(resultSet.getDouble("renglonDg"));
+                    row.setMontoIva(resultSet.getDouble("montoIva"));
+                    row.setIvaPct(resultSet.getDouble("ivaPct"));
+                    row.setTotRenglonIva(resultSet.getDouble("totRenglonIva"));
+                    row.setCostoVenta(resultSet.getDouble("costoVenta"));
+                    row.setTotalCostoVenta(resultSet.getDouble("totalCostoVenta"));
+                    row.setTotCvDp(resultSet.getDouble("totCvDp"));
+                    row.setMontoUtilidad(resultSet.getDouble("montoUtilidad"));
+                    row.setUtilPct(resultSet.getDouble("utilPct"));
+                    row.setCostoActual(resultSet.getDouble("costoActual"));
+                    row.setStockActual(resultSet.getDouble("stockActual"));
+                    row.setCodLinea(resultSet.getString("codLinea"));
+                    row.setLinea(resultSet.getString("linea"));
                     rows.add(row);
                 }
             }
@@ -108,7 +110,10 @@ public class PrecioDAO {
             SUM(r.prec_vta * r.total_art) AS total,
             SUM(r.prec_vta * r.total_art * r.porc_desc / 100.0) AS descuento,
             SUM(r.prec_vta * r.total_art * (1 - r.porc_desc / 100.0)) AS neto,
-            AVG(r.porc_desc) AS porcentaje
+            AVG(r.porc_desc) AS porcentaje,
+            SUM(r.cost_vta * r.total_art) AS costoOm,
+            CASE WHEN SUM(r.prec_vta * r.total_art * (1 - r.porc_desc / 100.0)) = 0 THEN 0
+                 ELSE ((SUM(r.prec_vta * r.total_art * (1 - r.porc_desc / 100.0)) - SUM(r.cost_vta * r.total_art)) / SUM(r.prec_vta * r.total_art * (1 - r.porc_desc / 100.0))) * 100.0 END AS utilPct
         FROM saFacturaVentaReng r
         INNER JOIN saFacturaVenta f ON f.doc_num = r.doc_num
         INNER JOIN saArticulo     a ON a.co_art  = r.co_art
@@ -129,7 +134,10 @@ public class PrecioDAO {
             SUM(r.prec_vta * r.total_art) AS total,
             SUM(r.prec_vta * r.total_art * r.porc_desc / 100.0) AS descuento,
             SUM(r.prec_vta * r.total_art * (1 - r.porc_desc / 100.0)) AS neto,
-            AVG(r.porc_desc) AS porcentaje
+            AVG(r.porc_desc) AS porcentaje,
+            SUM(r.cost_vta * r.total_art) AS costoOm,
+            CASE WHEN SUM(r.prec_vta * r.total_art * (1 - r.porc_desc / 100.0)) = 0 THEN 0
+                 ELSE ((SUM(r.prec_vta * r.total_art * (1 - r.porc_desc / 100.0)) - SUM(r.cost_vta * r.total_art)) / SUM(r.prec_vta * r.total_art * (1 - r.porc_desc / 100.0))) * 100.0 END AS utilPct
         FROM saFacturaVentaReng r
         INNER JOIN saFacturaVenta f ON f.doc_num = r.doc_num
         INNER JOIN saArticulo     a ON a.co_art  = r.co_art
@@ -152,15 +160,17 @@ public class PrecioDAO {
              PreparedStatement ps = conn.prepareStatement(sql)) {
             ps.setDate(1, Date.valueOf(from));
             ps.setDate(2, Date.valueOf(to));
-            try (ResultSet rs = ps.executeQuery()) {
-                while (rs.next()) {
+            try (ResultSet resultSet = ps.executeQuery()) {
+                while (resultSet.next()) {
                     rows.add(new ResumenRow(
-                        rs.getString("clave"),
-                        rs.getString("descripcion"),
-                        rs.getDouble("total"),
-                        rs.getDouble("descuento"),
-                        rs.getDouble("neto"),
-                        rs.getDouble("porcentaje")
+                        resultSet.getString("clave"),
+                        resultSet.getString("descripcion"),
+                        resultSet.getDouble("total"),
+                        resultSet.getDouble("descuento"),
+                        resultSet.getDouble("neto"),
+                        resultSet.getDouble("porcentaje"),
+                        resultSet.getDouble("costoOm"),
+                        resultSet.getDouble("utilPct")
                     ));
                 }
             }

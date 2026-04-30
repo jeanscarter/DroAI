@@ -28,12 +28,13 @@ public class MatrizVentasDAO {
                 ISNULL(f.porc_desc_glob, 0) AS descPctGlobal,
                 ((r.prec_vta * r.total_art) * (1 - (ISNULL(f.porc_desc_glob, 0) / 100.0))) AS renglonDg,
                 r.monto_imp AS montoIva,
+                r.porc_imp AS ivaPct,
                 ((r.prec_vta * r.total_art) + r.monto_imp) AS totRenglonIva,
-                0 AS costoVenta,
-                0 AS totalCostoVenta,
+                r.cost_vta AS costoVenta,
+                (r.cost_vta * r.total_art) AS totalCostoVenta,
                 0 AS totCvDp,
-                ((r.prec_vta * r.total_art) - (0)) AS montoUtilidad,
-                100 AS utilPct,
+                ((r.prec_vta * r.total_art) - (r.cost_vta * r.total_art)) AS montoUtilidad,
+                0 AS utilPct,
                 0 AS costoActual,
                 ISNULL(sa.stock, 0) AS stockActual,
                 a.co_lin AS codLinea,
@@ -90,6 +91,7 @@ public class MatrizVentasDAO {
                     row.setDescPctGlobal(getSafeDouble(rs, "descPctGlobal", docNum));
                     row.setRenglonDg(getSafeDouble(rs, "renglonDg", docNum));
                     row.setMontoIva(getSafeDouble(rs, "montoIva", docNum));
+                    row.setIvaPct(getSafeDouble(rs, "ivaPct", docNum));
                     row.setTotRenglonIva(getSafeDouble(rs, "totRenglonIva", docNum));
                     row.setCostoVenta(getSafeDouble(rs, "costoVenta", docNum));
                     row.setTotalCostoVenta(getSafeDouble(rs, "totalCostoVenta", docNum));

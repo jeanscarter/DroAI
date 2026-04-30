@@ -46,6 +46,10 @@ public class DataTabbedPane extends JTabbedPane {
         return catalogoModel;
     }
 
+    public JTable getCatalogoTable() {
+        return tblCatalogo;
+    }
+
     public ResumenTableModel getSimuladorModel() {
         return simuladorModel;
     }

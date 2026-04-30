@@ -11,17 +11,22 @@ public class ResumenRow {
     private double descuento;
     private double neto;
     private double porcentaje;
+    private double costoOm;
+    private double utilPct;
 
     public ResumenRow() {}
 
     public ResumenRow(String clave, String descripcion, double total,
-                      double descuento, double neto, double porcentaje) {
+                      double descuento, double neto, double porcentaje,
+                      double costoOm, double utilPct) {
         this.clave       = clave;
         this.descripcion = descripcion;
         this.total       = total;
         this.descuento   = descuento;
         this.neto        = neto;
         this.porcentaje  = porcentaje;
+        this.costoOm     = costoOm;
+        this.utilPct     = utilPct;
     }
 
     public String getClave()          { return clave; }
@@ -41,4 +46,10 @@ public class ResumenRow {
 
     public double getPorcentaje()          { return porcentaje; }
     public void setPorcentaje(double v)    { this.porcentaje = v; }
+    
+    public double getCostoOm()             { return costoOm; }
+    public void setCostoOm(double v)       { this.costoOm = v; }
+    
+    public double getUtilPct()             { return utilPct; }
+    public void setUtilPct(double v)       { this.utilPct = v; }
 }

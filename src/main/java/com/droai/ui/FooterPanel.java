@@ -22,6 +22,7 @@ public class FooterPanel extends JPanel {
     private final JButton btnExportar, btnFichaProducto, btnDescuentos;
 
     private Runnable onExportar;
+    private Runnable onFichaProducto;
     private Consumer<String> onColumna3Changed;
 
     public FooterPanel() {
@@ -41,6 +42,7 @@ public class FooterPanel extends JPanel {
 
         // Ficha Producto
         btnFichaProducto = accentButton("📋 Ficha Producto");
+        btnFichaProducto.addActionListener(e -> { if (onFichaProducto != null) onFichaProducto.run(); });
         add(btnFichaProducto);
 
         // Descuentos
@@ -105,6 +107,7 @@ public class FooterPanel extends JPanel {
     }
 
     public void setOnExportar(Runnable cb) { this.onExportar = cb; }
+    public void setOnFichaProducto(Runnable cb) { this.onFichaProducto = cb; }
 
     public void setOnColumna3Changed(Consumer<String> cb) { this.onColumna3Changed = cb; }
 
