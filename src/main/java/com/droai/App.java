@@ -1,5 +1,7 @@
 package com.droai;
 
+import com.droai.model.SesionUsuario;
+import com.droai.ui.dialog.LoginAuditoriaDialog;
 import com.formdev.flatlaf.FlatDarkLaf;
 import com.formdev.flatlaf.FlatLaf;
 
@@ -10,8 +12,7 @@ import java.util.Map;
 
 public class App {
     public static void main(String[] args) {
-        // com.droai.SchemaChecker.main(args);
-
+        // ── Paleta DroAI Dark ──
         Map<String, String> darkPalette = new HashMap<>();
         darkPalette.put("@background", "#11151C");
         darkPalette.put("@control", "#1E232E");
@@ -35,6 +36,26 @@ public class App {
         UIManager.put("Table.rowHeight", 30);
 
         SwingUtilities.invokeLater(() -> {
+            // ═══════════════════════════════════════════════════════
+            //  PASO 1: Mostrar Login ANTES de la ventana principal
+            // ═══════════════════════════════════════════════════════
+            LoginAuditoriaDialog loginDialog = new LoginAuditoriaDialog(null);
+            loginDialog.setVisible(true); // Modal — bloquea hasta cerrar
+
+            // Si no se autenticó (cerró el diálogo sin login), salir de la app
+            if (!SesionUsuario.isAutenticado()) {
+                System.out.println("[DroAI] Login cancelado. Cerrando aplicación.");
+                System.exit(0);
+                return;
+            }
+
+            // ═══════════════════════════════════════════════════════
+            //  PASO 2: Login exitoso → Abrir ventana principal
+            // ═══════════════════════════════════════════════════════
+            System.out.println("[DroAI] ✔ Acceso autorizado: "
+                    + SesionUsuario.current().getCoUsuario()
+                    + " (" + SesionUsuario.current().getNombreUsuario() + ")");
+
             com.droai.ui.MainFrame frame = new com.droai.ui.MainFrame();
             frame.setVisible(true);
         });

@@ -15,6 +15,7 @@ public class DataTabbedPane extends JTabbedPane {
     private final JTable tblSimulador;
     private final JTable tblDctoVolumen;
     private final JTable tblDctoProducto;
+    private final ImportarPanel importarPanel;
 
     private final CatalogoTableModel catalogoModel;
     private final ResumenTableModel simuladorModel;
@@ -40,6 +41,9 @@ public class DataTabbedPane extends JTabbedPane {
         dctoProductoModel = new ResumenTableModel();
         tblDctoProducto = createStyledTable(dctoProductoModel);
         addTab("  Descuento x Producto  ", wrapTable(tblDctoProducto));
+
+        importarPanel = new ImportarPanel();
+        addTab("  Importar Datos  ", importarPanel);
     }
 
     public CatalogoTableModel getCatalogoModel() {
