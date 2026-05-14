@@ -2,53 +2,20 @@ target/
 !.mvn/wrapper/maven-wrapper.jar
 !**/src/main/**/target/
 !**/src/test/**/target/
-### STS ###
-.apt_generated
-.classpath
-.factorypath
-.project
-.settings
-.springBeans
-.sts4-cache
 
 ### IntelliJ IDEA ###
-.idea
+.idea/modules.xml
+.idea/jarRepositories.xml
+.idea/compiler.xml
+.idea/libraries/
 *.iws
 *.iml
-*.ipr
+*.tasks
 
-### NetBeans ###
-/nbproject/private/
-/nbbuild/
-/dist/
-/nbdist/
-/.nb-gradle/
-build/
-!**/src/main/**/build/
-!**/src/test/**/build/
+### Mac OS ###
+.DS_Store
 
-### VS Code ###
-.vscode/
-
-### Custom Secrets ###
-db.properties
-db_schema.txt
-output.txt
-tables.txt
-db_output.txt
-artic_cols.txt
-article_columns_v2.txt
-article_columns.txt
-clean_cols.txt
-col_check.txt
-saArticulo_clean.txt
-saArticulo_cols.txt
-saArticulo_debug.txt
-schema_check_results.txt
-schema_deep_dive.txt
-schema_output.txt
-sleuth_results.txt
-
-### Generated Reports ###
-*.xlsx
-~$*.xlsx
+### Others ###
+*.log
+scratch/
+**/scratch/
