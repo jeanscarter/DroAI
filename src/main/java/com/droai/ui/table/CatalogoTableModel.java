@@ -10,20 +10,48 @@ import java.util.stream.Collectors;
 
 /**
  * TableModel para el Catálogo de Productos.
- * Muestra exactamente 12 columnas en la UI.
+ * Muestra columnas dinámicas en la UI con soporte para mostrar/ocultar
+ * la columna "Existencia" mediante el checkbox "Ver existencia".
  * El modelo subyacente almacena todos los datos para la exportación.
  */
 public class CatalogoTableModel extends AbstractTableModel {
 
-    private static final String[] COLUMNS = {
-            "Codigo", "Descripcion", "Marca", "Existencia", "UdM", "Costo Fabrica",
-            "Arancel%", "Costo OM", "Util %", "Precio1", "%IVA", "Precio C/IVA"
+    /** Definición de todas las columnas posibles con su clave interna. */
+    private static final String[][] ALL_COLUMNS = {
+            {"Codigo", "codigo"},
+            {"Descripcion", "descripcion"},
+            {"Marca", "marca"},               // columna dinámica (idx 2)
+            {"Existencia", "existencia"},      // togglable (idx 3)
+            {"UdM", "udm"},
+            {"Costo Fabrica", "costoFabrica"},
+            {"Arancel%", "arancelPct"},
+            {"Costo OM", "costoOm"},
+            {"Util %", "utilPct"},
+            {"Precio1", "precio1"},
+            {"%IVA", "ivaPct"},
+            {"Precio C/IVA", "precioCiva"}
     };
 
     private List<ArticuloRow> allData = new ArrayList<>();
     private List<ArticuloRow> filteredData = new ArrayList<>();
     private String filterText = "";
     private String columnaDinamicaActual = "Marca";
+    private boolean showExistencia = true;
+
+    /** Índices de columnas activas basados en la visibilidad. */
+    private List<Integer> visibleColumns = new ArrayList<>();
+
+    public CatalogoTableModel() {
+        rebuildVisibleColumns();
+    }
+
+    private void rebuildVisibleColumns() {
+        visibleColumns.clear();
+        for (int i = 0; i < ALL_COLUMNS.length; i++) {
+            if (i == 3 && !showExistencia) continue; // "Existencia"
+            visibleColumns.add(i);
+        }
+    }
 
     @Override
     public int getRowCount() {
@@ -32,19 +60,21 @@ public class CatalogoTableModel extends AbstractTableModel {
 
     @Override
     public int getColumnCount() {
-        return COLUMNS.length;
+        return visibleColumns.size();
     }
 
     @Override
-    public String getColumnName(int col) {
-        if (col == 2) return columnaDinamicaActual;
-        return COLUMNS[col];
+    public String getColumnName(int viewCol) {
+        int realCol = visibleColumns.get(viewCol);
+        if (realCol == 2) return columnaDinamicaActual; // columna dinámica
+        return ALL_COLUMNS[realCol][0];
     }
 
     @Override
-    public Class<?> getColumnClass(int col) {
-        return switch (col) {
-            case 0, 1, 2, 4 -> String.class;
+    public Class<?> getColumnClass(int viewCol) {
+        int realCol = visibleColumns.get(viewCol);
+        return switch (realCol) {
+            case 0, 1, 2, 4 -> String.class; // Codigo, Descripcion, Dinamica, UdM
             default -> Double.class;
         };
     }
@@ -55,9 +85,11 @@ public class CatalogoTableModel extends AbstractTableModel {
     }
 
     @Override
-    public Object getValueAt(int row, int col) {
+    public Object getValueAt(int row, int viewCol) {
         ArticuloRow r = filteredData.get(row);
-        if (col == 2) {
+        int realCol = visibleColumns.get(viewCol);
+
+        if (realCol == 2) {
             return switch (columnaDinamicaActual) {
                 case "Referencia" -> r.getReferencia();
                 case "Codigo de Barra" -> r.getCodigoBarra();
@@ -69,7 +101,8 @@ public class CatalogoTableModel extends AbstractTableModel {
                 default -> r.getMarca();
             };
         }
-        return switch (col) {
+
+        return switch (realCol) {
             case 0  -> r.getCodigo();
             case 1  -> r.getDescripcion();
             case 3  -> r.getExistencia();
@@ -84,6 +117,18 @@ public class CatalogoTableModel extends AbstractTableModel {
             default -> null;
         };
     }
+
+    // ========== Visibilidad de columnas ==========
+
+    public void setShowExistencia(boolean show) {
+        if (this.showExistencia != show) {
+            this.showExistencia = show;
+            rebuildVisibleColumns();
+            fireTableStructureChanged();
+        }
+    }
+
+    // ========== Data management ==========
 
     public void setData(List<ArticuloRow> data) {
         this.allData = new ArrayList<>(data);
@@ -147,6 +192,7 @@ public class CatalogoTableModel extends AbstractTableModel {
                     .filter(r -> matches(r.getCodigo())
                             || matches(r.getDescripcion())
                             || matches(r.getMarca())
+                            || matches(r.getCodigoBarra())
                             || matches(r.getCodLinea()))
                     .collect(Collectors.toList());
         }

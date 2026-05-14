@@ -19,3 +19,7 @@ target/
 *.log
 scratch/
 **/scratch/
+db.properties
+.vscode/
+*.xlsx
+output.txt

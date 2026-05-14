@@ -30,9 +30,13 @@ public class CatalogoService {
 
     private void calcularCamposDerivados(List<ArticuloRow> filas) {
         for (ArticuloRow a : filas) {
-            // Util % = ((precio1 - costoOm) / costoOm) * 100  (si costoOm > 0)
-            if (a.getCostoOm() > 0) {
-                a.setUtilPct(((a.getPrecio1() - a.getCostoOm()) / a.getCostoOm()) * 100.0);
+            // Base de costo: usar costoActual si está disponible, sino costoOm
+            double costo = (a.getCostoActual() > 0) ? a.getCostoActual() : a.getCostoOm();
+
+            // Utilidad Financiera (margen sobre precio de venta):
+            // ((PrecioS/IVA - Costo) / PrecioS/IVA) * 100
+            if (a.getPrecio1() > 0) {
+                a.setUtilPct(((a.getPrecio1() - costo) / a.getPrecio1()) * 100.0);
             } else {
                 a.setUtilPct(0);
             }

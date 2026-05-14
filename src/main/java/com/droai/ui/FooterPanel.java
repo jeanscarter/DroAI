@@ -24,6 +24,7 @@ public class FooterPanel extends JPanel {
     private Runnable onExportar;
     private Runnable onFichaProducto;
     private Consumer<String> onColumna3Changed;
+    private Consumer<Boolean> onVerExistenciaChanged;
 
     public FooterPanel() {
         setLayout(new MigLayout(
@@ -84,6 +85,11 @@ public class FooterPanel extends JPanel {
         chkActualizar    = styledCheck("Actualizar Todos", false);
         chkCostoFabrica  = styledCheck("Usar Costo de Fabrica", false);
         chkVerExistencia = styledCheck("Ver existencia", true);
+        chkVerExistencia.addItemListener(e -> {
+            if (onVerExistenciaChanged != null) {
+                onVerExistenciaChanged.accept(chkVerExistencia.isSelected());
+            }
+        });
         add(chkActualizar);
         add(chkCostoFabrica);
         add(chkVerExistencia);
@@ -110,6 +116,7 @@ public class FooterPanel extends JPanel {
     public void setOnFichaProducto(Runnable cb) { this.onFichaProducto = cb; }
 
     public void setOnColumna3Changed(Consumer<String> cb) { this.onColumna3Changed = cb; }
+    public void setOnVerExistenciaChanged(Consumer<Boolean> cb) { this.onVerExistenciaChanged = cb; }
 
     public double getTasa() {
         try { return Double.parseDouble(txtTasa.getText().trim()); }

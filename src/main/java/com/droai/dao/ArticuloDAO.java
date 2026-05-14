@@ -11,6 +11,15 @@ import java.util.List;
  * DAO para obtener el catálogo maestro de productos desde saArticulo (Profit
  * Plus).
  * "Marca" se mapea al proveedor principal (prov_des).
+ *
+ * <p><b>Fix duplicados:</b> La tabla {@code saImpuestoSobreVentaReng} almacena
+ * un historial de tasas de IVA con múltiples filas por {@code tipo_imp} y
+ * {@code reng_num}, diferenciadas por {@code fecha}. Se selecciona ÚNICAMENTE
+ * la fila con la fecha más reciente por {@code tipo_imp} usando ROW_NUMBER().
+ *
+ * <p><b>Fix costo:</b> El campo {@code prec_om} en saArticulo no contiene el
+ * costo real del producto. El costo actual se obtiene de
+ * {@code saCostoHistoricoEntrada} con el registro más reciente.
  */
 public class ArticuloDAO {
 
@@ -23,12 +32,14 @@ public class ArticuloDAO {
                 ISNULL(u.co_uni, '')    AS udm,
                 0                       AS costoFabrica,
                 ISNULL(a.porc_arancel, 0) AS arancelPct,
+                ISNULL(ce.costo, 0)       AS costoActual,
+                ISNULL(ce.costo_pro, 0)   AS costoPromedio,
                 ISNULL(a.prec_om, 0)    AS costoOm,
                 ISNULL(p1.monto, 0)     AS precio1,
                 ISNULL(p2.monto, 0)     AS precio2,
                 ISNULL(p3.monto, 0)     AS precio3,
                 ISNULL(p4.monto, 0)     AS precio4,
-                ISNULL(i.porc, 0)       AS ivaPct,
+                ISNULL(i.porc_tasa, 0)  AS ivaPct,
                 ISNULL(a.co_lin, '')    AS codLinea,
                 ISNULL(l.lin_des, '')   AS linea,
                 ISNULL(a.co_subl, '')   AS codSub,
@@ -62,9 +73,13 @@ public class ArticuloDAO {
             LEFT JOIN saSubLinea sl
                 ON a.co_subl = sl.co_subl
             LEFT JOIN (
-                SELECT tipo_imp, MAX(porc_tasa) AS porc
-                FROM saImpuestoSobreVentaReng
-                GROUP BY tipo_imp
+                SELECT tipo_imp, porc_tasa
+                FROM (
+                    SELECT tipo_imp, porc_tasa,
+                           ROW_NUMBER() OVER (PARTITION BY tipo_imp ORDER BY fecha DESC) AS rn
+                    FROM saImpuestoSobreVentaReng
+                ) ranked
+                WHERE rn = 1
             ) i ON a.tipo_imp = i.tipo_imp
             LEFT JOIN (
                 SELECT co_art, SUM(stock) AS totalStock
@@ -81,6 +96,16 @@ public class ArticuloDAO {
                 ON a.co_art = p3.co_art
             LEFT JOIN (SELECT co_art, MAX(monto) AS monto FROM saArtPrecio WHERE co_precio = '05' GROUP BY co_art) p4
                 ON a.co_art = p4.co_art
+            LEFT JOIN (
+                SELECT cod_articulo_rowguid, costo, costo_pro
+                FROM (
+                    SELECT cod_articulo_rowguid, costo, costo_pro,
+                           ROW_NUMBER() OVER (PARTITION BY cod_articulo_rowguid ORDER BY fecha_emision DESC) AS rn
+                    FROM saCostoHistoricoEntrada
+                    WHERE costo > 0
+                ) ranked
+                WHERE rn = 1
+            ) ce ON a.rowguid = ce.cod_articulo_rowguid
             ORDER BY a.co_art
             """;
 
@@ -101,6 +126,8 @@ public class ArticuloDAO {
                 row.setUdm(rs.getString("udm"));
                 row.setCostoFabrica(getSafeDouble(rs, "costoFabrica", codigo));
                 row.setArancelPct(getSafeDouble(rs, "arancelPct", codigo));
+                row.setCostoActual(getSafeDouble(rs, "costoActual", codigo));
+                row.setCostoPromedio(getSafeDouble(rs, "costoPromedio", codigo));
                 row.setCostoOm(getSafeDouble(rs, "costoOm", codigo));
                 row.setPrecio1(getSafeDouble(rs, "precio1", codigo));
                 row.setPrecio2(getSafeDouble(rs, "precio2", codigo));

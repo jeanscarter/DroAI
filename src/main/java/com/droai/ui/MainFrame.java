@@ -71,6 +71,10 @@ public class MainFrame extends JFrame {
             dataTabs.getCatalogoModel().ordenarPor(columna);
         });
 
+        footer.setOnVerExistenciaChanged(show -> {
+            dataTabs.getCatalogoModel().setShowExistencia(show);
+        });
+
         root.add(dataTabs, "grow");
         root.add(footer, "growx");
 
