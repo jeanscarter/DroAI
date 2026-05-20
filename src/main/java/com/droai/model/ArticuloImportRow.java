@@ -6,6 +6,20 @@ package com.droai.model;
  *
  * <p>Los campos se mapean dinámicamente según la configuración de la hoja
  * "Config" del archivo de importación.
+ *
+ * <p><b>Mapeo Excel → saArticulo (Profit Plus):</b>
+ * <ul>
+ *   <li>{@code codigo}   → {@code co_art}</li>
+ *   <li>{@code descri}   → {@code art_des}</li>
+ *   <li>{@code ref}      → {@code ref}</li>
+ *   <li>{@code marca}    → {@code campo4}</li>
+ *   <li>{@code grupo}    → {@code co_lin} (línea de artículo)</li>
+ *   <li>{@code sgrupo}   → {@code co_subl} (sublínea)</li>
+ *   <li>{@code cat}      → {@code co_cat} (categoría)</li>
+ *   <li>{@code co_color} → {@code co_color}</li>
+ *   <li>{@code co_prov}  → informativo / campo auxiliar</li>
+ *   <li>{@code unidad}   → informativo</li>
+ * </ul>
  */
 public class ArticuloImportRow {
 
@@ -15,6 +29,16 @@ public class ArticuloImportRow {
     private String marca;
     private double impuesto;       // pimp: tasa de impuesto (ej. 16 → tipo_imp='1')
     private String referencia;
+
+    // ── Catálogos Profit Plus ──
+    private String grupo;          // co_lin (línea de artículo)
+    private String sgrupo;         // co_subl (sublínea)
+    private String cat;            // co_cat (categoría de artículo)
+    private String coColor;        // co_color
+    private String coProv;         // co_prov (proveedor, informativo)
+    private String unidad;         // unidad (informativo)
+
+    // ── Campos libres ──
     private String campo1;
     private String campo2;
     private String campo3;
@@ -47,6 +71,24 @@ public class ArticuloImportRow {
     public String getReferencia() { return referencia; }
     public void setReferencia(String referencia) { this.referencia = referencia; }
 
+    public String getGrupo() { return grupo; }
+    public void setGrupo(String grupo) { this.grupo = grupo; }
+
+    public String getSgrupo() { return sgrupo; }
+    public void setSgrupo(String sgrupo) { this.sgrupo = sgrupo; }
+
+    public String getCat() { return cat; }
+    public void setCat(String cat) { this.cat = cat; }
+
+    public String getCoColor() { return coColor; }
+    public void setCoColor(String coColor) { this.coColor = coColor; }
+
+    public String getCoProv() { return coProv; }
+    public void setCoProv(String coProv) { this.coProv = coProv; }
+
+    public String getUnidad() { return unidad; }
+    public void setUnidad(String unidad) { this.unidad = unidad; }
+
     public String getCampo1() { return campo1; }
     public void setCampo1(String campo1) { this.campo1 = campo1; }
 
@@ -74,5 +116,27 @@ public class ArticuloImportRow {
      */
     public String getTipoImpCalculado() {
         return impuesto == 16.0 ? "1" : "7";
+    }
+
+    /**
+     * Obtiene el tipo de artículo validado para Profit Plus.
+     * <p>CHECK constraint: {@code tipo IN ('V','F','C','S','M','N','E')}
+     * <p>Valores conocidos:
+     * <ul>
+     *   <li><b>V</b> = Venta (99.97% de los artículos)</li>
+     *   <li><b>S</b> = Servicio</li>
+     *   <li><b>F</b> = Fabricado, <b>C</b> = Compuesto, <b>M</b> = Materia prima</li>
+     *   <li><b>N</b> = No inventariable, <b>E</b> = Ensamblado</li>
+     * </ul>
+     * Si no se especifica o no es válido, retorna 'V' como default seguro.
+     */
+    public String getTipoValidado() {
+        if (tipo != null && !tipo.isBlank()) {
+            String t = tipo.trim().toUpperCase();
+            if (t.length() == 1 && "VFCSMNE".contains(t)) {
+                return t;
+            }
+        }
+        return "V"; // Default: artículo de Venta
     }
 }

@@ -307,6 +307,16 @@ public class ImportadorService {
         r.setDescripcion(getField(raw, config, "descri"));
         r.setMarca(getField(raw, config, "marca"));
         r.setReferencia(getField(raw, config, "ref"));
+
+        // ── Catálogos Profit Plus ──
+        r.setGrupo(getField(raw, config, "grupo"));       // co_lin
+        r.setSgrupo(getField(raw, config, "sgrupo"));     // co_subl
+        r.setCat(getField(raw, config, "cat"));            // co_cat
+        r.setCoColor(getField(raw, config, "co_color"));   // co_color
+        r.setCoProv(getField(raw, config, "co_prov"));     // proveedor
+        r.setUnidad(getField(raw, config, "unidad"));      // unidad (informativo)
+
+        // ── Campos libres ──
         r.setCampo1(getField(raw, config, "campo1"));
         r.setCampo2(getField(raw, config, "campo2"));
         r.setCampo3(getField(raw, config, "campo3"));
@@ -327,7 +337,11 @@ public class ImportadorService {
     private String getField(String[] raw, ImportConfig config, String fieldName) {
         int idx = config.getColumnIndex(fieldName);
         if (idx >= 0 && idx < raw.length && raw[idx] != null) {
-            return raw[idx].trim();
+            String val = raw[idx].trim();
+            if (val.startsWith("'")) {
+                val = val.substring(1).trim();
+            }
+            return val;
         }
         return null;
     }

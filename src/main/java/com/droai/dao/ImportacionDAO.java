@@ -22,34 +22,72 @@ import java.util.Set;
  *   <li><b>INSERT</b> → {@code co_us_in = usuario}, {@code fe_us_in = GETDATE()}</li>
  * </ul>
  *
- * <p><b>Validación previa:</b> Método {@link #validarCatalogos(List)} verifica
- * que las dependencias (línea, sublínea, unidad, proveedor) existan antes de procesar.
+ * <p><b>Constraints respetadas:</b>
+ * <ul>
+ *   <li>{@code CK_saArticulo_Tipo_Articulo}: tipo IN ('V','F','C','S','M','N','E')</li>
+ *   <li>{@code CK_saArticulo_Tipo_Impuesto}: tipo_imp IN ('1'..'9')</li>
+ *   <li>{@code CK_saArticulo_margen}: margen_min &lt;= margen_max, margen_min &gt;= 0</li>
+ *   <li>{@code CK_saArticulo_Stock}: stock_min &lt;= stock_max</li>
+ *   <li>{@code CK_saArticulo_relac_unidad}: relac_unidad IN (0, 1)</li>
+ *   <li>FKs a: saSubLinea(co_lin, co_subl), saCatArticulo(co_cat), saColor(co_color), saUbicacion(co_ubicacion)</li>
+ * </ul>
+ *
+ * <p><b>Validación FK en runtime:</b> Antes de insertar, se cargan todos los valores
+ * válidos de cada catálogo FK. Si un valor del Excel no existe en el catálogo,
+ * se sustituye automáticamente por el default seguro ('000001').
  */
 public class ImportacionDAO {
+
+    // ── Defaults seguros para catálogos FK (siempre existen en Profit Plus) ──
+    private static final String DEFAULT_CO_LIN       = "000001";
+    private static final String DEFAULT_CO_SUBL      = "000001";
+    private static final String DEFAULT_CO_CAT       = "000001";
+    private static final String DEFAULT_CO_COLOR     = "000001";
+    private static final String DEFAULT_CO_UBICACION = "00001";
 
     // ── SQL: UPDATE artículo existente ──
     private static final String SQL_UPDATE = """
             UPDATE saArticulo
-            SET tipo_imp  = ?,
-                campo4    = ?,
-                co_us_mo  = ?,
-                fe_us_mo  = GETDATE()
+            SET tipo_imp     = ?,
+                campo4       = ?,
+                art_des      = ?,
+                ref          = ?,
+                co_lin       = CASE WHEN ? <> '' THEN ? ELSE co_lin END,
+                co_subl      = CASE WHEN ? <> '' THEN ? ELSE co_subl END,
+                co_cat       = CASE WHEN ? <> '' THEN ? ELSE co_cat END,
+                co_color     = CASE WHEN ? <> '' THEN ? ELSE co_color END,
+                co_us_mo     = ?,
+                fe_us_mo     = GETDATE()
             WHERE co_art = ?
             """;
 
-    // ── SQL: INSERT artículo nuevo con campos obligatorios de Profit Plus ──
+    // ── SQL: INSERT artículo nuevo ──
+    // Incluye TODAS las columnas NOT NULL de saArticulo
+    // Columnas autogeneradas: validador (timestamp), rowguid (DEFAULT newid())
     private static final String SQL_INSERT = """
             INSERT INTO saArticulo (
-                co_art, art_des, tipo_imp, campo4, ref,
-                co_lin, co_subl, tipo, co_ubicacion,
-                campo1, campo2, campo3, campo5, campo6,
+                co_art, art_des, tipo, tipo_imp, ref,
+                co_lin, co_subl, co_cat, co_color, co_ubicacion,
+                campo1, campo2, campo3, campo4, campo5, campo6,
                 co_us_in, fe_us_in, co_us_mo, fe_us_mo,
-                anulado, destaca
+                anulado, destaca, generico, fecha_reg,
+                maneja_serial, maneja_lote, maneja_lote_venc,
+                margen_min, margen_max, garantia, volumen, peso,
+                stock_min, stock_max, stock_pedido, relac_unidad,
+                punt_ven, punt_cli, lic_mon_ilc, lic_capacidad,
+                lic_grado_al, prec_om, mont_comi, porc_arancel,
+                porc_margen_minimo, porc_margen_maximo
             ) VALUES (
                 ?, ?, ?, ?, ?,
-                ?, ?, ?, ?,
                 ?, ?, ?, ?, ?,
+                ?, ?, ?, ?, ?, ?,
                 ?, GETDATE(), ?, GETDATE(),
+                0, 0, 0, GETDATE(),
+                0, 0, 0,
+                0, 0, 'n/a', 0, 0,
+                0, 0, 0, 0,
+                0, 0, 0, 0,
+                0, 0, 0, 0,
                 0, 0
             )
             """;
@@ -58,9 +96,6 @@ public class ImportacionDAO {
     private static final String SQL_EXISTS = """
             SELECT co_art FROM saArticulo WHERE co_art = ?
             """;
-
-    // ── SQL: Verificar catálogos dependientes ──
-    // Catálogos dependientes (para futura implementación)
 
     /**
      * Resultado de validación previa.
@@ -80,6 +115,69 @@ public class ImportacionDAO {
             int insertados,
             int omitidos
     ) {}
+
+    // ═══════════════════════════════════════════════════════════════
+    //  Carga de catálogos FK válidos
+    // ═══════════════════════════════════════════════════════════════
+
+    /**
+     * Carga todos los valores válidos de una columna de catálogo en un Set.
+     * Los valores se normalizan con trim() para comparación segura.
+     */
+    private Set<String> cargarCatalogo(Connection conn, String sql) throws SQLException {
+        Set<String> catalogo = new HashSet<>();
+        try (PreparedStatement ps = conn.prepareStatement(sql);
+             ResultSet rs = ps.executeQuery()) {
+            while (rs.next()) {
+                String val = rs.getString(1);
+                if (val != null) {
+                    catalogo.add(val.trim());
+                }
+            }
+        }
+        return catalogo;
+    }
+
+    /**
+     * Contiene los sets de valores válidos de los catálogos FK.
+     * Se carga una sola vez al inicio de cada lote para evitar
+     * consultas repetitivas por cada fila.
+     */
+    private record CatalogosFK(
+            Set<String> coloresValidos,
+            Set<String> categoriasValidas,
+            Set<String> lineasValidas,
+            Set<String> sublineasValidas
+    ) {}
+
+    /**
+     * Carga todos los catálogos FK necesarios para validar los INSERTs.
+     */
+    private CatalogosFK cargarCatalogosFK(Connection conn) throws SQLException {
+        return new CatalogosFK(
+                cargarCatalogo(conn, "SELECT co_color FROM saColor"),
+                cargarCatalogo(conn, "SELECT co_cat FROM saCatArticulo"),
+                cargarCatalogo(conn, "SELECT DISTINCT co_lin FROM saSubLinea"),
+                cargarCatalogo(conn, "SELECT co_subl FROM saSubLinea")
+        );
+    }
+
+    /**
+     * Valida un valor FK contra el catálogo. Si no existe, retorna el default.
+     *
+     * @param val      valor del Excel (ya limpio, sin comillas).
+     * @param catalogo set de valores válidos del catálogo.
+     * @param defVal   valor default seguro si no existe.
+     * @param maxLen   longitud máxima del campo.
+     * @return valor validado o default.
+     */
+    private String validarFK(String val, Set<String> catalogo, String defVal, int maxLen) {
+        String result = safe(val, maxLen);
+        if (result.isEmpty() || !catalogo.contains(result)) {
+            return defVal;
+        }
+        return result;
+    }
 
     // ═══════════════════════════════════════════════════════════════
     //  Validación previa: catálogos dependientes
@@ -129,7 +227,7 @@ public class ImportacionDAO {
                 errores.add("⚠ %d fila(s) sin código de artículo (serán omitidas).".formatted(vacios));
             }
 
-            // Si hay artículos nuevos, verificar catálogos dependientes de los nuevos
+            // Si hay artículos nuevos, notificar
             if (nuevos > 0) {
                 errores.add("ℹ %d artículo(s) NUEVO(S) serán insertados en saArticulo.".formatted(nuevos));
             }
@@ -151,6 +249,11 @@ public class ImportacionDAO {
      * Procesa un lote de artículos con lógica UPSERT.
      * Todo el lote se ejecuta en una sola transacción.
      *
+     * <p><b>Validación FK en runtime:</b> Antes de procesar, se cargan todos los
+     * valores válidos de saColor, saCatArticulo y saSubLinea. Si un valor del
+     * Excel no existe en el catálogo correspondiente, se sustituye por el default
+     * seguro ('000001') para evitar violaciones de Foreign Key.
+     *
      * @param lote lista de filas importadas.
      * @return resultado con conteo de actualizados, insertados y omitidos.
      * @throws SQLException si ocurre un error (con rollback automático).
@@ -168,6 +271,9 @@ public class ImportacionDAO {
 
         try (Connection conn = DatabaseConfig.getDataSource().getConnection()) {
             conn.setAutoCommit(false);
+
+            // ── Cargar catálogos FK válidos (una sola vez por lote) ──
+            CatalogosFK catalogos = cargarCatalogosFK(conn);
 
             try (PreparedStatement psExists = conn.prepareStatement(SQL_EXISTS);
                  PreparedStatement psUpdate = conn.prepareStatement(SQL_UPDATE);
@@ -189,32 +295,74 @@ public class ImportacionDAO {
                     }
                     psExists.clearParameters();
 
+                    // Validar FKs del Excel contra catálogos reales
+                    String coLin   = validarFK(row.getGrupo(),   catalogos.lineasValidas(),     DEFAULT_CO_LIN,   6);
+                    String coSubl  = validarFK(row.getSgrupo(),  catalogos.sublineasValidas(),  DEFAULT_CO_SUBL,  6);
+                    String coCat   = validarFK(row.getCat(),     catalogos.categoriasValidas(), DEFAULT_CO_CAT,   6);
+                    String coColor = validarFK(row.getCoColor(), catalogos.coloresValidos(),    DEFAULT_CO_COLOR, 6);
+
                     if (existe) {
                         // ── UPDATE ──
-                        psUpdate.setString(1, row.getTipoImpCalculado());
-                        psUpdate.setString(2, safe(row.getMarca()));
-                        psUpdate.setString(3, coUsuario);
-                        psUpdate.setString(4, codigo);
+                        int p = 1;
+                        psUpdate.setString(p++, safe(row.getTipoImpCalculado(), 1));   // tipo_imp
+                        psUpdate.setString(p++, safe(row.getMarca(), 60));              // campo4
+                        psUpdate.setString(p++, safe(row.getDescripcion(), 120));       // art_des
+                        psUpdate.setString(p++, safe(row.getReferencia(), 20));         // ref
+
+                        // co_lin: CASE WHEN ? <> '' THEN ? ELSE co_lin END
+                        // Para UPDATE, solo pasamos si el valor original tiene dato
+                        String coLinUpd = safe(row.getGrupo(), 6);
+                        String coLinVal = coLinUpd.isEmpty() ? "" : coLin; // validado o vacío para no cambiar
+                        psUpdate.setString(p++, coLinVal);
+                        psUpdate.setString(p++, coLinVal);
+
+                        String coSublUpd = safe(row.getSgrupo(), 6);
+                        String coSublVal = coSublUpd.isEmpty() ? "" : coSubl;
+                        psUpdate.setString(p++, coSublVal);
+                        psUpdate.setString(p++, coSublVal);
+
+                        String coCatUpd = safe(row.getCat(), 6);
+                        String coCatVal = coCatUpd.isEmpty() ? "" : coCat;
+                        psUpdate.setString(p++, coCatVal);
+                        psUpdate.setString(p++, coCatVal);
+
+                        String coColorUpd = safe(row.getCoColor(), 6);
+                        String coColorVal = coColorUpd.isEmpty() ? "" : coColor;
+                        psUpdate.setString(p++, coColorVal);
+                        psUpdate.setString(p++, coColorVal);
+
+                        psUpdate.setString(p++, safe(coUsuario, 6));                   // co_us_mo
+                        psUpdate.setString(p++, safe(codigo, 30));                     // WHERE co_art = ?
                         psUpdate.addBatch();
                         actualizados++;
                     } else {
                         // ── INSERT ──
-                        psInsert.setString(1, codigo);                         // co_art
-                        psInsert.setString(2, safe(row.getDescripcion()));      // art_des
-                        psInsert.setString(3, row.getTipoImpCalculado());      // tipo_imp
-                        psInsert.setString(4, safe(row.getMarca()));           // campo4
-                        psInsert.setString(5, safe(row.getReferencia()));      // ref
-                        psInsert.setString(6, "");                             // co_lin (default)
-                        psInsert.setString(7, "");                             // co_subl (default)
-                        psInsert.setString(8, safe(row.getTipo()));            // tipo
-                        psInsert.setString(9, "00001");                        // co_ubicacion (default)
-                        psInsert.setString(10, safe(row.getCampo1()));         // campo1
-                        psInsert.setString(11, safe(row.getCampo2()));         // campo2
-                        psInsert.setString(12, safe(row.getCampo3()));         // campo3
-                        psInsert.setString(13, safe(row.getCampo5()));         // campo5
-                        psInsert.setString(14, safe(row.getCampo6()));         // campo6
-                        psInsert.setString(15, coUsuario);                     // co_us_in
-                        psInsert.setString(16, coUsuario);                     // co_us_mo
+                        int p = 1;
+                        psInsert.setString(p++, safe(codigo, 30));                     // co_art
+                        psInsert.setString(p++, safe(row.getDescripcion(), 120));       // art_des
+                        psInsert.setString(p++, row.getTipoValidado());                // tipo (V/F/C/S/M/N/E)
+                        psInsert.setString(p++, safe(row.getTipoImpCalculado(), 1));    // tipo_imp
+                        psInsert.setString(p++, safe(row.getReferencia(), 20));         // ref
+
+                        // Catálogos: ya validados contra la BD
+                        psInsert.setString(p++, coLin);                                // co_lin
+                        psInsert.setString(p++, coSubl);                               // co_subl
+                        psInsert.setString(p++, coCat);                                // co_cat
+                        psInsert.setString(p++, coColor);                              // co_color
+                        psInsert.setString(p++, DEFAULT_CO_UBICACION);                 // co_ubicacion
+
+                        // Campos libres
+                        psInsert.setString(p++, safe(row.getCampo1(), 60));             // campo1
+                        psInsert.setString(p++, safe(row.getCampo2(), 60));             // campo2
+                        psInsert.setString(p++, safe(row.getCampo3(), 60));             // campo3
+                        psInsert.setString(p++, safe(row.getMarca(), 60));              // campo4 (marca)
+                        psInsert.setString(p++, safe(row.getCampo5(), 60));             // campo5
+                        psInsert.setString(p++, safe(row.getCampo6(), 60));             // campo6
+
+                        // Auditoría
+                        psInsert.setString(p++, safe(coUsuario, 6));                   // co_us_in
+                        psInsert.setString(p++, safe(coUsuario, 6));                   // co_us_mo
+
                         psInsert.addBatch();
                         insertados++;
                     }
@@ -248,7 +396,15 @@ public class ImportacionDAO {
         return r.actualizados() + r.insertados();
     }
 
-    private String safe(String val) {
-        return val != null ? val.trim() : "";
+    /**
+     * Trunca y limpia un valor de texto. Retorna cadena vacía si es null.
+     */
+    private String safe(String val, int maxLen) {
+        if (val == null) return "";
+        String trimmed = val.trim();
+        if (trimmed.length() > maxLen) {
+            return trimmed.substring(0, maxLen);
+        }
+        return trimmed;
     }
 }

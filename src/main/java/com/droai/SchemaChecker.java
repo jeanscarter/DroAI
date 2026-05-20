@@ -8,20 +8,21 @@ public class SchemaChecker {
         try (Connection conn = DatabaseConfig.getDataSource().getConnection()) {
             DatabaseMetaData metaData = conn.getMetaData();
 
-            System.out.println("--- Table: saImpuesto ---");
-            ResultSet rsImp = metaData.getColumns(null, null, "saImpuesto", null);
-            while (rsImp.next()) {
-                System.out.println("- " + rsImp.getString("COLUMN_NAME"));
-            }
-
-            System.out.println("\n--- Table: saImpuestoReng ---");
-            ResultSet rsImpR = metaData.getColumns(null, null, "saImpuestoReng", null);
-            while (rsImpR.next()) {
-                System.out.println("- " + rsImpR.getString("COLUMN_NAME"));
+            System.out.println("--- Table: saArticulo Columns Nullability ---");
+            try (ResultSet rs = metaData.getColumns(null, null, "saArticulo", null)) {
+                while (rs.next()) {
+                    String colName = rs.getString("COLUMN_NAME");
+                    String typeName = rs.getString("TYPE_NAME");
+                    int colSize = rs.getInt("COLUMN_SIZE");
+                    String isNullable = rs.getString("IS_NULLABLE");
+                    System.out.printf("%s: %s (%d) | Nullable: %s%n", colName, typeName, colSize, isNullable);
+                }
             }
 
         } catch (Exception e) {
             e.printStackTrace();
+        } finally {
+            System.exit(0);
         }
     }
 }
