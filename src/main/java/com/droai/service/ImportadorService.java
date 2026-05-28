@@ -116,8 +116,66 @@ public class ImportadorService {
             }
         }
 
+        // ── Auto-detección de columnas desde la fila de encabezados ──
+        // Sobreescribe los mapeos de Config si los headers reales no coinciden.
+        autoDetectFromHeaders(file, config);
+
         System.out.println("[ImportadorService] Config leída: " + config);
         return config;
+    }
+
+    /**
+     * Lee los encabezados reales de la hoja de datos y sobreescribe el mapeo
+     * de Config con las columnas correctas. Esto corrige desfases entre la
+     * hoja Config y la estructura real del Excel.
+     */
+    private void autoDetectFromHeaders(File file, ImportConfig config) {
+        try (FileInputStream fis = new FileInputStream(file);
+             Workbook wb = new XSSFWorkbook(fis)) {
+
+            Sheet dataSheet = wb.getSheet(config.getHojaInput());
+            if (dataSheet == null) return;
+
+            int headerRowIdx = Math.max(0, config.getFilaInicio() - 2);
+            Row headerRow = dataSheet.getRow(headerRowIdx);
+            if (headerRow == null) return;
+
+            // Mapeo: nombre de encabezado Excel (lowercase) → nombre de campo lógico
+            java.util.Map<String, String> headerToField = java.util.Map.ofEntries(
+                    java.util.Map.entry("codigo",      "codigo"),
+                    java.util.Map.entry("tipo",         "tipo"),
+                    java.util.Map.entry("descripcion",  "descri"),
+                    java.util.Map.entry("referencia",   "ref"),
+                    java.util.Map.entry("marca",        "marca"),
+                    java.util.Map.entry("color",        "co_color"),
+                    java.util.Map.entry("unidad",       "unidad"),
+                    java.util.Map.entry("grupo",        "grupo"),
+                    java.util.Map.entry("sgrupo",       "sgrupo"),
+                    java.util.Map.entry("categoria",    "cat"),
+                    java.util.Map.entry("proveedor",    "co_prov"),
+                    java.util.Map.entry("procede",      "procede"),
+                    java.util.Map.entry("ubicacion",    "ubic")
+            );
+
+            boolean detected = false;
+            for (int c = 0; c < headerRow.getLastCellNum(); c++) {
+                String header = getCellString(headerRow, c);
+                if (header == null || header.isBlank()) continue;
+                String normalized = header.trim().toLowerCase();
+                String fieldName = headerToField.get(normalized);
+                if (fieldName != null) {
+                    config.putColumn(fieldName, c);
+                    detected = true;
+                }
+            }
+
+            if (detected) {
+                System.out.println("[ImportadorService] Auto-detección de headers aplicada: " + config.getColumnMap());
+            }
+
+        } catch (IOException e) {
+            System.err.println("[ImportadorService] No se pudo auto-detectar headers: " + e.getMessage());
+        }
     }
 
     // ═══════════════════════════════════════════════════════════════
@@ -323,6 +381,9 @@ public class ImportadorService {
         r.setCampo4(getField(raw, config, "campo4"));
         r.setCampo5(getField(raw, config, "campo5"));
         r.setCampo6(getField(raw, config, "campo6"));
+
+        // ── Procedencia ──
+        r.setProcede(getField(raw, config, "procede"));
 
         String pimpStr = getField(raw, config, "pimp");
         if (pimpStr != null && !pimpStr.isBlank()) {

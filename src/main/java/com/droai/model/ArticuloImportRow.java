@@ -37,6 +37,7 @@ public class ArticuloImportRow {
     private String coColor;        // co_color
     private String coProv;         // co_prov (proveedor, informativo)
     private String unidad;         // unidad (informativo)
+    private String procede;        // cod_proc (procedencia: NAC, IMP, FIN)
 
     // ── Campos libres ──
     private String campo1;
@@ -88,6 +89,9 @@ public class ArticuloImportRow {
 
     public String getUnidad() { return unidad; }
     public void setUnidad(String unidad) { this.unidad = unidad; }
+
+    public String getProcede() { return procede; }
+    public void setProcede(String procede) { this.procede = procede; }
 
     public String getCampo1() { return campo1; }
     public void setCampo1(String campo1) { this.campo1 = campo1; }

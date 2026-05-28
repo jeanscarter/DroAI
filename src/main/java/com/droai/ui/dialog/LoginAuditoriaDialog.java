@@ -11,6 +11,9 @@ import java.awt.event.KeyAdapter;
 import java.awt.event.KeyEvent;
 import java.awt.geom.RoundRectangle2D;
 
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
 /**
  * Diálogo modal de autenticación contra Profit Plus (tabla {@code tusers}).
  *
@@ -26,6 +29,8 @@ import java.awt.geom.RoundRectangle2D;
  * <p>Diseño Raven-style con gradiente, bordes redondeados y feedback visual.
  */
 public class LoginAuditoriaDialog extends JDialog {
+
+    private static final Logger logger = LoggerFactory.getLogger(LoginAuditoriaDialog.class);
 
     // ── Paleta ──
     private static final Color BG_DARK        = new Color(17, 21, 28);
@@ -194,6 +199,7 @@ public class LoginAuditoriaDialog extends JDialog {
         new SwingWorker<Boolean, Void>() {
             @Override
             protected Boolean doInBackground() throws Exception {
+                logger.info("[Login] Intentando autenticar al usuario: {}", usuario);
                 return usuarioService.autenticar(usuario, password);
             }
 
@@ -205,21 +211,24 @@ public class LoginAuditoriaDialog extends JDialog {
                     if (ok) {
                         autenticado = true;
                         SesionUsuario s = SesionUsuario.current();
-                        lblEstado.setText("✔ Bienvenido, %s — %s (Nivel: %s)"
-                                .formatted(s.getNombreUsuario(), s.getCoUsuario(),
-                                        s.getNivelDescripcion()));
+                        String msgExito = "Bienvenido, %s — %s (Nivel: %s)".formatted(s.getNombreUsuario(), s.getCoUsuario(), s.getNivelDescripcion());
+                        logger.info("[Login] ✔ Éxito: {}", msgExito);
+                        lblEstado.setText("✔ " + msgExito);
                         lblEstado.setForeground(SUCCESS_GREEN);
 
                         Timer closeTimer = new Timer(1200, ev -> dispose());
                         closeTimer.setRepeats(false);
                         closeTimer.start();
                     }
-                } catch (Exception ex) {
+                    } catch (Exception ex) {
                     Throwable cause = ex.getCause();
                     if (cause instanceof AutenticacionException) {
+                        logger.warn("[Login] ✘ Fallo de autenticación para '{}': {}", usuario, cause.getMessage());
                         mostrarError(cause.getMessage());
                     } else {
-                        mostrarError("Error de conexión: " + (cause != null ? cause.getMessage() : ex.getMessage()));
+                        String errMsg = "Error de conexión: " + (cause != null ? cause.getMessage() : ex.getMessage());
+                        logger.error("[Login] ✘ Error técnico al autenticar '{}': {}", usuario, errMsg, ex);
+                        mostrarError(errMsg);
                     }
                     txtPassword.setText("");
                     txtPassword.requestFocusInWindow();
