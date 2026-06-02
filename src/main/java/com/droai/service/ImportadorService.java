@@ -19,12 +19,14 @@ import java.util.List;
  * Servicio para importación masiva de datos desde un archivo Excel
  * con estructura de configuración dinámica (hoja Config + hoja de datos).
  *
- * <p>Flujo completo:
+ * <p>
+ * Flujo completo:
  * <ol>
- *   <li>{@link #leerConfiguracion(File)} → Parse de hoja Config</li>
- *   <li>{@link #previsualizarDatos(File, ImportConfig, int)} → Preview en JTable</li>
- *   <li>{@link #validarEnMemoria(File)} → Validación de catálogos en BD</li>
- *   <li>{@link #procesarImportacion(File, ProgressCallback)} → UPSERT masivo</li>
+ * <li>{@link #leerConfiguracion(File)} → Parse de hoja Config</li>
+ * <li>{@link #previsualizarDatos(File, ImportConfig, int)} → Preview en
+ * JTable</li>
+ * <li>{@link #validarEnMemoria(File)} → Validación de catálogos en BD</li>
+ * <li>{@link #procesarImportacion(File, ProgressCallback)} → UPSERT masivo</li>
  * </ol>
  */
 public class ImportadorService {
@@ -38,14 +40,16 @@ public class ImportadorService {
     }
 
     // ═══════════════════════════════════════════════════════════════
-    //  1. Lectura de la Hoja Config
+    // 1. Lectura de la Hoja Config
     // ═══════════════════════════════════════════════════════════════
 
     /**
      * Lee la hoja "Config" del archivo Excel y construye un {@link ImportConfig}
      * con el nombre de hoja destino, rango de filas y mapeo de columnas.
      *
-     * <p>Estructura esperada de la hoja Config:
+     * <p>
+     * Estructura esperada de la hoja Config:
+     * 
      * <pre>
      *   Fila 1: Input | Hoja1
      *   Fila 2: fila inicio | 2 | 4541 | (SQL template)
@@ -56,7 +60,7 @@ public class ImportadorService {
         ImportConfig config = new ImportConfig();
 
         try (FileInputStream fis = new FileInputStream(file);
-             Workbook wb = new XSSFWorkbook(fis)) {
+                Workbook wb = new XSSFWorkbook(fis)) {
 
             Sheet configSheet = wb.getSheet("Config");
             if (configSheet == null) {
@@ -91,7 +95,8 @@ public class ImportadorService {
                 for (int c = 3; c <= row1.getLastCellNum(); c++) {
                     String val = getCellString(row1, c);
                     if (val != null && !val.isBlank()) {
-                        if (!sql.isEmpty()) sql.append(" ");
+                        if (!sql.isEmpty())
+                            sql.append(" ");
                         sql.append(val);
                     }
                 }
@@ -101,7 +106,8 @@ public class ImportadorService {
             // Filas 3+: mapeo de campos (nombre, letra_columna)
             for (int r = 2; r <= configSheet.getLastRowNum(); r++) {
                 Row mapRow = configSheet.getRow(r);
-                if (mapRow == null) continue;
+                if (mapRow == null)
+                    continue;
 
                 String fieldName = getCellString(mapRow, 0);
                 String colLetter = getCellString(mapRow, 1);
@@ -131,38 +137,39 @@ public class ImportadorService {
      */
     private void autoDetectFromHeaders(File file, ImportConfig config) {
         try (FileInputStream fis = new FileInputStream(file);
-             Workbook wb = new XSSFWorkbook(fis)) {
+                Workbook wb = new XSSFWorkbook(fis)) {
 
             Sheet dataSheet = wb.getSheet(config.getHojaInput());
-            if (dataSheet == null) return;
+            if (dataSheet == null)
+                return;
 
             int headerRowIdx = Math.max(0, config.getFilaInicio() - 2);
             Row headerRow = dataSheet.getRow(headerRowIdx);
-            if (headerRow == null) return;
+            if (headerRow == null)
+                return;
 
             // Mapeo: nombre de encabezado Excel (lowercase) → nombre de campo lógico
             java.util.Map<String, String> headerToField = java.util.Map.ofEntries(
-                    java.util.Map.entry("codigo",      "codigo"),
-                    java.util.Map.entry("tipo",         "tipo"),
-                    java.util.Map.entry("descripcion",  "descri"),
-                    java.util.Map.entry("referencia",   "ref"),
-                    java.util.Map.entry("marca",        "marca"),
-                    java.util.Map.entry("color",        "co_color"),
-                    java.util.Map.entry("unidad",       "unidad"),
-                    java.util.Map.entry("grupo",        "grupo"),
-                    java.util.Map.entry("sgrupo",       "sgrupo"),
-                    java.util.Map.entry("categoria",    "cat"),
-                    java.util.Map.entry("proveedor",    "co_prov"),
-                    java.util.Map.entry("procede",      "procede"),
-                    java.util.Map.entry("ubicacion",    "ubic"),
-                    java.util.Map.entry("stock",        "stock"),
-                    java.util.Map.entry("existencia",   "stock")
-            );
+                    java.util.Map.entry("codigo", "codigo"),
+                    java.util.Map.entry("tipo", "tipo"),
+                    java.util.Map.entry("descripcion", "descri"),
+                    java.util.Map.entry("referencia", "ref"),
+                    java.util.Map.entry("marca", "marca"),
+                    java.util.Map.entry("stock", "campo1"),
+                    java.util.Map.entry("color", "co_color"),
+                    java.util.Map.entry("unidad", "unidad"),
+                    java.util.Map.entry("grupo", "grupo"),
+                    java.util.Map.entry("sgrupo", "sgrupo"),
+                    java.util.Map.entry("categoria", "cat"),
+                    java.util.Map.entry("proveedor", "co_prov"),
+                    java.util.Map.entry("procede", "procede"),
+                    java.util.Map.entry("ubicacion", "ubic"));
 
             boolean detected = false;
             for (int c = 0; c < headerRow.getLastCellNum(); c++) {
                 String header = getCellString(headerRow, c);
-                if (header == null || header.isBlank()) continue;
+                if (header == null || header.isBlank())
+                    continue;
                 String normalized = header.trim().toLowerCase();
                 String fieldName = headerToField.get(normalized);
                 if (fieldName != null) {
@@ -181,7 +188,7 @@ public class ImportadorService {
     }
 
     // ═══════════════════════════════════════════════════════════════
-    //  2. Previsualización de Datos
+    // 2. Previsualización de Datos
     // ═══════════════════════════════════════════════════════════════
 
     /**
@@ -192,7 +199,7 @@ public class ImportadorService {
         String[] headers = null;
 
         try (FileInputStream fis = new FileInputStream(file);
-             Workbook wb = new XSSFWorkbook(fis)) {
+                Workbook wb = new XSSFWorkbook(fis)) {
 
             Sheet dataSheet = wb.getSheet(config.getHojaInput());
             if (dataSheet == null) {
@@ -206,7 +213,8 @@ public class ImportadorService {
                 headers = new String[maxCol];
                 for (int c = 0; c < maxCol; c++) {
                     headers[c] = getCellString(headerRow, c);
-                    if (headers[c] == null) headers[c] = "Col " + (c + 1);
+                    if (headers[c] == null)
+                        headers[c] = "Col " + (c + 1);
                 }
             }
 
@@ -218,7 +226,8 @@ public class ImportadorService {
 
             for (int r = startRow; r <= endRow && count < limit; r++) {
                 Row row = dataSheet.getRow(r);
-                if (row == null) continue;
+                if (row == null)
+                    continue;
 
                 ArticuloImportRow importRow = parseDataRow(row, config);
                 if (importRow.getCodigo() != null && !importRow.getCodigo().isBlank()) {
@@ -232,7 +241,7 @@ public class ImportadorService {
     }
 
     // ═══════════════════════════════════════════════════════════════
-    //  3. Validación en Memoria + BD
+    // 3. Validación en Memoria + BD
     // ═══════════════════════════════════════════════════════════════
 
     /**
@@ -248,7 +257,7 @@ public class ImportadorService {
     }
 
     // ═══════════════════════════════════════════════════════════════
-    //  4. Importación Masiva (UPSERT)
+    // 4. Importación Masiva (UPSERT)
     // ═══════════════════════════════════════════════════════════════
 
     @FunctionalInterface
@@ -267,17 +276,20 @@ public class ImportadorService {
         ImportConfig config = leerConfiguracion(file);
 
         // --- Fase 1: Lectura ---
-        if (callback != null) callback.onProgress(0, 0, "Leyendo archivo Excel...");
+        if (callback != null)
+            callback.onProgress(0, 0, "Leyendo archivo Excel...");
         List<ArticuloImportRow> allRows = leerTodasLasFilas(file, config);
 
         int total = allRows.size();
         if (total == 0) {
-            if (callback != null) callback.onProgress(0, 0, "No se encontraron filas válidas.");
+            if (callback != null)
+                callback.onProgress(0, 0, "No se encontraron filas válidas.");
             return 0;
         }
 
         // --- Fase 2: Validación ---
-        if (callback != null) callback.onProgress(0, total, "Validando catálogos dependientes...");
+        if (callback != null)
+            callback.onProgress(0, total, "Validando catálogos dependientes...");
         ValidationResult validation = dao.validarCatalogos(allRows);
 
         if (!validation.valid()) {
@@ -319,14 +331,14 @@ public class ImportadorService {
     }
 
     // ═══════════════════════════════════════════════════════════════
-    //  Helpers internos
+    // Helpers internos
     // ═══════════════════════════════════════════════════════════════
 
     private List<ArticuloImportRow> leerTodasLasFilas(File file, ImportConfig config) throws IOException {
         List<ArticuloImportRow> allRows = new ArrayList<>();
 
         try (FileInputStream fis = new FileInputStream(file);
-             Workbook wb = new XSSFWorkbook(fis)) {
+                Workbook wb = new XSSFWorkbook(fis)) {
 
             Sheet dataSheet = wb.getSheet(config.getHojaInput());
             if (dataSheet == null) {
@@ -340,7 +352,8 @@ public class ImportadorService {
 
             for (int r = startRow; r <= endRow; r++) {
                 Row row = dataSheet.getRow(r);
-                if (row == null) continue;
+                if (row == null)
+                    continue;
 
                 ArticuloImportRow importRow = parseDataRow(row, config);
                 if (importRow.getCodigo() != null && !importRow.getCodigo().isBlank()) {
@@ -369,15 +382,15 @@ public class ImportadorService {
         r.setReferencia(getField(raw, config, "ref"));
 
         // ── Catálogos Profit Plus ──
-        r.setGrupo(getField(raw, config, "grupo"));       // co_lin
-        r.setSgrupo(getField(raw, config, "sgrupo"));     // co_subl
-        r.setCat(getField(raw, config, "cat"));            // co_cat
-        r.setCoColor(getField(raw, config, "co_color"));   // co_color
-        r.setCoProv(getField(raw, config, "co_prov"));     // proveedor
-        r.setUnidad(getField(raw, config, "unidad"));      // unidad (informativo)
+        r.setGrupo(getField(raw, config, "grupo")); // co_lin
+        r.setSgrupo(getField(raw, config, "sgrupo")); // co_subl
+        r.setCat(getField(raw, config, "cat")); // co_cat
+        r.setCoColor(getField(raw, config, "co_color")); // co_color
+        r.setCoProv(getField(raw, config, "co_prov")); // proveedor
+        r.setUnidad(getField(raw, config, "unidad")); // unidad (informativo)
 
         // ── Campos libres ──
-        r.setCampo1(getField(raw, config, "stock"));
+        r.setCampo1(getField(raw, config, "campo1"));
         r.setCampo2(getField(raw, config, "campo2"));
         r.setCampo3(getField(raw, config, "campo3"));
         r.setCampo4(getField(raw, config, "campo4"));
@@ -391,7 +404,8 @@ public class ImportadorService {
         if (pimpStr != null && !pimpStr.isBlank()) {
             try {
                 r.setImpuesto(Double.parseDouble(pimpStr.trim()));
-            } catch (NumberFormatException ignored) {}
+            } catch (NumberFormatException ignored) {
+            }
         }
 
         return r;
@@ -410,9 +424,11 @@ public class ImportadorService {
     }
 
     private String getCellString(Row row, int col) {
-        if (row == null) return null;
+        if (row == null)
+            return null;
         Cell cell = row.getCell(col, Row.MissingCellPolicy.RETURN_BLANK_AS_NULL);
-        if (cell == null) return null;
+        if (cell == null)
+            return null;
 
         return switch (cell.getCellType()) {
             case STRING -> cell.getStringCellValue();
@@ -428,8 +444,11 @@ public class ImportadorService {
                 try {
                     yield cell.getStringCellValue();
                 } catch (Exception e) {
-                    try { yield String.valueOf(cell.getNumericCellValue()); }
-                    catch (Exception e2) { yield cell.getCellFormula(); }
+                    try {
+                        yield String.valueOf(cell.getNumericCellValue());
+                    } catch (Exception e2) {
+                        yield cell.getCellFormula();
+                    }
                 }
             }
             default -> null;
@@ -438,7 +457,8 @@ public class ImportadorService {
 
     private int getCellInt(Row row, int col) {
         String val = getCellString(row, col);
-        if (val == null || val.isBlank()) return 0;
+        if (val == null || val.isBlank())
+            return 0;
         try {
             return (int) Double.parseDouble(val.trim());
         } catch (NumberFormatException e) {
@@ -449,5 +469,6 @@ public class ImportadorService {
     /**
      * Contiene los headers detectados y las filas leídas para previsualización.
      */
-    public record PreviewResult(String[] headers, List<ArticuloImportRow> rows) {}
+    public record PreviewResult(String[] headers, List<ArticuloImportRow> rows) {
+    }
 }
