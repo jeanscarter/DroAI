@@ -410,6 +410,17 @@ public class ImportarPanel extends JPanel {
                 } catch (Exception ex) {
                     ex.printStackTrace();
                     progressBar.setString("✘ Error durante la importación (rollback ejecutado).");
+                    
+                    // Mostrar error detallado en un diálogo para evitar que el Toast lo corte
+                    String mensajeError = ex.getMessage();
+                    if (ex.getCause() != null) {
+                        mensajeError += "\n\nCausa: " + ex.getCause().getMessage();
+                    }
+                    JOptionPane.showMessageDialog(ImportarPanel.this,
+                            "No se pudo completar la importación. Se ejecutó un rollback de la transacción.\n\nDetalle del error:\n" + mensajeError,
+                            "Error de Base de Datos",
+                            JOptionPane.ERROR_MESSAGE);
+                            
                     Toast.show("Error: " + ex.getMessage(), Toast.Type.ERROR);
                     btnImportar.setEnabled(true);
                 }

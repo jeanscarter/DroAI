@@ -250,8 +250,7 @@ public class ImportacionDAO {
     private record CatalogosFK(
             Set<String> coloresValidos,
             Set<String> categoriasValidas,
-            Set<String> lineasValidas,
-            Set<String> sublineasValidas,
+            Set<String> sublineasValidas, // Almacena combinaciones "co_lin:co_subl"
             Set<String> proveedoresValidos
     ) {}
 
@@ -262,8 +261,7 @@ public class ImportacionDAO {
         return new CatalogosFK(
                 cargarCatalogo(conn, "SELECT co_color FROM saColor"),
                 cargarCatalogo(conn, "SELECT co_cat FROM saCatArticulo"),
-                cargarCatalogo(conn, "SELECT DISTINCT co_lin FROM saSubLinea"),
-                cargarCatalogo(conn, "SELECT co_subl FROM saSubLinea"),
+                cargarCatalogo(conn, "SELECT RTRIM(co_lin) + ':' + RTRIM(co_subl) FROM saSubLinea"),
                 cargarCatalogo(conn, "SELECT co_prov FROM saProveedor")
         );
     }
@@ -405,8 +403,19 @@ public class ImportacionDAO {
                     psExists.clearParameters();
 
                     // Validar FKs del Excel contra catálogos reales
-                    String coLin   = validarFK(row.getGrupo(),   catalogos.lineasValidas(),     DEFAULT_CO_LIN,   6);
-                    String coSubl  = validarFK(row.getSgrupo(),  catalogos.sublineasValidas(),  DEFAULT_CO_SUBL,  6);
+                    String coLin = safe(row.getGrupo(), 6);
+                    if (coLin.isEmpty()) coLin = DEFAULT_CO_LIN;
+
+                    String coSubl = safe(row.getSgrupo(), 6);
+                    if (coSubl.isEmpty()) coSubl = DEFAULT_CO_SUBL;
+
+                    // Validar la combinación compuesta (co_lin, co_subl) contra saSubLinea
+                    String sublineKey = coLin + ":" + coSubl;
+                    if (!catalogos.sublineasValidas().contains(sublineKey)) {
+                        coLin = DEFAULT_CO_LIN;
+                        coSubl = DEFAULT_CO_SUBL;
+                    }
+
                     String coCat   = validarFK(row.getCat(),     catalogos.categoriasValidas(), DEFAULT_CO_CAT,   6);
                     String coColor = validarFK(row.getCoColor(), catalogos.coloresValidos(),    DEFAULT_CO_COLOR, 6);
 
