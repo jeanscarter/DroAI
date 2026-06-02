@@ -154,7 +154,9 @@ public class ImportadorService {
                     java.util.Map.entry("categoria",    "cat"),
                     java.util.Map.entry("proveedor",    "co_prov"),
                     java.util.Map.entry("procede",      "procede"),
-                    java.util.Map.entry("ubicacion",    "ubic")
+                    java.util.Map.entry("ubicacion",    "ubic"),
+                    java.util.Map.entry("stock",        "stock"),
+                    java.util.Map.entry("existencia",   "stock")
             );
 
             boolean detected = false;
@@ -375,7 +377,7 @@ public class ImportadorService {
         r.setUnidad(getField(raw, config, "unidad"));      // unidad (informativo)
 
         // ── Campos libres ──
-        r.setCampo1(getField(raw, config, "campo1"));
+        r.setCampo1(getField(raw, config, "stock"));
         r.setCampo2(getField(raw, config, "campo2"));
         r.setCampo3(getField(raw, config, "campo3"));
         r.setCampo4(getField(raw, config, "campo4"));
