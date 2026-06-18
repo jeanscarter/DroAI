@@ -2,6 +2,7 @@ package com.droai.ui;
 
 import com.droai.config.DatabaseConfig;
 import com.droai.model.ArticuloRow;
+import com.droai.model.ProductoReporteRow;
 import com.droai.service.CatalogoService;
 import com.droai.export.ExcelExporter;
 import com.droai.ui.components.Toast;
@@ -145,23 +146,49 @@ public class MainFrame extends JFrame {
     }
 
     private void exportExcel() {
+        int mainSelectedIndex = dataTabs.getSelectedIndex();
+        boolean isReporte = false;
+        java.util.List<ProductoReporteRow> reporteData = null;
+
+        if (mainSelectedIndex == 4) { // Index of "Importar Datos"
+            ImportarPanel panel = dataTabs.getImportarPanel();
+            if (panel.isShowingReporteTab()) {
+                isReporte = true;
+                reporteData = panel.getReporteRowsVisibles();
+            }
+        }
+
+        final boolean exportReporte = isReporte;
+        final java.util.List<ProductoReporteRow> finalReporteData = reporteData;
+
+        if (exportReporte && (finalReporteData == null || finalReporteData.isEmpty())) {
+            Toast.show("No hay datos cargados en el reporte de productos para exportar.", Toast.Type.WARNING);
+            return;
+        }
+
         Toast.show("Generando reporte Excel...", Toast.Type.INFO);
         new SwingWorker<File, Void>() {
             @Override
             protected File doInBackground() throws Exception {
                 ExcelExporter exporter = new ExcelExporter();
-                return exporter.exportCatalogo(
-                        dataTabs.getCatalogoModel().getAllData(),
-                        footer.getTasa());
+                if (exportReporte) {
+                    return exporter.exportReporteProductos(finalReporteData);
+                } else {
+                    return exporter.exportCatalogo(
+                            dataTabs.getCatalogoModel().getAllData(),
+                            footer.getTasa());
+                }
             }
 
             @Override
             protected void done() {
                 try {
                     File file = get();
-                    Toast.show("Excel exportado correctamente", Toast.Type.SUCCESS);
-                    if (Desktop.isDesktopSupported()) {
-                        Desktop.getDesktop().open(file);
+                    if (file != null) {
+                        Toast.show("Excel exportado correctamente", Toast.Type.SUCCESS);
+                        if (Desktop.isDesktopSupported()) {
+                            Desktop.getDesktop().open(file);
+                        }
                     }
                 } catch (Exception ex) {
                     ex.printStackTrace();
