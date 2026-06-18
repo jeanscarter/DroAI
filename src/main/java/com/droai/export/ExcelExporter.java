@@ -140,8 +140,9 @@ public class ExcelExporter {
 
             Sheet sheet = wb.createSheet();
             String[] headers = {
-                    "Código", "Descripción", "Línea", "Principio Activo",
-                    "Categoría", "Proveedor", "Existencia"
+                    "Código", "Código de Barra", "Descripción", "Marca",
+                    "Línea", "Principio Activo", "Categoría", "Proveedor",
+                    "Existencia", "Impuesto"
             };
 
             Row hr = sheet.createRow(0);
@@ -155,12 +156,15 @@ public class ExcelExporter {
             for (ProductoReporteRow r : listado) {
                 Row row = sheet.createRow(rowIdx++);
                 row.createCell(0).setCellValue(r.getCodigo());
-                row.createCell(1).setCellValue(r.getDescripcion());
-                row.createCell(2).setCellValue(r.getLinea());
-                row.createCell(3).setCellValue(r.getPrincipioActivo());
-                row.createCell(4).setCellValue(r.getCategoria());
-                row.createCell(5).setCellValue(r.getProveedor());
-                setCellNum(row, 6, r.getExistencia(), numberStyle);
+                row.createCell(1).setCellValue(r.getCodigoBarra());
+                row.createCell(2).setCellValue(r.getDescripcion());
+                row.createCell(3).setCellValue(r.getMarca());
+                row.createCell(4).setCellValue(r.getLinea());
+                row.createCell(5).setCellValue(r.getPrincipioActivo());
+                row.createCell(6).setCellValue(r.getCategoria());
+                row.createCell(7).setCellValue(r.getProveedor());
+                setCellNum(row, 8, r.getExistencia(), numberStyle);
+                setCellNum(row, 9, r.getImpuesto(), numberStyle);
             }
 
             sheet.createFreezePane(0, 1);

@@ -304,10 +304,11 @@ public class ImportarPanel extends JPanel {
         reporteHeader.setPreferredSize(new Dimension(0, 34));
         reporteHeader.setReorderingAllowed(false);
 
-        // Renderer numérico alineado a la derecha para la columna Existencia
+        // Renderer numérico alineado a la derecha para la columna Existencia e Impuesto
         DefaultTableCellRenderer rightRenderer = new DefaultTableCellRenderer();
         rightRenderer.setHorizontalAlignment(SwingConstants.RIGHT);
-        tblReporte.getColumnModel().getColumn(6).setCellRenderer(rightRenderer);
+        tblReporte.getColumnModel().getColumn(8).setCellRenderer(rightRenderer);
+        tblReporte.getColumnModel().getColumn(9).setCellRenderer(rightRenderer);
 
         JScrollPane reporteScroll = new JScrollPane(tblReporte,
             ScrollPaneConstants.VERTICAL_SCROLLBAR_AS_NEEDED,
@@ -636,9 +637,9 @@ public class ImportarPanel extends JPanel {
         if (texto.isEmpty()) {
             reporteSorter.setRowFilter(null);
         } else {
-            // Filtrar en columnas de texto (0-5): Código, Descripción, Línea, P. Activo, Categoría, Proveedor
+            // Filtrar en columnas de texto (0-7): Código, Código de barra, Descripción, Marca, Línea, P. Activo, Categoría, Proveedor
             reporteSorter.setRowFilter(
-                    RowFilter.regexFilter("(?i)" + java.util.regex.Pattern.quote(texto), 0, 1, 2, 3, 4, 5)
+                    RowFilter.regexFilter("(?i)" + java.util.regex.Pattern.quote(texto), 0, 1, 2, 3, 4, 5, 6, 7)
             );
         }
         // Actualizar conteo visible
@@ -704,8 +705,8 @@ public class ImportarPanel extends JPanel {
     private static class ReporteTableModel extends AbstractTableModel {
 
         private static final String[] COLUMNS = {
-            "Código", "Descripción", "Línea", "Principio Activo",
-            "Categoría", "Proveedor", "Existencia"
+            "Código", "Código de Barra", "Descripción", "Marca", "Línea", "Principio Activo",
+            "Categoría", "Proveedor", "Existencia", "Impuesto"
         };
 
         private List<ProductoReporteRow> data = new ArrayList<>();
@@ -725,7 +726,7 @@ public class ImportarPanel extends JPanel {
 
         @Override
         public Class<?> getColumnClass(int col) {
-            return col == 6 ? Double.class : String.class;
+            return (col == 8 || col == 9) ? Double.class : String.class;
         }
 
         @Override
@@ -733,12 +734,15 @@ public class ImportarPanel extends JPanel {
             ProductoReporteRow r = data.get(row);
             return switch (col) {
                 case 0 -> r.getCodigo();
-                case 1 -> r.getDescripcion();
-                case 2 -> r.getLinea();
-                case 3 -> r.getPrincipioActivo();
-                case 4 -> r.getCategoria();
-                case 5 -> r.getProveedor();
-                case 6 -> r.getExistencia();
+                case 1 -> r.getCodigoBarra();
+                case 2 -> r.getDescripcion();
+                case 3 -> r.getMarca();
+                case 4 -> r.getLinea();
+                case 5 -> r.getPrincipioActivo();
+                case 6 -> r.getCategoria();
+                case 7 -> r.getProveedor();
+                case 8 -> r.getExistencia();
+                case 9 -> r.getImpuesto();
                 default -> "";
             };
         }

@@ -18,6 +18,9 @@ public class ProductoReporteRow {
     private String codProveedor;
     private String proveedor;         // prov_des (saProveedor)
     private double existencia;
+    private String codigoBarra;       // ref (saArticulo)
+    private String marca;             // prov_des (saProveedor)
+    private double impuesto;          // porc_tasa (saImpuestoSobreVentaReng)
 
     public ProductoReporteRow() {}
 
@@ -55,4 +58,13 @@ public class ProductoReporteRow {
 
     public double getExistencia() { return existencia; }
     public void setExistencia(double existencia) { this.existencia = existencia; }
+
+    public String getCodigoBarra() { return codigoBarra; }
+    public void setCodigoBarra(String codigoBarra) { this.codigoBarra = codigoBarra; }
+
+    public String getMarca() { return marca; }
+    public void setMarca(String marca) { this.marca = marca; }
+
+    public double getImpuesto() { return impuesto; }
+    public void setImpuesto(double impuesto) { this.impuesto = impuesto; }
 }

@@ -29,7 +29,9 @@ public class ReporteProductoDAO {
     private static final String SQL_REPORTE = """
             SELECT
                 a.co_art                    AS codigo,
+                ISNULL(a.ref, '')           AS codigoBarra,
                 ISNULL(a.art_des, '')       AS descripcion,
+                ISNULL(a.modelo, '')        AS marca,
                 ISNULL(a.co_lin, '')        AS codLinea,
                 ISNULL(l.lin_des, '')       AS linea,
                 ISNULL(a.co_subl, '')       AS codSubLinea,
@@ -38,7 +40,8 @@ public class ReporteProductoDAO {
                 ISNULL(cat.cat_des, '')     AS categoria,
                 ISNULL(ap.co_prov, '')      AS codProveedor,
                 ISNULL(p.prov_des, '')      AS proveedor,
-                ISNULL(stk.totalStock, 0)   AS existencia
+                ISNULL(stk.totalStock, 0)   AS existencia,
+                ISNULL(i.porc_tasa, 0)      AS impuesto
             FROM saArticulo a
             LEFT JOIN saLineaArticulo l
                 ON a.co_lin = l.co_lin
@@ -58,6 +61,15 @@ public class ReporteProductoDAO {
                 FROM saStockAlmacen
                 GROUP BY co_art
             ) stk ON a.co_art = stk.co_art
+            LEFT JOIN (
+                SELECT tipo_imp, porc_tasa
+                FROM (
+                    SELECT tipo_imp, porc_tasa,
+                           ROW_NUMBER() OVER (PARTITION BY tipo_imp ORDER BY fecha DESC) AS rn
+                    FROM saImpuestoSobreVentaReng
+                ) ranked
+                WHERE rn = 1
+            ) i ON a.tipo_imp = i.tipo_imp
             ORDER BY a.co_art
             """;
 
@@ -78,7 +90,9 @@ public class ReporteProductoDAO {
             while (rs.next()) {
                 ProductoReporteRow row = new ProductoReporteRow();
                 row.setCodigo(rs.getString("codigo"));
+                row.setCodigoBarra(rs.getString("codigoBarra"));
                 row.setDescripcion(rs.getString("descripcion"));
+                row.setMarca(rs.getString("marca"));
                 row.setCodLinea(rs.getString("codLinea"));
                 row.setLinea(rs.getString("linea"));
                 row.setCodSubLinea(rs.getString("codSubLinea"));
@@ -88,6 +102,7 @@ public class ReporteProductoDAO {
                 row.setCodProveedor(rs.getString("codProveedor"));
                 row.setProveedor(rs.getString("proveedor"));
                 row.setExistencia(getSafeDouble(rs, "existencia"));
+                row.setImpuesto(getSafeDouble(rs, "impuesto"));
                 rows.add(row);
             }
         }
