@@ -1,19 +1,21 @@
 package com.droai.ui;
 
 import com.droai.dao.ImportacionDAO.ValidationResult;
+import com.droai.dao.ReporteProductoDAO;
 import com.droai.model.ArticuloImportRow;
 import com.droai.model.ImportConfig;
+import com.droai.model.ProductoReporteRow;
 import com.droai.model.SesionUsuario;
 import com.droai.service.ImportadorService;
 import com.droai.service.ImportadorService.PreviewResult;
 import com.droai.ui.components.Toast;
 import com.droai.ui.dialog.LoginAuditoriaDialog;
 import com.formdev.flatlaf.FlatClientProperties;
-import com.droai.model.ProductoReporteRow;
-import com.droai.ui.table.ReporteTableModel;
 import net.miginfocom.swing.MigLayout;
 
 import javax.swing.*;
+import javax.swing.event.DocumentEvent;
+import javax.swing.event.DocumentListener;
 import javax.swing.filechooser.FileNameExtensionFilter;
 import javax.swing.table.AbstractTableModel;
 import javax.swing.table.DefaultTableCellRenderer;
@@ -43,11 +45,9 @@ public class ImportarPanel extends JPanel {
     private static final Color TEXT_SECONDARY = new Color(148, 163, 184);
 
     private final ImportadorService service;
+    private final ReporteProductoDAO reporteDAO;
 
-    // ── UI Components Contenedor Principal ──
-    private JTabbedPane innerTabs;
-
-    // ── UI Components Importación ──
+    // ── UI Components: Importación ──
     private JLabel lblArchivoSeleccionado;
     private JLabel lblConfigInfo;
     private JLabel lblSesion;
@@ -60,12 +60,14 @@ public class ImportarPanel extends JPanel {
     private JTable tblPreview;
     private PreviewTableModel previewModel;
 
-    // ── UI Components Reporte de Productos ──
+    // ── UI Components: Reporte ──
+    private JButton btnCargarReporte;
+    private JLabel lblReporteStatus;
     private JTable tblReporte;
     private ReporteTableModel reporteModel;
-    private JTextField txtBusquedaReporte;
-    private JLabel lblReporteStatus;
-    private JButton btnCargarReporte;
+    private JTextField txtBuscarReporte;
+    private TableRowSorter<ReporteTableModel> reporteSorter;
+    private JTabbedPane innerTabs;
 
     // ── Estado ──
     private File archivoSeleccionado;
@@ -74,48 +76,23 @@ public class ImportarPanel extends JPanel {
 
     public ImportarPanel() {
         service = new ImportadorService();
-        setLayout(new BorderLayout());
+        reporteDAO = new ReporteProductoDAO();
+        setLayout(new MigLayout("insets 0, fill", "[grow]", "[grow]"));
         setOpaque(false);
 
-        // Inicializar componentes de Importación
-        lblArchivoSeleccionado = new JLabel("Ningún archivo seleccionado");
-        lblConfigInfo = new JLabel(" ");
-        lblSesion = new JLabel();
-        lblValidacion = new JLabel("Esperando archivo y autenticación...");
-        progressBar = new JProgressBar(0, 100);
-        
-        btnSeleccionar = createStyledButton("📁  Seleccionar Archivo Excel", ACCENT);
-        btnLogin = createStyledButton("🔐  Autenticar", ACCENT);
-        btnValidar = createStyledButton("🔍  Validar Datos", WARN_AMBER);
-        btnImportar = createStyledButton("⚡  Procesar e Importar a BD", SUCCESS_GREEN);
-        
-        previewModel = new PreviewTableModel();
-        tblPreview = new JTable(previewModel);
-
-        // Inicializar componentes de Reporte de Productos
-        reporteModel = new ReporteTableModel();
-        tblReporte = new JTable(reporteModel);
-        txtBusquedaReporte = new JTextField();
-        lblReporteStatus = new JLabel("0 de 0 productos");
-        btnCargarReporte = createStyledButton("🔄 Cargar Reporte desde BD", ACCENT);
-
-        // Construir JTabbedPane
+        // ── Sub-pestañas internas ──
         innerTabs = new JTabbedPane();
-        innerTabs.putClientProperty(FlatClientProperties.TABBED_PANE_TAB_TYPE, "underlined");
         innerTabs.setFont(new Font("Segoe UI", Font.BOLD, 13));
+        innerTabs.putClientProperty(FlatClientProperties.TABBED_PANE_TAB_TYPE, "underlined");
 
-        innerTabs.addTab("📥 Importar Excel", buildImportPanel());
-        innerTabs.addTab("📋 Reporte de Productos", buildReportePanel());
+        innerTabs.addTab("  📥 Importar Excel  ", buildImportPanel());
+        innerTabs.addTab("  📋 Reporte de Productos  ", buildReportePanel());
 
-        add(innerTabs, BorderLayout.CENTER);
-
-        // Lógica inicial
-        actualizarSesionLabel();
-        actualizarEstadoBotones();
+        add(innerTabs, "grow");
     }
 
     // ═══════════════════════════════════════════════════════════════
-    //  Construcción de Pestañas
+    //  Construcción del Panel de Importación (contenido original)
     // ═══════════════════════════════════════════════════════════════
 
     private JPanel buildImportPanel() {
@@ -135,11 +112,14 @@ public class ImportarPanel extends JPanel {
         lblTitle.setForeground(ACCENT);
         titleRow.add(lblTitle);
 
+        btnLogin = createStyledButton("🔐  Autenticar", ACCENT);
         btnLogin.addActionListener(e -> abrirLogin());
         titleRow.add(btnLogin);
         panel.add(titleRow, "growx");
 
+        lblSesion = new JLabel();
         lblSesion.setFont(new Font("Segoe UI", Font.PLAIN, 11));
+        actualizarSesionLabel();
         panel.add(lblSesion, "growx");
 
         JLabel lblSubtitle = new JLabel(
@@ -156,13 +136,16 @@ public class ImportarPanel extends JPanel {
             "[]6[]"
         ));
 
+        btnSeleccionar = createStyledButton("📁  Seleccionar Archivo Excel", ACCENT);
         btnSeleccionar.addActionListener(e -> seleccionarArchivo());
         cardArchivo.add(btnSeleccionar);
 
+        lblArchivoSeleccionado = new JLabel("Ningún archivo seleccionado");
         lblArchivoSeleccionado.setFont(new Font("Segoe UI", Font.ITALIC, 12));
         lblArchivoSeleccionado.setForeground(TEXT_SECONDARY);
         cardArchivo.add(lblArchivoSeleccionado, "growx, wrap");
 
+        lblConfigInfo = new JLabel(" ");
         lblConfigInfo.setFont(new Font("Segoe UI", Font.PLAIN, 11));
         lblConfigInfo.setForeground(TEXT_SECONDARY);
         cardArchivo.add(lblConfigInfo, "span, growx");
@@ -177,10 +160,12 @@ public class ImportarPanel extends JPanel {
             "[]"
         ));
 
+        btnValidar = createStyledButton("🔍  Validar Datos", WARN_AMBER);
         btnValidar.setEnabled(false);
         btnValidar.addActionListener(e -> ejecutarValidacion());
         cardValidacion.add(btnValidar);
 
+        lblValidacion = new JLabel("Esperando archivo y autenticación...");
         lblValidacion.setFont(new Font("Segoe UI", Font.PLAIN, 11));
         lblValidacion.setForeground(TEXT_SECONDARY);
         cardValidacion.add(lblValidacion, "growx");
@@ -188,6 +173,8 @@ public class ImportarPanel extends JPanel {
         panel.add(cardValidacion, "growx");
 
         // Tabla de Previsualización
+        previewModel = new PreviewTableModel();
+        tblPreview = new JTable(previewModel);
         tblPreview.setRowHeight(28);
         tblPreview.setFont(new Font("Segoe UI", Font.PLAIN, 12));
         tblPreview.setShowHorizontalLines(true);
@@ -220,20 +207,29 @@ public class ImportarPanel extends JPanel {
             "[]"
         ));
 
+        progressBar = new JProgressBar(0, 100);
         progressBar.setStringPainted(true);
         progressBar.setString("Esperando archivo y autenticación...");
         progressBar.setFont(new Font("Segoe UI", Font.PLAIN, 11));
         progressBar.setPreferredSize(new Dimension(0, 28));
         cardAcciones.add(progressBar, "growx");
 
+        btnImportar = createStyledButton("⚡  Procesar e Importar a BD", SUCCESS_GREEN);
         btnImportar.setEnabled(false);
         btnImportar.addActionListener(e -> ejecutarImportacion());
         cardAcciones.add(btnImportar);
 
         panel.add(cardAcciones, "growx");
 
+        // Lógica inicial
+        actualizarEstadoBotones();
+
         return panel;
     }
+
+    // ═══════════════════════════════════════════════════════════════
+    //  Construcción del Panel de Reporte de Productos
+    // ═══════════════════════════════════════════════════════════════
 
     private JPanel buildReportePanel() {
         JPanel panel = new JPanel(new MigLayout(
@@ -243,56 +239,49 @@ public class ImportarPanel extends JPanel {
         ));
         panel.setOpaque(false);
 
-        // Encabezado
-        JLabel lblReporteTitle = new JLabel("📋  Reporte de Productos");
+        // ── Título ──
+        JLabel lblReporteTitle = new JLabel("📋  Reporte de Productos — Línea / Principio Activo / Categoría / Proveedor");
         lblReporteTitle.setFont(new Font("Segoe UI", Font.BOLD, 18));
         lblReporteTitle.setForeground(ACCENT);
         panel.add(lblReporteTitle, "growx");
 
-        // Barra de Herramientas (Tarjeta de Acciones)
-        JPanel cardAcciones = createCard();
-        cardAcciones.setLayout(new MigLayout(
-            "insets 10 14 10 14, fillx, gap 10",
-            "[]10[]10[grow]10[]",
+        // ── Barra de acciones: Botón + Búsqueda + Status ──
+        JPanel cardAccionesReporte = createCard();
+        cardAccionesReporte.setLayout(new MigLayout(
+            "insets 12 14 12 14, fillx, gap 10",
+            "[]16[][grow]push[]",
             "[]"
         ));
 
-        btnCargarReporte.addActionListener(e -> cargarReporteDesdeBD());
-        cardAcciones.add(btnCargarReporte);
+        btnCargarReporte = createStyledButton("🔄  Cargar Reporte desde BD", ACCENT);
+        btnCargarReporte.addActionListener(e -> cargarReporteProductos());
+        cardAccionesReporte.add(btnCargarReporte);
 
-        JLabel lblLupa = new JLabel("🔍");
-        lblLupa.setFont(new Font("Segoe UI", Font.PLAIN, 14));
-        cardAcciones.add(lblLupa);
+        JLabel lblBuscar = new JLabel("🔍");
+        lblBuscar.setFont(new Font("Segoe UI Emoji", Font.PLAIN, 14));
+        cardAccionesReporte.add(lblBuscar);
 
-        txtBusquedaReporte.putClientProperty(FlatClientProperties.PLACEHOLDER_TEXT, 
-            "Buscar por código, descripción, línea, marca, categoría, proveedor o principio activo...");
-        txtBusquedaReporte.setFont(new Font("Segoe UI", Font.PLAIN, 12));
-        
-        txtBusquedaReporte.getDocument().addDocumentListener(new javax.swing.event.DocumentListener() {
-            @Override
-            public void insertUpdate(javax.swing.event.DocumentEvent e) {
-                filtrarReporte();
-            }
-
-            @Override
-            public void removeUpdate(javax.swing.event.DocumentEvent e) {
-                filtrarReporte();
-            }
-
-            @Override
-            public void changedUpdate(javax.swing.event.DocumentEvent e) {
-                filtrarReporte();
-            }
+        txtBuscarReporte = new JTextField();
+        txtBuscarReporte.setFont(new Font("Segoe UI", Font.PLAIN, 12));
+        txtBuscarReporte.putClientProperty(FlatClientProperties.PLACEHOLDER_TEXT,
+                "Buscar por código, descripción, línea, principio activo, categoría o proveedor...");
+        txtBuscarReporte.getDocument().addDocumentListener(new DocumentListener() {
+            @Override public void insertUpdate(DocumentEvent e) { filtrarReporte(); }
+            @Override public void removeUpdate(DocumentEvent e) { filtrarReporte(); }
+            @Override public void changedUpdate(DocumentEvent e) { filtrarReporte(); }
         });
-        cardAcciones.add(txtBusquedaReporte, "growx");
+        cardAccionesReporte.add(txtBuscarReporte, "growx");
 
-        lblReporteStatus.setFont(new Font("Segoe UI", Font.BOLD, 12));
+        lblReporteStatus = new JLabel("Sin datos cargados.");
+        lblReporteStatus.setFont(new Font("Segoe UI", Font.PLAIN, 11));
         lblReporteStatus.setForeground(TEXT_SECONDARY);
-        cardAcciones.add(lblReporteStatus, "right");
+        cardAccionesReporte.add(lblReporteStatus);
 
-        panel.add(cardAcciones, "growx");
+        panel.add(cardAccionesReporte, "growx");
 
-        // Tabla de Reporte
+        // ── Tabla de Reporte ──
+        reporteModel = new ReporteTableModel();
+        tblReporte = new JTable(reporteModel);
         tblReporte.setRowHeight(28);
         tblReporte.setFont(new Font("Segoe UI", Font.PLAIN, 12));
         tblReporte.setShowHorizontalLines(true);
@@ -301,123 +290,28 @@ public class ImportarPanel extends JPanel {
         tblReporte.setFillsViewportHeight(true);
         tblReporte.setAutoResizeMode(JTable.AUTO_RESIZE_ALL_COLUMNS);
 
-        JTableHeader header = tblReporte.getTableHeader();
-        header.setFont(new Font("Segoe UI", Font.BOLD, 11));
-        header.setPreferredSize(new Dimension(0, 32));
-        header.setReorderingAllowed(false);
+        reporteSorter = new TableRowSorter<>(reporteModel);
+        tblReporte.setRowSorter(reporteSorter);
 
-        // Renderizadores de celdas
-        DefaultTableCellRenderer numericRenderer = new DefaultTableCellRenderer() {
-            @Override
-            public Component getTableCellRendererComponent(JTable table, Object value,
-                    boolean isSelected, boolean hasFocus, int row, int column) {
-                super.getTableCellRendererComponent(table, value, isSelected, hasFocus, row, column);
-                if (value instanceof Number n) {
-                    setText(String.format("%.2f", n.doubleValue()));
-                }
-                setHorizontalAlignment(SwingConstants.RIGHT);
-                return this;
-            }
-        };
-        tblReporte.getColumnModel().getColumn(8).setCellRenderer(numericRenderer);
-        tblReporte.getColumnModel().getColumn(9).setCellRenderer(numericRenderer);
+        JTableHeader reporteHeader = tblReporte.getTableHeader();
+        reporteHeader.setFont(new Font("Segoe UI", Font.BOLD, 11));
+        reporteHeader.setPreferredSize(new Dimension(0, 34));
+        reporteHeader.setReorderingAllowed(false);
 
-        DefaultTableCellRenderer leftRenderer = new DefaultTableCellRenderer();
-        leftRenderer.setHorizontalAlignment(SwingConstants.LEFT);
-        for (int i = 0; i < 8; i++) {
-            tblReporte.getColumnModel().getColumn(i).setCellRenderer(leftRenderer);
-        }
+        // Renderer numérico alineado a la derecha para la columna Existencia e Impuesto
+        DefaultTableCellRenderer rightRenderer = new DefaultTableCellRenderer();
+        rightRenderer.setHorizontalAlignment(SwingConstants.RIGHT);
+        tblReporte.getColumnModel().getColumn(8).setCellRenderer(rightRenderer);
+        tblReporte.getColumnModel().getColumn(9).setCellRenderer(rightRenderer);
 
-        // TableRowSorter
-        TableRowSorter<ReporteTableModel> sorter = new TableRowSorter<>(reporteModel);
-        tblReporte.setRowSorter(sorter);
-
-        JScrollPane scrollPane = new JScrollPane(tblReporte,
+        JScrollPane reporteScroll = new JScrollPane(tblReporte,
             ScrollPaneConstants.VERTICAL_SCROLLBAR_AS_NEEDED,
             ScrollPaneConstants.HORIZONTAL_SCROLLBAR_AS_NEEDED);
-        scrollPane.setBorder(BorderFactory.createLineBorder(BORDER_COLOR, 1));
+        reporteScroll.setBorder(BorderFactory.createLineBorder(BORDER_COLOR, 1));
 
-        panel.add(scrollPane, "grow");
+        panel.add(reporteScroll, "grow");
 
         return panel;
-    }
-
-    // ═══════════════════════════════════════════════════════════════
-    //  Lógica de Filtrado y Carga de Reporte
-    // ═══════════════════════════════════════════════════════════════
-
-    private void filtrarReporte() {
-        String text = txtBusquedaReporte.getText().trim();
-        @SuppressWarnings("unchecked")
-        TableRowSorter<ReporteTableModel> sorter = (TableRowSorter<ReporteTableModel>) tblReporte.getRowSorter();
-        if (text.isEmpty()) {
-            sorter.setRowFilter(null);
-        } else {
-            String regex = "(?i)" + java.util.regex.Pattern.quote(text);
-            // Columnas de texto: índices del 0 al 7
-            sorter.setRowFilter(RowFilter.regexFilter(regex, 0, 1, 2, 3, 4, 5, 6, 7));
-        }
-        actualizarReporteStatusLabel();
-    }
-
-    private void actualizarReporteStatusLabel() {
-        int visibles = tblReporte.getRowCount();
-        int totales = reporteModel.getRowCount();
-        lblReporteStatus.setText(visibles + " de " + totales + " productos");
-    }
-
-    private void cargarReporteDesdeBD() {
-        btnCargarReporte.setEnabled(false);
-        txtBusquedaReporte.setEnabled(false);
-        lblReporteStatus.setText("Cargando...");
-        
-        new SwingWorker<List<ProductoReporteRow>, Void>() {
-            @Override
-            protected List<ProductoReporteRow> doInBackground() throws Exception {
-                com.droai.dao.ArticuloDAO dao = new com.droai.dao.ArticuloDAO();
-                return dao.fetchReporte();
-            }
-
-            @Override
-            protected void done() {
-                btnCargarReporte.setEnabled(true);
-                txtBusquedaReporte.setEnabled(true);
-                try {
-                    List<ProductoReporteRow> list = get();
-                    reporteModel.setData(list);
-                    filtrarReporte();
-                    Toast.show("✔ Reporte cargado exitosamente: " + list.size() + " productos", Toast.Type.SUCCESS);
-                } catch (Exception e) {
-                    e.printStackTrace();
-                    Toast.show("✘ Error al cargar reporte: " + e.getMessage(), Toast.Type.ERROR);
-                    actualizarReporteStatusLabel();
-                }
-            }
-        }.execute();
-    }
-
-    // ═══════════════════════════════════════════════════════════════
-    //  API Pública
-    // ═══════════════════════════════════════════════════════════════
-
-    public boolean isShowingReporteTab() {
-        return innerTabs != null && innerTabs.getSelectedIndex() == 1;
-    }
-
-    public List<ProductoReporteRow> getReporteRowsVisibles() {
-        List<ProductoReporteRow> list = new ArrayList<>();
-        if (tblReporte == null || reporteModel == null) {
-            return list;
-        }
-        int count = tblReporte.getRowCount();
-        for (int i = 0; i < count; i++) {
-            int modelIdx = tblReporte.convertRowIndexToModel(i);
-            ProductoReporteRow r = reporteModel.getRow(modelIdx);
-            if (r != null) {
-                list.add(r);
-            }
-        }
-        return list;
     }
 
     // ═══════════════════════════════════════════════════════════════
@@ -677,7 +571,88 @@ public class ImportarPanel extends JPanel {
     }
 
     // ═══════════════════════════════════════════════════════════════
-    //  TableModel dinámico
+    //  Lógica: Reporte de Productos
+    // ═══════════════════════════════════════════════════════════════
+    private void cargarReporteProductos() {
+        btnCargarReporte.setEnabled(false);
+        lblReporteStatus.setText("⏳ Consultando la base de datos...");
+        lblReporteStatus.setForeground(WARN_AMBER);
+
+        new SwingWorker<List<ProductoReporteRow>, Void>() {
+            @Override
+            protected List<ProductoReporteRow> doInBackground() throws Exception {
+                return reporteDAO.fetchReporteProductos();
+            }
+
+            @Override
+            protected void done() {
+                btnCargarReporte.setEnabled(true);
+                try {
+                    List<ProductoReporteRow> datos = get();
+                    reporteModel.setData(datos);
+
+                    // Actualizar sorter con el nuevo modelo
+                    reporteSorter = new TableRowSorter<>(reporteModel);
+                    tblReporte.setRowSorter(reporteSorter);
+                    filtrarReporte(); // Re-aplicar filtro si hay texto
+
+                    lblReporteStatus.setText("✔ %d productos cargados".formatted(datos.size()));
+                    lblReporteStatus.setForeground(new Color(0, 180, 130));
+                    Toast.show("Reporte cargado: %d productos".formatted(datos.size()),
+                            Toast.Type.SUCCESS);
+                } catch (Exception ex) {
+                    ex.printStackTrace();
+                    lblReporteStatus.setText("✘ Error: " + ex.getMessage());
+                    lblReporteStatus.setForeground(new Color(220, 60, 60));
+                    Toast.show("Error al cargar reporte: " + ex.getMessage(), Toast.Type.ERROR);
+                }
+            }
+        }.execute();
+    }
+
+    /**
+     * Filtra las filas del reporte según el texto ingresado en el campo de búsqueda.
+     * Busca en todas las columnas de texto (código, descripción, línea, principio activo,
+     * categoría, proveedor).
+     */
+    private void filtrarReporte() {
+        String texto = txtBuscarReporte.getText().trim();
+        if (texto.isEmpty()) {
+            reporteSorter.setRowFilter(null);
+        } else {
+            // Filtrar en columnas de texto (0-7): Código, Código de barra, Descripción, Marca, Línea, P. Activo, Categoría, Proveedor
+            reporteSorter.setRowFilter(
+                    RowFilter.regexFilter("(?i)" + java.util.regex.Pattern.quote(texto), 0, 1, 2, 3, 4, 5, 6, 7)
+            );
+        }
+        // Actualizar conteo visible
+        int visible = tblReporte.getRowCount();
+        int total = reporteModel.getRowCount();
+        if (!texto.isEmpty()) {
+            lblReporteStatus.setText("🔍 %d de %d productos".formatted(visible, total));
+        }
+    }
+
+    public boolean isShowingReporteTab() {
+        return innerTabs != null && innerTabs.getSelectedIndex() == 1;
+    }
+
+    public List<ProductoReporteRow> getReporteRowsVisibles() {
+        List<ProductoReporteRow> list = new ArrayList<>();
+        if (tblReporte == null || reporteModel == null) return list;
+        int rowCount = tblReporte.getRowCount();
+        List<ProductoReporteRow> modelData = reporteModel.getData();
+        for (int i = 0; i < rowCount; i++) {
+            int modelIdx = tblReporte.convertRowIndexToModel(i);
+            if (modelIdx >= 0 && modelIdx < modelData.size()) {
+                list.add(modelData.get(modelIdx));
+            }
+        }
+        return list;
+    }
+
+    // ═══════════════════════════════════════════════════════════════
+    //  TableModel: Preview Importación (dinámico)
     // ═══════════════════════════════════════════════════════════════
 
     private static class PreviewTableModel extends AbstractTableModel {
@@ -703,6 +678,57 @@ public class ImportarPanel extends JPanel {
             String[] raw = rows.get(row).getRawValues();
             if (raw != null && col < raw.length) return raw[col];
             return "";
+        }
+
+        @Override public boolean isCellEditable(int row, int col) { return false; }
+    }
+
+    // ═══════════════════════════════════════════════════════════════
+    //  TableModel: Reporte de Productos
+    // ═══════════════════════════════════════════════════════════════
+    private static class ReporteTableModel extends AbstractTableModel {
+
+        private static final String[] COLUMNS = {
+            "Código", "Código de Barra", "Descripción", "Marca", "Línea", "Principio Activo",
+            "Categoría", "Proveedor", "Existencia", "Impuesto"
+        };
+
+        private List<ProductoReporteRow> data = new ArrayList<>();
+
+        public List<ProductoReporteRow> getData() {
+            return data;
+        }
+
+        public void setData(List<ProductoReporteRow> data) {
+            this.data = data != null ? data : new ArrayList<>();
+            fireTableDataChanged();
+        }
+
+        @Override public int getRowCount() { return data.size(); }
+        @Override public int getColumnCount() { return COLUMNS.length; }
+        @Override public String getColumnName(int col) { return COLUMNS[col]; }
+
+        @Override
+        public Class<?> getColumnClass(int col) {
+            return (col == 8 || col == 9) ? Double.class : String.class;
+        }
+
+        @Override
+        public Object getValueAt(int row, int col) {
+            ProductoReporteRow r = data.get(row);
+            return switch (col) {
+                case 0 -> r.getCodigo();
+                case 1 -> r.getCodigoBarra();
+                case 2 -> r.getDescripcion();
+                case 3 -> r.getMarca();
+                case 4 -> r.getLinea();
+                case 5 -> r.getPrincipioActivo();
+                case 6 -> r.getCategoria();
+                case 7 -> r.getProveedor();
+                case 8 -> r.getExistencia();
+                case 9 -> r.getImpuesto();
+                default -> "";
+            };
         }
 
         @Override public boolean isCellEditable(int row, int col) { return false; }

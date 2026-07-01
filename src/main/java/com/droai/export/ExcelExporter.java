@@ -1,6 +1,7 @@
 package com.droai.export;
 
 import com.droai.model.ArticuloRow;
+import com.droai.model.ProductoReporteRow;
 import org.apache.poi.ss.usermodel.*;
 import org.apache.poi.xssf.streaming.SXSSFWorkbook;
 
@@ -124,5 +125,55 @@ public class ExcelExporter {
         f.setColor(IndexedColors.DARK_TEAL.getIndex());
         s.setFont(f);
         return s;
+    }
+
+    /**
+     * Exporta el reporte de productos con las columnas mostradas en la interfaz.
+     */
+    public File exportReporteProductos(List<ProductoReporteRow> listado) throws IOException {
+        String timestamp = LocalDateTime.now().format(DateTimeFormatter.ofPattern("yyyyMMdd_HHmmss"));
+        File file = new File(System.getProperty("user.dir"), "ReporteProductos_" + timestamp + ".xlsx");
+
+        try (SXSSFWorkbook wb = new SXSSFWorkbook(100)) {
+            CellStyle headerStyle = createHeaderStyle(wb);
+            CellStyle numberStyle = createNumberStyle(wb);
+
+            Sheet sheet = wb.createSheet();
+            String[] headers = {
+                    "Código", "Código de Barra", "Descripción", "Marca",
+                    "Línea", "Principio Activo", "Categoría", "Proveedor",
+                    "Existencia", "Impuesto"
+            };
+
+            Row hr = sheet.createRow(0);
+            for (int i = 0; i < headers.length; i++) {
+                Cell c = hr.createCell(i);
+                c.setCellValue(headers[i]);
+                c.setCellStyle(headerStyle);
+            }
+
+            int rowIdx = 1;
+            for (ProductoReporteRow r : listado) {
+                Row row = sheet.createRow(rowIdx++);
+                row.createCell(0).setCellValue(r.getCodigo());
+                row.createCell(1).setCellValue(r.getCodigoBarra());
+                row.createCell(2).setCellValue(r.getDescripcion());
+                row.createCell(3).setCellValue(r.getMarca());
+                row.createCell(4).setCellValue(r.getLinea());
+                row.createCell(5).setCellValue(r.getPrincipioActivo());
+                row.createCell(6).setCellValue(r.getCategoria());
+                row.createCell(7).setCellValue(r.getProveedor());
+                setCellNum(row, 8, r.getExistencia(), numberStyle);
+                setCellNum(row, 9, r.getImpuesto(), numberStyle);
+            }
+
+            sheet.createFreezePane(0, 1);
+            wb.setSheetName(0, "Reporte Productos");
+
+            try (FileOutputStream fos = new FileOutputStream(file)) {
+                wb.write(fos);
+            }
+        }
+        return file;
     }
 }

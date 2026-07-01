@@ -39,8 +39,11 @@ public class FiltrosDialog extends JDialog {
     private final JComboBox<String> cmbProveedorOp, cmbAlmacen;
 
     // ── Campos de fecha ──
+    @SuppressWarnings("unused")
     private final JTextField txtFechaCreacionDia, txtFechaCreacionMes, txtFechaCreacionAnio;
+    @SuppressWarnings("unused")
     private final JTextField txtFechaActDia, txtFechaActMes, txtFechaActAnio;
+    @SuppressWarnings("unused")
     private final JSpinner spnFechaCreacionHora, spnFechaActHora;
 
     // ── Checkboxes ──

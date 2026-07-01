@@ -223,21 +223,18 @@ public class ArticuloDAO {
              ResultSet rs = ps.executeQuery()) {
 
             while (rs.next()) {
-                String codigo = rs.getString("codigo");
-                String codigoBarra = rs.getString("codigoBarra");
-                String descripcion = rs.getString("descripcion");
-                String marca = rs.getString("marca");
-                String linea = rs.getString("linea");
-                String principioActivo = rs.getString("principioActivo");
-                String categoria = rs.getString("categoria");
-                String proveedor = rs.getString("proveedor");
-                double existencia = rs.getDouble("existencia");
-                double impuesto = rs.getDouble("impuesto");
-
-                rows.add(new ProductoReporteRow(
-                    codigo, codigoBarra, descripcion, marca, linea,
-                    principioActivo, categoria, proveedor, existencia, impuesto
-                ));
+                ProductoReporteRow row = new ProductoReporteRow();
+                row.setCodigo(rs.getString("codigo"));
+                row.setCodigoBarra(rs.getString("codigoBarra"));
+                row.setDescripcion(rs.getString("descripcion"));
+                row.setMarca(rs.getString("marca"));
+                row.setLinea(rs.getString("linea"));
+                row.setPrincipioActivo(rs.getString("principioActivo"));
+                row.setCategoria(rs.getString("categoria"));
+                row.setProveedor(rs.getString("proveedor"));
+                row.setExistencia(rs.getDouble("existencia"));
+                row.setImpuesto(rs.getDouble("impuesto"));
+                rows.add(row);
             }
         }
         return rows;
