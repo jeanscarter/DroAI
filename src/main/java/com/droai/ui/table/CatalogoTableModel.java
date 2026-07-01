@@ -1,6 +1,7 @@
 package com.droai.ui.table;
 
 import com.droai.model.ArticuloRow;
+import com.droai.model.FiltrosCriteria;
 
 import javax.swing.table.AbstractTableModel;
 import java.util.ArrayList;
@@ -13,6 +14,9 @@ import java.util.stream.Collectors;
  * Muestra columnas dinámicas en la UI con soporte para mostrar/ocultar
  * la columna "Existencia" mediante el checkbox "Ver existencia".
  * El modelo subyacente almacena todos los datos para la exportación.
+ *
+ * <p>Soporta filtrado avanzado vía {@link FiltrosCriteria} (diálogo Filtros)
+ * combinado con el filtro de texto libre de la barra de búsqueda.
  */
 public class CatalogoTableModel extends AbstractTableModel {
 
@@ -37,6 +41,7 @@ public class CatalogoTableModel extends AbstractTableModel {
     private String filterText = "";
     private String columnaDinamicaActual = "Marca";
     private boolean showExistencia = true;
+    private FiltrosCriteria filtrosCriteria = null;
 
     /** Índices de columnas activas basados en la visibilidad. */
     private List<Integer> visibleColumns = new ArrayList<>();
@@ -184,19 +189,130 @@ public class CatalogoTableModel extends AbstractTableModel {
         applyFilter();
     }
 
+    // ========== Filtros avanzados (diálogo Filtros) ==========
+
+    /**
+     * Establece los criterios de filtrado avanzado y re-aplica el filtro.
+     */
+    public void setFiltrosCriteria(FiltrosCriteria criteria) {
+        this.filtrosCriteria = criteria;
+        applyFilter();
+    }
+
+    /**
+     * Retorna los criterios de filtrado actuales (puede ser null).
+     */
+    public FiltrosCriteria getFiltrosCriteria() {
+        return filtrosCriteria;
+    }
+
     private void applyFilter() {
-        if (filterText.isEmpty()) {
-            filteredData = new ArrayList<>(allData);
-        } else {
-            filteredData = allData.stream()
-                    .filter(r -> matches(r.getCodigo())
-                            || matches(r.getDescripcion())
-                            || matches(r.getMarca())
-                            || matches(r.getCodigoBarra())
-                            || matches(r.getCodLinea()))
-                    .collect(Collectors.toList());
+        // Empezar con todos los datos
+        java.util.stream.Stream<ArticuloRow> stream = allData.stream();
+
+        // 1. Aplicar filtros avanzados (FiltrosCriteria)
+        if (filtrosCriteria != null && !filtrosCriteria.isEmpty()) {
+            stream = stream.filter(this::matchesCriteria);
         }
+
+        // 2. Aplicar filtro de texto libre (barra de búsqueda)
+        if (!filterText.isEmpty()) {
+            stream = stream.filter(r ->
+                    matches(r.getCodigo())
+                    || matches(r.getDescripcion())
+                    || matches(r.getMarca())
+                    || matches(r.getCodigoBarra())
+                    || matches(r.getCodLinea()));
+        }
+
+        // 3. Filtrar inactivos (anulados) por defecto, a menos que el filtro lo permita
+        if (filtrosCriteria == null || !filtrosCriteria.isMostrarInactivos()) {
+            stream = stream.filter(r -> !r.isAnulado());
+        }
+
+        filteredData = stream.collect(Collectors.toList());
         fireTableDataChanged();
+    }
+
+    /**
+     * Verifica si una fila cumple con todos los criterios avanzados de FiltrosCriteria.
+     */
+    private boolean matchesCriteria(ArticuloRow r) {
+        FiltrosCriteria c = this.filtrosCriteria;
+
+        // Campos de texto: búsqueda parcial (contains) o exacta según "cualquierPosicion"
+        boolean anyPos = c.isCualquierPosicion();
+
+        if (!c.getCodigo().isEmpty() && !matchField(r.getCodigo(), c.getCodigo(), anyPos)) return false;
+        if (!c.getDescripcion().isEmpty() && !matchField(r.getDescripcion(), c.getDescripcion(), anyPos)) return false;
+        if (!c.getReferencia().isEmpty() && !matchField(r.getReferencia(), c.getReferencia(), anyPos)) return false;
+        if (!c.getCodigoBarra().isEmpty() && !matchField(r.getCodigoBarra(), c.getCodigoBarra(), anyPos)) return false;
+        if (!c.getMarca().isEmpty() && !matchField(r.getMarca(), c.getMarca(), anyPos)) return false;
+        if (!c.getModelo().isEmpty() && !matchField(r.getModelo(), c.getModelo(), anyPos)) return false;
+        if (!c.getUbicacion().isEmpty()) {
+            boolean matchUbic = matchField(r.getUbicacion(), c.getUbicacion(), anyPos);
+            if (c.isDiferenteUbicacion()) {
+                if (matchUbic) return false; // "Diferente" = excluir los que coinciden
+            } else {
+                if (!matchUbic) return false;
+            }
+        }
+        if (!c.getCampo1().isEmpty() && !matchField(r.getCampo1(), c.getCampo1(), anyPos)) return false;
+        if (!c.getCampo2().isEmpty() && !matchField(r.getCampo2(), c.getCampo2(), anyPos)) return false;
+
+        // Proveedor
+        if (!c.getProveedor().isEmpty()
+                && !matchField(r.getNombreProveedor(), c.getProveedor(), anyPos)
+                && !matchField(r.getCodProveedor(), c.getProveedor(), anyPos)) return false;
+
+        // Grupo (Línea)
+        if (!c.getGrupo().isEmpty()
+                && !matchField(r.getLinea(), c.getGrupo(), anyPos)
+                && !matchField(r.getCodLinea(), c.getGrupo(), anyPos)) return false;
+
+        // SubGrupo (SubLínea)
+        if (!c.getSubGrupo().isEmpty()
+                && !matchField(r.getSubLinea(), c.getSubGrupo(), anyPos)
+                && !matchField(r.getCodSub(), c.getSubGrupo(), anyPos)) return false;
+
+        // Costo
+        double costo = (r.getCostoActual() > 0) ? r.getCostoActual() : r.getCostoOm();
+        switch (c.getFiltroCosto()) {
+            case SIN_COSTO -> { if (costo > 0) return false; }
+            case CON_COSTO -> { if (costo <= 0) return false; }
+            default -> {} // TODOS: no filtrar
+        }
+
+        // Precio
+        switch (c.getFiltroPrecio()) {
+            case SIN_PRECIO -> { if (r.getPrecio1() > 0) return false; }
+            case CON_PRECIO -> { if (r.getPrecio1() <= 0) return false; }
+            default -> {}
+        }
+
+        // Solo Precio <= Costo
+        if (c.isSoloPrecioMenorCosto()) {
+            if (r.getPrecio1() > costo) return false;
+        }
+
+        // Stock
+        switch (c.getFiltroStock()) {
+            case CON_STOCK -> { if (r.getExistencia() <= 0) return false; }
+            case SIN_STOCK -> { if (r.getExistencia() > 0) return false; }
+            default -> {}
+        }
+
+        return true;
+    }
+
+    /**
+     * Coincidencia de campo: si anyPos=true usa contains, si no usa startsWith.
+     */
+    private boolean matchField(String value, String filter, boolean anyPosition) {
+        if (value == null) return false;
+        String v = value.toLowerCase(Locale.ROOT);
+        String f = filter.toLowerCase(Locale.ROOT);
+        return anyPosition ? v.contains(f) : v.startsWith(f);
     }
 
     private boolean matches(String value) {

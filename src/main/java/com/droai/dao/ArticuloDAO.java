@@ -2,6 +2,7 @@ package com.droai.dao;
 
 import com.droai.config.DatabaseConfig;
 import com.droai.model.ArticuloRow;
+import com.droai.model.ProductoReporteRow;
 
 import java.sql.*;
 import java.util.ArrayList;
@@ -64,14 +65,21 @@ public class ArticuloDAO {
                 ISNULL(a.margen_min, 0) AS margenMin,
                 ISNULL(a.margen_max, 0) AS margenMax
             FROM saArticulo a
-            LEFT JOIN (SELECT co_art, co_prov FROM saArtProveedorReng WHERE reng_num = 1) ap
-                ON a.co_art = ap.co_art
+            LEFT JOIN (
+                SELECT co_art, co_prov
+                FROM (
+                    SELECT co_art, co_prov,
+                           ROW_NUMBER() OVER (PARTITION BY co_art ORDER BY reng_num) AS rn
+                    FROM saArtProveedorReng
+                ) ranked
+                WHERE rn = 1
+            ) ap ON a.co_art = ap.co_art
             LEFT JOIN saProveedor p
                 ON ap.co_prov = p.co_prov
             LEFT JOIN saLineaArticulo l
                 ON a.co_lin = l.co_lin
             LEFT JOIN saSubLinea sl
-                ON a.co_subl = sl.co_subl
+                ON a.co_subl = sl.co_subl AND a.co_lin = sl.co_lin
             LEFT JOIN (
                 SELECT tipo_imp, porc_tasa
                 FROM (
@@ -158,6 +166,78 @@ public class ArticuloDAO {
                 row.setMargenMin(getSafeDouble(rs, "margenMin", codigo));
                 row.setMargenMax(getSafeDouble(rs, "margenMax", codigo));
                 rows.add(row);
+            }
+        }
+        return rows;
+    }
+
+    public List<ProductoReporteRow> fetchReporte() throws SQLException {
+        List<ProductoReporteRow> rows = new ArrayList<>();
+        String sql = """
+                SELECT
+                    a.co_art                  AS codigo,
+                    ISNULL(a.ref, '')         AS codigoBarra,
+                    ISNULL(a.art_des, '')     AS descripcion,
+                    ISNULL(a.modelo, '')      AS marca,
+                    ISNULL(l.lin_des, '')     AS linea,
+                    ISNULL(a.campo1, '')      AS principioActivo,
+                    ISNULL(cat.cat_des, '')   AS categoria,
+                    ISNULL(p.prov_des, '')    AS proveedor,
+                    ISNULL(stk.totalStock, 0) AS existencia,
+                    ISNULL(i.porc_tasa, 0)    AS impuesto
+                FROM saArticulo a
+                LEFT JOIN saLineaArticulo l
+                    ON a.co_lin = l.co_lin
+                LEFT JOIN saCatArticulo cat
+                    ON a.co_cat = cat.co_cat
+                LEFT JOIN (
+                    SELECT co_art, co_prov
+                    FROM (
+                        SELECT co_art, co_prov,
+                               ROW_NUMBER() OVER (PARTITION BY co_art ORDER BY reng_num) AS rn
+                        FROM saArtProveedorReng
+                    ) ranked
+                    WHERE rn = 1
+                ) ap ON a.co_art = ap.co_art
+                LEFT JOIN saProveedor p
+                    ON ap.co_prov = p.co_prov
+                LEFT JOIN (
+                    SELECT tipo_imp, porc_tasa
+                    FROM (
+                        SELECT tipo_imp, porc_tasa,
+                               ROW_NUMBER() OVER (PARTITION BY tipo_imp ORDER BY fecha DESC) AS rn
+                        FROM saImpuestoSobreVentaReng
+                    ) ranked
+                    WHERE rn = 1
+                ) i ON a.tipo_imp = i.tipo_imp
+                LEFT JOIN (
+                    SELECT co_art, SUM(stock) AS totalStock
+                    FROM saStockAlmacen
+                    GROUP BY co_art
+                ) stk ON a.co_art = stk.co_art
+                ORDER BY a.co_art
+                """;
+
+        try (Connection conn = DatabaseConfig.getDataSource().getConnection();
+             PreparedStatement ps = conn.prepareStatement(sql);
+             ResultSet rs = ps.executeQuery()) {
+
+            while (rs.next()) {
+                String codigo = rs.getString("codigo");
+                String codigoBarra = rs.getString("codigoBarra");
+                String descripcion = rs.getString("descripcion");
+                String marca = rs.getString("marca");
+                String linea = rs.getString("linea");
+                String principioActivo = rs.getString("principioActivo");
+                String categoria = rs.getString("categoria");
+                String proveedor = rs.getString("proveedor");
+                double existencia = rs.getDouble("existencia");
+                double impuesto = rs.getDouble("impuesto");
+
+                rows.add(new ProductoReporteRow(
+                    codigo, codigoBarra, descripcion, marca, linea,
+                    principioActivo, categoria, proveedor, existencia, impuesto
+                ));
             }
         }
         return rows;

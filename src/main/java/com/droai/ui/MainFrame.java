@@ -2,10 +2,12 @@ package com.droai.ui;
 
 import com.droai.config.DatabaseConfig;
 import com.droai.model.ArticuloRow;
+import com.droai.model.FiltrosCriteria;
 import com.droai.service.CatalogoService;
 import com.droai.export.ExcelExporter;
 import com.droai.ui.components.Toast;
 import com.droai.ui.dialog.FichaProductoDialog;
+import com.droai.ui.dialog.FiltrosDialog;
 import com.formdev.flatlaf.FlatDarkLaf;
 import com.formdev.flatlaf.FlatLaf;
 import com.formdev.flatlaf.FlatLightLaf;
@@ -55,7 +57,7 @@ public class MainFrame extends JFrame {
             dataTabs.getCatalogoModel().setFilter(query);
             footer.setRegistroCount(dataTabs.getCatalogoModel().getRowCount());
         });
-        header.setOnFiltrar(this::loadData);
+        header.setOnFiltrar(this::abrirFiltros);
         header.setOnGuardar(this::saveData);
         header.setOnDeshacer(this::loadData);
         header.setOnCambiarTema(this::toggleTheme);
@@ -125,6 +127,25 @@ public class MainFrame extends JFrame {
                 }
             }
         }.execute();
+    }
+
+    private void abrirFiltros() {
+        FiltrosCriteria anterior = dataTabs.getCatalogoModel().getFiltrosCriteria();
+        FiltrosDialog dialog = new FiltrosDialog(this, anterior);
+        dialog.setVisible(true);
+
+        FiltrosCriteria result = dialog.getResultado();
+        if (result != null) {
+            dataTabs.getCatalogoModel().setFiltrosCriteria(result);
+            footer.setRegistroCount(dataTabs.getCatalogoModel().getRowCount());
+
+            if (result.isEmpty()) {
+                Toast.show("Filtros eliminados", Toast.Type.INFO);
+            } else {
+                Toast.show("Filtros aplicados: " + dataTabs.getCatalogoModel().getRowCount() + " resultados",
+                        Toast.Type.SUCCESS);
+            }
+        }
     }
 
     private void saveData() {
