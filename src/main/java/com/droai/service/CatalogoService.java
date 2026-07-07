@@ -1,7 +1,9 @@
 package com.droai.service;
 
 import com.droai.dao.ArticuloDAO;
+import com.droai.dao.DescuentoVolumenDAO;
 import com.droai.model.ArticuloRow;
+import com.droai.model.DescuentoVolumenRow;
 
 import java.sql.SQLException;
 import java.util.List;
@@ -13,13 +15,24 @@ import java.util.List;
 public class CatalogoService {
 
     private final ArticuloDAO articuloDAO;
+    private final DescuentoVolumenDAO descuentoVolumenDAO;
 
     public CatalogoService() {
         this.articuloDAO = new ArticuloDAO();
+        this.descuentoVolumenDAO = new DescuentoVolumenDAO();
     }
 
-    public CatalogoService(ArticuloDAO articuloDAO) {
+    public CatalogoService(ArticuloDAO articuloDAO, DescuentoVolumenDAO descuentoVolumenDAO) {
         this.articuloDAO = articuloDAO;
+        this.descuentoVolumenDAO = descuentoVolumenDAO;
+    }
+
+    public List<DescuentoVolumenRow> obtenerDescuentosVolumen() throws SQLException {
+        return descuentoVolumenDAO.fetchDescuentosVolumen();
+    }
+
+    public void actualizarDescuentosVolumen(List<String> codigos, double nuevoPorcentaje) throws SQLException {
+        descuentoVolumenDAO.updateDescuentosVolumen(codigos, nuevoPorcentaje);
     }
 
     public List<ArticuloRow> obtenerCatalogo() throws SQLException {

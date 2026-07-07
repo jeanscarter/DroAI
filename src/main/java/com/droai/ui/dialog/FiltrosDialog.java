@@ -61,6 +61,7 @@ public class FiltrosDialog extends JDialog {
 
     // ── Resultado ──
     private FiltrosCriteria resultado = null;
+    private boolean filtrosEliminados = false;
 
     public FiltrosDialog(Frame owner) {
         this(owner, null);
@@ -368,8 +369,9 @@ public class FiltrosDialog extends JDialog {
     }
 
     private void quitarFiltros() {
-        // Retornar un criteria vacío para limpiar todos los filtros
-        resultado = new FiltrosCriteria();
+        // Señal para eliminar todos los filtros (resultado null + flag)
+        resultado = null;
+        filtrosEliminados = true;
         dispose();
     }
 
@@ -424,6 +426,13 @@ public class FiltrosDialog extends JDialog {
      */
     public FiltrosCriteria getResultado() {
         return resultado;
+    }
+
+    /**
+     * Indica si el usuario presionó "Quitar Filtros" (distinto de cerrar sin acción).
+     */
+    public boolean isFiltrosEliminados() {
+        return filtrosEliminados;
     }
 
     // ═══════════════════════════════════════════════════════════════

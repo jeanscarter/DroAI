@@ -2,6 +2,7 @@ package com.droai.ui;
 
 import com.droai.config.DatabaseConfig;
 import com.droai.model.ArticuloRow;
+import com.droai.model.DescuentoVolumenRow;
 import com.droai.model.FiltrosCriteria;
 import com.droai.model.ProductoReporteRow;
 import com.droai.service.CatalogoService;
@@ -56,7 +57,8 @@ public class MainFrame extends JFrame {
         header = new HeaderPanel();
         header.setOnSearch(query -> {
             dataTabs.getCatalogoModel().setFilter(query);
-            footer.setRegistroCount(dataTabs.getCatalogoModel().getRowCount());
+            dataTabs.getDctoVolumenModel().setFilterText(query);
+            actualizarFooterConPestanaActiva();
         });
         header.setOnFiltrar(this::abrirFiltros);
         header.setOnGuardar(this::saveData);
@@ -66,6 +68,12 @@ public class MainFrame extends JFrame {
             dataTabs.getCatalogoModel().ordenarPor(criterio);
         });
         root.add(header, "growx");
+
+        // Escuchar cambios de pestaña para actualizar el footer de registros
+        dataTabs.addChangeListener(e -> actualizarFooterConPestanaActiva());
+
+        // Escuchar el botón para aplicar descuento masivo
+        dataTabs.getBtnDVAplicar().addActionListener(e -> aplicarDescuentoDV());
 
         footer.setOnColumna3Changed(columna -> {
             header.setTercerRadioText(columna);
@@ -108,20 +116,26 @@ public class MainFrame extends JFrame {
     }
 
     private void loadData() {
-        Toast.show("Consultando Catálogo de Productos...", Toast.Type.INFO);
-        new SwingWorker<List<ArticuloRow>, Void>() {
+        Toast.show("Consultando Catálogo de Productos y Descuentos...", Toast.Type.INFO);
+        new SwingWorker<Boolean, Void>() {
+            private List<ArticuloRow> catalogoRows;
+            private List<DescuentoVolumenRow> dvRows;
+
             @Override
-            protected List<ArticuloRow> doInBackground() throws Exception {
-                return service.obtenerCatalogo();
+            protected Boolean doInBackground() throws Exception {
+                catalogoRows = service.obtenerCatalogo();
+                dvRows = service.obtenerDescuentosVolumen();
+                return true;
             }
 
             @Override
             protected void done() {
                 try {
-                    List<ArticuloRow> rows = get();
-                    dataTabs.getCatalogoModel().setData(rows);
-                    footer.setRegistroCount(rows.size());
-                    Toast.show("Catálogo cargado: " + rows.size() + " artículos", Toast.Type.SUCCESS);
+                    get();
+                    dataTabs.getCatalogoModel().setData(catalogoRows);
+                    dataTabs.getDctoVolumenModel().setData(dvRows);
+                    actualizarFooterConPestanaActiva();
+                    Toast.show("Catálogo y descuentos cargados con éxito", Toast.Type.SUCCESS);
                 } catch (Exception ex) {
                     ex.printStackTrace();
                     Toast.show("Error al cargar catálogo. Revisa la consola.", Toast.Type.ERROR);
@@ -135,18 +149,85 @@ public class MainFrame extends JFrame {
         FiltrosDialog dialog = new FiltrosDialog(this, anterior);
         dialog.setVisible(true);
 
-        FiltrosCriteria result = dialog.getResultado();
-        if (result != null) {
-            dataTabs.getCatalogoModel().setFiltrosCriteria(result);
-            footer.setRegistroCount(dataTabs.getCatalogoModel().getRowCount());
-
-            if (result.isEmpty()) {
-                Toast.show("Filtros eliminados", Toast.Type.INFO);
-            } else {
-                Toast.show("Filtros aplicados: " + dataTabs.getCatalogoModel().getRowCount() + " resultados",
-                        Toast.Type.SUCCESS);
+        if (dialog.isFiltrosEliminados()) {
+            // Usuario presionó "Quitar Filtros": limpiar criteria a null (estado inicial)
+            dataTabs.getCatalogoModel().setFiltrosCriteria(null);
+            dataTabs.getDctoVolumenModel().setFilterMarca(null);
+            actualizarFooterConPestanaActiva();
+            Toast.show("Filtros eliminados", Toast.Type.INFO);
+        } else {
+            FiltrosCriteria result = dialog.getResultado();
+            if (result != null) {
+                // Usuario presionó "Aplicar Filtros"
+                dataTabs.getCatalogoModel().setFiltrosCriteria(result);
+                dataTabs.getDctoVolumenModel().setFilterMarca(result.getMarca());
+                actualizarFooterConPestanaActiva();
+                Toast.show("Filtros aplicados", Toast.Type.SUCCESS);
             }
+            // Si result == null y no filtrosEliminados, el usuario cerró sin acción → no hacer nada
         }
+    }
+
+    private void actualizarFooterConPestanaActiva() {
+        int index = dataTabs.getSelectedIndex();
+        int count = switch (index) {
+            case 0 -> dataTabs.getCatalogoModel().getRowCount();
+            case 2 -> dataTabs.getDctoVolumenModel().getRowCount();
+            default -> 0;
+        };
+        footer.setRegistroCount(count);
+    }
+
+    private void aplicarDescuentoDV() {
+        List<String> codigos = dataTabs.getDctoVolumenModel().getSelectedCodigos();
+        if (codigos.isEmpty()) {
+            Toast.show("Selecciona al menos un producto de la lista", Toast.Type.WARNING);
+            return;
+        }
+
+        String pctStr = dataTabs.getTxtDVPorcentaje().getText().trim();
+        double porcentaje;
+        try {
+            porcentaje = Double.parseDouble(pctStr);
+            if (porcentaje < 0 || porcentaje > 100) {
+                Toast.show("El porcentaje debe estar entre 0 y 100", Toast.Type.WARNING);
+                return;
+            }
+        } catch (NumberFormatException e) {
+            Toast.show("Porcentaje de descuento inválido", Toast.Type.WARNING);
+            return;
+        }
+
+        int confirm = JOptionPane.showConfirmDialog(this,
+                "¿Deseas aplicar un descuento del " + String.format("%.2f", porcentaje) + "% a los " + codigos.size() + " productos seleccionados?",
+                "Confirmar Descuento Masivo",
+                JOptionPane.YES_NO_OPTION,
+                JOptionPane.QUESTION_MESSAGE);
+
+        if (confirm != JOptionPane.YES_OPTION) {
+            return;
+        }
+
+        Toast.show("Actualizando descuentos por volumen...", Toast.Type.INFO);
+        new SwingWorker<Void, Void>() {
+            @Override
+            protected Void doInBackground() throws Exception {
+                service.actualizarDescuentosVolumen(codigos, porcentaje);
+                return null;
+            }
+
+            @Override
+            protected void done() {
+                try {
+                    get();
+                    Toast.show(codigos.size() + " descuentos actualizados correctamente", Toast.Type.SUCCESS);
+                    loadData();
+                } catch (Exception ex) {
+                    ex.printStackTrace();
+                    Toast.show("Error al actualizar descuentos", Toast.Type.ERROR);
+                }
+            }
+        }.execute();
     }
 
     private void saveData() {
@@ -169,7 +250,10 @@ public class MainFrame extends JFrame {
     private void exportExcel() {
         int mainSelectedIndex = dataTabs.getSelectedIndex();
         boolean isReporte = false;
+        boolean isDV = false;
         java.util.List<ProductoReporteRow> reporteData = null;
+        java.util.List<DescuentoVolumenRow> dvData = null;
+        java.util.List<ArticuloRow> catalogoData = null;
 
         if (mainSelectedIndex == 4) { // Index of "Importar Datos"
             ImportarPanel panel = dataTabs.getImportarPanel();
@@ -177,13 +261,29 @@ public class MainFrame extends JFrame {
                 isReporte = true;
                 reporteData = panel.getReporteRowsVisibles();
             }
+        } else if (mainSelectedIndex == 2) { // Descuentos x Volumen
+            isDV = true;
+            dvData = dataTabs.getDctoVolumenModel().getFilteredData();
+        } else if (mainSelectedIndex == 0) { // Catálogo
+            catalogoData = dataTabs.getCatalogoModel().getFilteredData();
         }
 
         final boolean exportReporte = isReporte;
+        final boolean exportDV = isDV;
         final java.util.List<ProductoReporteRow> finalReporteData = reporteData;
+        final java.util.List<DescuentoVolumenRow> finalDVData = dvData;
+        final java.util.List<ArticuloRow> finalCatalogoData = catalogoData;
 
         if (exportReporte && (finalReporteData == null || finalReporteData.isEmpty())) {
             Toast.show("No hay datos cargados en el reporte de productos para exportar.", Toast.Type.WARNING);
+            return;
+        }
+        if (exportDV && (finalDVData == null || finalDVData.isEmpty())) {
+            Toast.show("No hay datos de descuentos por volumen para exportar.", Toast.Type.WARNING);
+            return;
+        }
+        if (!exportReporte && !exportDV && (finalCatalogoData == null || finalCatalogoData.isEmpty())) {
+            Toast.show("No hay datos en el catálogo de productos para exportar.", Toast.Type.WARNING);
             return;
         }
 
@@ -194,10 +294,10 @@ public class MainFrame extends JFrame {
                 ExcelExporter exporter = new ExcelExporter();
                 if (exportReporte) {
                     return exporter.exportReporteProductos(finalReporteData);
+                } else if (exportDV) {
+                    return exporter.exportDescuentosVolumen(finalDVData);
                 } else {
-                    return exporter.exportCatalogo(
-                            dataTabs.getCatalogoModel().getAllData(),
-                            footer.getTasa());
+                    return exporter.exportCatalogo(finalCatalogoData, footer.getTasa());
                 }
             }
 

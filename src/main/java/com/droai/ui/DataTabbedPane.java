@@ -9,6 +9,9 @@ import javax.swing.table.DefaultTableCellRenderer;
 import javax.swing.table.JTableHeader;
 import java.awt.*;
 
+import com.droai.ui.table.DescuentoVolumenTableModel;
+import net.miginfocom.swing.MigLayout;
+
 public class DataTabbedPane extends JTabbedPane {
 
     private final JTable tblCatalogo;
@@ -19,8 +22,14 @@ public class DataTabbedPane extends JTabbedPane {
 
     private final CatalogoTableModel catalogoModel;
     private final ResumenTableModel simuladorModel;
-    private final ResumenTableModel dctoVolumenModel;
+    private final DescuentoVolumenTableModel dctoVolumenModel;
     private final ResumenTableModel dctoProductoModel;
+
+    // Controles para panel de acciones masivas de Descuentos x Volumen
+    private final JTextField txtDVPorcentaje;
+    private final JButton btnDVAplicar;
+    private final JButton btnDVSelectAll;
+    private final JButton btnDVUnselectAll;
 
     public DataTabbedPane() {
         setFont(new Font("Segoe UI", Font.BOLD, 13));
@@ -34,9 +43,52 @@ public class DataTabbedPane extends JTabbedPane {
         tblSimulador = createStyledTable(simuladorModel);
         addTab("  Simulador  ", wrapTable(tblSimulador));
 
-        dctoVolumenModel = new ResumenTableModel();
+        // Pestaña Descuentos x Volumen con panel interactivo
+        dctoVolumenModel = new DescuentoVolumenTableModel();
         tblDctoVolumen = createStyledTable(dctoVolumenModel);
-        addTab("  Descuentos x Volumen  ", wrapTable(tblDctoVolumen));
+        tblDctoVolumen.setAutoCreateRowSorter(true);
+        // Ajustar ancho de la columna de selección
+        tblDctoVolumen.getColumnModel().getColumn(0).setMaxWidth(80);
+        tblDctoVolumen.getColumnModel().getColumn(0).setMinWidth(80);
+        tblDctoVolumen.getColumnModel().getColumn(0).setPreferredWidth(80);
+
+        JPanel pnlDctoVolumen = new JPanel(new MigLayout("insets 0, fill, wrap", "[grow]", "[grow]0[]"));
+        pnlDctoVolumen.add(wrapTable(tblDctoVolumen), "grow");
+
+        // Panel de acciones inferior
+        JPanel pnlDVActions = new JPanel(new MigLayout("insets 8 16 8 16, fillx, gap 10", "[]10[]push[]10[]10[]", "[]"));
+        pnlDVActions.setBorder(BorderFactory.createMatteBorder(1, 0, 0, 0, UIManager.getColor("Component.borderColor")));
+
+        btnDVSelectAll = new JButton("☑ Seleccionar Todos");
+        btnDVSelectAll.setFont(new Font("Segoe UI", Font.BOLD, 11));
+        btnDVSelectAll.addActionListener(e -> dctoVolumenModel.selectAll(true));
+        pnlDVActions.add(btnDVSelectAll);
+
+        btnDVUnselectAll = new JButton("☒ Deseleccionar Todos");
+        btnDVUnselectAll.setFont(new Font("Segoe UI", Font.BOLD, 11));
+        btnDVUnselectAll.addActionListener(e -> dctoVolumenModel.selectAll(false));
+        pnlDVActions.add(btnDVUnselectAll);
+
+        JLabel lblDVInfo = new JLabel("Aplicar Descuento DV (%):");
+        lblDVInfo.setFont(new Font("Segoe UI", Font.BOLD, 11));
+        pnlDVActions.add(lblDVInfo);
+
+        txtDVPorcentaje = new JTextField("0.00");
+        txtDVPorcentaje.setFont(new Font("Segoe UI", Font.BOLD, 12));
+        txtDVPorcentaje.setHorizontalAlignment(SwingConstants.RIGHT);
+        pnlDVActions.add(txtDVPorcentaje, "w 80!");
+
+        btnDVAplicar = new JButton("⚡ Aplicar a Seleccionados");
+        btnDVAplicar.setFont(new Font("Segoe UI Emoji", Font.BOLD, 11));
+        btnDVAplicar.setBackground(UIManager.getColor("Component.accentColor"));
+        btnDVAplicar.setForeground(Color.WHITE);
+        btnDVAplicar.setFocusPainted(false);
+        btnDVAplicar.setCursor(Cursor.getPredefinedCursor(Cursor.HAND_CURSOR));
+        pnlDVActions.add(btnDVAplicar);
+
+        pnlDctoVolumen.add(pnlDVActions, "growx");
+
+        addTab("  Descuentos x Volumen  ", pnlDctoVolumen);
 
         dctoProductoModel = new ResumenTableModel();
         tblDctoProducto = createStyledTable(dctoProductoModel);
@@ -62,8 +114,20 @@ public class DataTabbedPane extends JTabbedPane {
         return simuladorModel;
     }
 
-    public ResumenTableModel getDctoVolumenModel() {
+    public DescuentoVolumenTableModel getDctoVolumenModel() {
         return dctoVolumenModel;
+    }
+
+    public JTable getTblDctoVolumen() {
+        return tblDctoVolumen;
+    }
+
+    public JTextField getTxtDVPorcentaje() {
+        return txtDVPorcentaje;
+    }
+
+    public JButton getBtnDVAplicar() {
+        return btnDVAplicar;
     }
 
     public ResumenTableModel getDctoProductoModel() {

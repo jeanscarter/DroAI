@@ -225,11 +225,6 @@ public class CatalogoTableModel extends AbstractTableModel {
                     || matches(r.getCodLinea()));
         }
 
-        // 3. Filtrar inactivos (anulados) por defecto, a menos que el filtro lo permita
-        if (filtrosCriteria == null || !filtrosCriteria.isMostrarInactivos()) {
-            stream = stream.filter(r -> !r.isAnulado());
-        }
-
         filteredData = stream.collect(Collectors.toList());
         fireTableDataChanged();
     }

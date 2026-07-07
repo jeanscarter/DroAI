@@ -1,6 +1,7 @@
 package com.droai.export;
 
 import com.droai.model.ArticuloRow;
+import com.droai.model.DescuentoVolumenRow;
 import com.droai.model.ProductoReporteRow;
 import org.apache.poi.ss.usermodel.*;
 import org.apache.poi.xssf.streaming.SXSSFWorkbook;
@@ -169,6 +170,51 @@ public class ExcelExporter {
 
             sheet.createFreezePane(0, 1);
             wb.setSheetName(0, "Reporte Productos");
+
+            try (FileOutputStream fos = new FileOutputStream(file)) {
+                wb.write(fos);
+            }
+        }
+        return file;
+    }
+
+    /**
+     * Exporta el reporte de descuentos por volumen.
+     */
+    public File exportDescuentosVolumen(List<DescuentoVolumenRow> listado) throws IOException {
+        String timestamp = LocalDateTime.now().format(DateTimeFormatter.ofPattern("yyyyMMdd_HHmmss"));
+        File file = new File(System.getProperty("user.dir"), "DescuentosVolumen_" + timestamp + ".xlsx");
+
+        try (SXSSFWorkbook wb = new SXSSFWorkbook(100)) {
+            CellStyle headerStyle = createHeaderStyle(wb);
+            CellStyle numberStyle = createNumberStyle(wb);
+            CellStyle currencyStyle = createCurrencyStyle(wb);
+
+            Sheet sheet = wb.createSheet();
+            String[] headers = {
+                    "Codigo", "Descripcion", "Marca", "Codigo de Barra", "Precio", "Descuento DV"
+            };
+
+            Row hr = sheet.createRow(0);
+            for (int i = 0; i < headers.length; i++) {
+                Cell c = hr.createCell(i);
+                c.setCellValue(headers[i]);
+                c.setCellStyle(headerStyle);
+            }
+
+            int rowIdx = 1;
+            for (DescuentoVolumenRow r : listado) {
+                Row row = sheet.createRow(rowIdx++);
+                row.createCell(0).setCellValue(r.getCodigo());
+                row.createCell(1).setCellValue(r.getDescripcion());
+                row.createCell(2).setCellValue(r.getMarca());
+                row.createCell(3).setCellValue(r.getCodigoBarra());
+                setCellNum(row, 4, r.getPrecio1(), currencyStyle);
+                setCellNum(row, 5, r.getDescuentoDV(), numberStyle);
+            }
+
+            sheet.createFreezePane(0, 1);
+            wb.setSheetName(0, "Descuentos Volumen");
 
             try (FileOutputStream fos = new FileOutputStream(file)) {
                 wb.write(fos);
