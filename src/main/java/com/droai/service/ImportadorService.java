@@ -466,6 +466,185 @@ public class ImportadorService {
         }
     }
 
+    public java.util.Map<String, Double> leerExcelDescuentoDV(File file) throws IOException {
+        java.util.Map<String, Double> dctosMap = new java.util.HashMap<>();
+        try (FileInputStream fis = new FileInputStream(file);
+             Workbook wb = new XSSFWorkbook(fis)) {
+
+            Sheet sheet = wb.getSheetAt(0); // Tomamos la primera pestaña
+            if (sheet == null) {
+                throw new IOException("El archivo Excel no tiene hojas.");
+            }
+
+            int headerRowIdx = -1;
+            int colCodInt = -1;
+            int colDescuento = -1;
+
+            // 1. Buscar la fila de encabezados
+            for (int r = 0; r <= Math.min(sheet.getLastRowNum(), 20); r++) {
+                Row row = sheet.getRow(r);
+                if (row == null) continue;
+
+                for (int c = 0; c < row.getLastCellNum(); c++) {
+                    String val = getCellString(row, c);
+                    if (val != null) {
+                        String norm = val.trim().toLowerCase();
+                        if (norm.contains("cod int") || norm.equals("codigo") || norm.equals("co_art") || norm.equals("cod_int")) {
+                            colCodInt = c;
+                        }
+                        if (norm.contains("descuento") || norm.contains("dcto") || norm.equals("dv") || norm.equals("porc1")) {
+                            colDescuento = c;
+                        }
+                    }
+                }
+
+                if (colCodInt != -1 && colDescuento != -1) {
+                    headerRowIdx = r;
+                    break;
+                }
+            }
+
+            if (headerRowIdx == -1 || colCodInt == -1 || colDescuento == -1) {
+                throw new IOException("No se pudo identificar las columnas 'COD INT' y 'DESCUENTO' en el archivo Excel.");
+            }
+
+            // 2. Leer las filas de datos desde la fila posterior al encabezado
+            for (int r = headerRowIdx + 1; r <= sheet.getLastRowNum(); r++) {
+                Row row = sheet.getRow(r);
+                if (row == null) continue;
+
+                String cod = getCellString(row, colCodInt);
+                if (cod == null || cod.isBlank()) {
+                    continue;
+                }
+
+                Cell cellDcto = row.getCell(colDescuento);
+                if (cellDcto == null) {
+                    continue;
+                }
+
+                double valDcto = 0.0;
+                if (cellDcto.getCellType() == CellType.NUMERIC) {
+                    valDcto = cellDcto.getNumericCellValue();
+                } else if (cellDcto.getCellType() == CellType.STRING) {
+                    try {
+                        valDcto = Double.parseDouble(cellDcto.getStringCellValue().trim().replace("%", ""));
+                    } catch (NumberFormatException ignored) {
+                        continue;
+                    }
+                } else if (cellDcto.getCellType() == CellType.FORMULA) {
+                    try {
+                        valDcto = cellDcto.getNumericCellValue();
+                    } catch (Exception e) {
+                        try {
+                            valDcto = Double.parseDouble(cellDcto.getStringCellValue().trim().replace("%", ""));
+                        } catch (Exception ignored) {
+                            continue;
+                        }
+                    }
+                }
+
+                // Si el descuento viene en formato decimal (ej: 0.05 para 5%), convertir a porcentaje (5.0)
+                // Pero si es mayor que 1.0 (ej: 5.0 para 5%), dejarlo igual.
+                if (valDcto > 0.0 && valDcto <= 1.0) {
+                    valDcto = valDcto * 100.0;
+                }
+
+                dctosMap.put(cod.trim(), valDcto);
+            }
+        }
+        return dctosMap;
+    }
+
+    public java.util.Map<String, Double> leerExcelDescuentoDA(File file) throws IOException {
+        java.util.Map<String, Double> dctosMap = new java.util.HashMap<>();
+        try (FileInputStream fis = new FileInputStream(file);
+             Workbook wb = new XSSFWorkbook(fis)) {
+
+            Sheet sheet = wb.getSheetAt(0); // Tomamos la primera pestaña
+            if (sheet == null) {
+                throw new IOException("El archivo Excel no tiene hojas.");
+            }
+
+            int headerRowIdx = -1;
+            int colCodInt = -1;
+            int colDescuento = -1;
+
+            // 1. Buscar la fila de encabezados
+            for (int r = 0; r <= Math.min(sheet.getLastRowNum(), 20); r++) {
+                Row row = sheet.getRow(r);
+                if (row == null) continue;
+
+                for (int c = 0; c < row.getLastCellNum(); c++) {
+                    String val = getCellString(row, c);
+                    if (val != null) {
+                        String norm = val.trim().toLowerCase();
+                        if (norm.contains("cod int") || norm.equals("codigo") || norm.equals("co_art") || norm.equals("cod_int")) {
+                            colCodInt = c;
+                        }
+                        if (norm.contains("descuento") || norm.contains("dcto") || norm.equals("da") || norm.equals("porc1") || norm.equals("volumen")) {
+                            colDescuento = c;
+                        }
+                    }
+                }
+
+                if (colCodInt != -1 && colDescuento != -1) {
+                    headerRowIdx = r;
+                    break;
+                }
+            }
+
+            if (headerRowIdx == -1 || colCodInt == -1 || colDescuento == -1) {
+                throw new IOException("No se pudo identificar las columnas 'COD INT' y 'DESCUENTO' en el archivo Excel.");
+            }
+
+            // 2. Leer las filas de datos desde la fila posterior al encabezado
+            for (int r = headerRowIdx + 1; r <= sheet.getLastRowNum(); r++) {
+                Row row = sheet.getRow(r);
+                if (row == null) continue;
+
+                String cod = getCellString(row, colCodInt);
+                if (cod == null || cod.isBlank()) {
+                    continue;
+                }
+
+                Cell cellDcto = row.getCell(colDescuento);
+                if (cellDcto == null) {
+                    continue;
+                }
+
+                double valDcto = 0.0;
+                if (cellDcto.getCellType() == CellType.NUMERIC) {
+                    valDcto = cellDcto.getNumericCellValue();
+                } else if (cellDcto.getCellType() == CellType.STRING) {
+                    try {
+                        valDcto = Double.parseDouble(cellDcto.getStringCellValue().trim().replace("%", ""));
+                    } catch (NumberFormatException ignored) {
+                        continue;
+                    }
+                } else if (cellDcto.getCellType() == CellType.FORMULA) {
+                    try {
+                        valDcto = cellDcto.getNumericCellValue();
+                    } catch (Exception e) {
+                        try {
+                            valDcto = Double.parseDouble(cellDcto.getStringCellValue().trim().replace("%", ""));
+                        } catch (Exception ignored) {
+                            continue;
+                        }
+                    }
+                }
+
+                // Si el descuento viene en formato decimal (ej: 0.05 para 5%), convertir a porcentaje (5.0)
+                if (valDcto > 0.0 && valDcto <= 1.0) {
+                    valDcto = valDcto * 100.0;
+                }
+
+                dctosMap.put(cod.trim(), valDcto);
+            }
+        }
+        return dctosMap;
+    }
+
     /**
      * Contiene los headers detectados y las filas leídas para previsualización.
      */

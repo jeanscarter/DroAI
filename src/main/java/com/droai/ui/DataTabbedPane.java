@@ -1,6 +1,7 @@
 package com.droai.ui;
 
 import com.droai.ui.table.CatalogoTableModel;
+import com.droai.ui.table.DescuentoProductoTableModel;
 import com.droai.ui.table.ResumenTableModel;
 import com.formdev.flatlaf.FlatClientProperties;
 
@@ -23,13 +24,21 @@ public class DataTabbedPane extends JTabbedPane {
     private final CatalogoTableModel catalogoModel;
     private final ResumenTableModel simuladorModel;
     private final DescuentoVolumenTableModel dctoVolumenModel;
-    private final ResumenTableModel dctoProductoModel;
+    private final DescuentoProductoTableModel dctoProductoModel;
 
     // Controles para panel de acciones masivas de Descuentos x Volumen
     private final JTextField txtDVPorcentaje;
     private final JButton btnDVAplicar;
     private final JButton btnDVSelectAll;
     private final JButton btnDVUnselectAll;
+    private final JButton btnDVImportExcel;
+
+    // Controles para panel de acciones masivas de Descuento x Producto
+    private final JTextField txtDPDcto;
+    private final JButton btnDPAplicar;
+    private final JButton btnDPSelectAll;
+    private final JButton btnDPUnselectAll;
+    private final JButton btnDPImportExcel;
 
     public DataTabbedPane() {
         setFont(new Font("Segoe UI", Font.BOLD, 13));
@@ -56,7 +65,7 @@ public class DataTabbedPane extends JTabbedPane {
         pnlDctoVolumen.add(wrapTable(tblDctoVolumen), "grow");
 
         // Panel de acciones inferior
-        JPanel pnlDVActions = new JPanel(new MigLayout("insets 8 16 8 16, fillx, gap 10", "[]10[]push[]10[]10[]", "[]"));
+        JPanel pnlDVActions = new JPanel(new MigLayout("insets 8 16 8 16, fillx, gap 10", "[]10[]10[]push[]10[]10[]", "[]"));
         pnlDVActions.setBorder(BorderFactory.createMatteBorder(1, 0, 0, 0, UIManager.getColor("Component.borderColor")));
 
         btnDVSelectAll = new JButton("☑ Seleccionar Todos");
@@ -68,6 +77,10 @@ public class DataTabbedPane extends JTabbedPane {
         btnDVUnselectAll.setFont(new Font("Segoe UI", Font.BOLD, 11));
         btnDVUnselectAll.addActionListener(e -> dctoVolumenModel.selectAll(false));
         pnlDVActions.add(btnDVUnselectAll);
+
+        btnDVImportExcel = new JButton("📥 Cargar Excel DV");
+        btnDVImportExcel.setFont(new Font("Segoe UI", Font.BOLD, 11));
+        pnlDVActions.add(btnDVImportExcel);
 
         JLabel lblDVInfo = new JLabel("Aplicar Descuento DV (%):");
         lblDVInfo.setFont(new Font("Segoe UI", Font.BOLD, 11));
@@ -90,9 +103,55 @@ public class DataTabbedPane extends JTabbedPane {
 
         addTab("  Descuentos x Volumen  ", pnlDctoVolumen);
 
-        dctoProductoModel = new ResumenTableModel();
+        // Pestaña Descuento x Producto con panel interactivo
+        dctoProductoModel = new DescuentoProductoTableModel();
         tblDctoProducto = createStyledTable(dctoProductoModel);
-        addTab("  Descuento x Producto  ", wrapTable(tblDctoProducto));
+        tblDctoProducto.setAutoCreateRowSorter(true);
+        tblDctoProducto.getColumnModel().getColumn(0).setMaxWidth(80);
+        tblDctoProducto.getColumnModel().getColumn(0).setMinWidth(80);
+        tblDctoProducto.getColumnModel().getColumn(0).setPreferredWidth(80);
+
+        JPanel pnlDctoProducto = new JPanel(new MigLayout("insets 0, fill, wrap", "[grow]", "[grow]0[]"));
+        pnlDctoProducto.add(wrapTable(tblDctoProducto), "grow");
+
+        // Panel de acciones inferior
+        JPanel pnlDPActions = new JPanel(new MigLayout("insets 8 16 8 16, fillx, gap 10", "[]10[]10[]push[]10[]10[]", "[]"));
+        pnlDPActions.setBorder(BorderFactory.createMatteBorder(1, 0, 0, 0, UIManager.getColor("Component.borderColor")));
+
+        btnDPSelectAll = new JButton("\u2611 Seleccionar Todos");
+        btnDPSelectAll.setFont(new Font("Segoe UI", Font.BOLD, 11));
+        btnDPSelectAll.addActionListener(e -> dctoProductoModel.selectAll(true));
+        pnlDPActions.add(btnDPSelectAll);
+
+        btnDPUnselectAll = new JButton("\u2612 Deseleccionar Todos");
+        btnDPUnselectAll.setFont(new Font("Segoe UI", Font.BOLD, 11));
+        btnDPUnselectAll.addActionListener(e -> dctoProductoModel.selectAll(false));
+        pnlDPActions.add(btnDPUnselectAll);
+
+        btnDPImportExcel = new JButton("📥 Cargar Excel DA");
+        btnDPImportExcel.setFont(new Font("Segoe UI", Font.BOLD, 11));
+        pnlDPActions.add(btnDPImportExcel);
+
+        JLabel lblDPDcto = new JLabel("% Dcto (DA):");
+        lblDPDcto.setFont(new Font("Segoe UI", Font.BOLD, 11));
+        pnlDPActions.add(lblDPDcto);
+
+        txtDPDcto = new JTextField("0.00");
+        txtDPDcto.setFont(new Font("Segoe UI", Font.BOLD, 12));
+        txtDPDcto.setHorizontalAlignment(SwingConstants.RIGHT);
+        pnlDPActions.add(txtDPDcto, "w 80!");
+
+        btnDPAplicar = new JButton("\u26A1 Aplicar a Seleccionados");
+        btnDPAplicar.setFont(new Font("Segoe UI Emoji", Font.BOLD, 11));
+        btnDPAplicar.setBackground(UIManager.getColor("Component.accentColor"));
+        btnDPAplicar.setForeground(Color.WHITE);
+        btnDPAplicar.setFocusPainted(false);
+        btnDPAplicar.setCursor(Cursor.getPredefinedCursor(Cursor.HAND_CURSOR));
+        pnlDPActions.add(btnDPAplicar);
+
+        pnlDctoProducto.add(pnlDPActions, "growx");
+
+        addTab("  Descuento x Producto  ", pnlDctoProducto);
 
         importarPanel = new ImportarPanel();
         addTab("  Importar Datos  ", importarPanel);
@@ -130,8 +189,28 @@ public class DataTabbedPane extends JTabbedPane {
         return btnDVAplicar;
     }
 
-    public ResumenTableModel getDctoProductoModel() {
+    public JButton getBtnDVImportExcel() {
+        return btnDVImportExcel;
+    }
+
+    public DescuentoProductoTableModel getDctoProductoModel() {
         return dctoProductoModel;
+    }
+
+    public JTable getTblDctoProducto() {
+        return tblDctoProducto;
+    }
+
+    public JTextField getTxtDPDcto() {
+        return txtDPDcto;
+    }
+
+    public JButton getBtnDPImportExcel() {
+        return btnDPImportExcel;
+    }
+
+    public JButton getBtnDPAplicar() {
+        return btnDPAplicar;
     }
 
     private JTable createStyledTable(javax.swing.table.TableModel model) {

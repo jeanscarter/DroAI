@@ -1,8 +1,10 @@
 package com.droai.service;
 
 import com.droai.dao.ArticuloDAO;
+import com.droai.dao.DescuentoProductoDAO;
 import com.droai.dao.DescuentoVolumenDAO;
 import com.droai.model.ArticuloRow;
+import com.droai.model.DescuentoProductoRow;
 import com.droai.model.DescuentoVolumenRow;
 
 import java.sql.SQLException;
@@ -16,15 +18,18 @@ public class CatalogoService {
 
     private final ArticuloDAO articuloDAO;
     private final DescuentoVolumenDAO descuentoVolumenDAO;
+    private final DescuentoProductoDAO descuentoProductoDAO;
 
     public CatalogoService() {
         this.articuloDAO = new ArticuloDAO();
         this.descuentoVolumenDAO = new DescuentoVolumenDAO();
+        this.descuentoProductoDAO = new DescuentoProductoDAO();
     }
 
-    public CatalogoService(ArticuloDAO articuloDAO, DescuentoVolumenDAO descuentoVolumenDAO) {
+    public CatalogoService(ArticuloDAO articuloDAO, DescuentoVolumenDAO descuentoVolumenDAO, DescuentoProductoDAO descuentoProductoDAO) {
         this.articuloDAO = articuloDAO;
         this.descuentoVolumenDAO = descuentoVolumenDAO;
+        this.descuentoProductoDAO = descuentoProductoDAO;
     }
 
     public List<DescuentoVolumenRow> obtenerDescuentosVolumen() throws SQLException {
@@ -33,6 +38,26 @@ public class CatalogoService {
 
     public void actualizarDescuentosVolumen(List<String> codigos, double nuevoPorcentaje) throws SQLException {
         descuentoVolumenDAO.updateDescuentosVolumen(codigos, nuevoPorcentaje);
+    }
+
+    public void actualizarDescuentosVolumenMap(java.util.Map<String, Double> dctosMap) throws SQLException {
+        descuentoVolumenDAO.updateDescuentosVolumenMap(dctosMap);
+    }
+
+    public List<DescuentoProductoRow> obtenerDescuentosProducto() throws SQLException {
+        return descuentoProductoDAO.fetchDescuentosProducto();
+    }
+
+    public void actualizarDescuentosProducto(List<String> codigos, double dctoDA, double dctoDV) throws SQLException {
+        descuentoProductoDAO.updateDescuentosProducto(codigos, dctoDA, dctoDV);
+    }
+
+    public void actualizarDescuentosProductoDA(List<String> codigos, double dctoDA) throws SQLException {
+        descuentoProductoDAO.updateDescuentosProductoDA(codigos, dctoDA);
+    }
+
+    public void actualizarDescuentosProductoDAMap(java.util.Map<String, Double> dctosMap) throws SQLException {
+        descuentoProductoDAO.updateDescuentosProductoDAMap(dctosMap);
     }
 
     public List<ArticuloRow> obtenerCatalogo() throws SQLException {

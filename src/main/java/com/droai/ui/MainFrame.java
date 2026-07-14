@@ -2,6 +2,7 @@ package com.droai.ui;
 
 import com.droai.config.DatabaseConfig;
 import com.droai.model.ArticuloRow;
+import com.droai.model.DescuentoProductoRow;
 import com.droai.model.DescuentoVolumenRow;
 import com.droai.model.FiltrosCriteria;
 import com.droai.model.ProductoReporteRow;
@@ -16,11 +17,13 @@ import com.formdev.flatlaf.FlatLightLaf;
 import net.miginfocom.swing.MigLayout;
 
 import javax.swing.*;
+import javax.swing.filechooser.FileNameExtensionFilter;
 import java.awt.*;
 import java.io.File;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import com.droai.service.ImportadorService;
 
 public class MainFrame extends JFrame {
 
@@ -58,6 +61,7 @@ public class MainFrame extends JFrame {
         header.setOnSearch(query -> {
             dataTabs.getCatalogoModel().setFilter(query);
             dataTabs.getDctoVolumenModel().setFilterText(query);
+            dataTabs.getDctoProductoModel().setFilterText(query);
             actualizarFooterConPestanaActiva();
         });
         header.setOnFiltrar(this::abrirFiltros);
@@ -72,8 +76,11 @@ public class MainFrame extends JFrame {
         // Escuchar cambios de pestaña para actualizar el footer de registros
         dataTabs.addChangeListener(e -> actualizarFooterConPestanaActiva());
 
-        // Escuchar el botón para aplicar descuento masivo
+        // Escuchar los botones para aplicar descuento masivo
         dataTabs.getBtnDVAplicar().addActionListener(e -> aplicarDescuentoDV());
+        dataTabs.getBtnDVImportExcel().addActionListener(e -> cargarDescuentoDVDesdeExcel());
+        dataTabs.getBtnDPAplicar().addActionListener(e -> aplicarDescuentoDP());
+        dataTabs.getBtnDPImportExcel().addActionListener(e -> cargarDescuentoDPDesdeExcel());
 
         footer.setOnColumna3Changed(columna -> {
             header.setTercerRadioText(columna);
@@ -120,11 +127,13 @@ public class MainFrame extends JFrame {
         new SwingWorker<Boolean, Void>() {
             private List<ArticuloRow> catalogoRows;
             private List<DescuentoVolumenRow> dvRows;
+            private List<DescuentoProductoRow> dpRows;
 
             @Override
             protected Boolean doInBackground() throws Exception {
                 catalogoRows = service.obtenerCatalogo();
                 dvRows = service.obtenerDescuentosVolumen();
+                dpRows = service.obtenerDescuentosProducto();
                 return true;
             }
 
@@ -134,6 +143,7 @@ public class MainFrame extends JFrame {
                     get();
                     dataTabs.getCatalogoModel().setData(catalogoRows);
                     dataTabs.getDctoVolumenModel().setData(dvRows);
+                    dataTabs.getDctoProductoModel().setData(dpRows);
                     actualizarFooterConPestanaActiva();
                     Toast.show("Catálogo y descuentos cargados con éxito", Toast.Type.SUCCESS);
                 } catch (Exception ex) {
@@ -150,21 +160,20 @@ public class MainFrame extends JFrame {
         dialog.setVisible(true);
 
         if (dialog.isFiltrosEliminados()) {
-            // Usuario presionó "Quitar Filtros": limpiar criteria a null (estado inicial)
             dataTabs.getCatalogoModel().setFiltrosCriteria(null);
             dataTabs.getDctoVolumenModel().setFilterMarca(null);
+            dataTabs.getDctoProductoModel().setFilterMarca(null);
             actualizarFooterConPestanaActiva();
             Toast.show("Filtros eliminados", Toast.Type.INFO);
         } else {
             FiltrosCriteria result = dialog.getResultado();
             if (result != null) {
-                // Usuario presionó "Aplicar Filtros"
                 dataTabs.getCatalogoModel().setFiltrosCriteria(result);
                 dataTabs.getDctoVolumenModel().setFilterMarca(result.getMarca());
+                dataTabs.getDctoProductoModel().setFilterMarca(result.getMarca());
                 actualizarFooterConPestanaActiva();
                 Toast.show("Filtros aplicados", Toast.Type.SUCCESS);
             }
-            // Si result == null y no filtrosEliminados, el usuario cerró sin acción → no hacer nada
         }
     }
 
@@ -173,6 +182,7 @@ public class MainFrame extends JFrame {
         int count = switch (index) {
             case 0 -> dataTabs.getCatalogoModel().getRowCount();
             case 2 -> dataTabs.getDctoVolumenModel().getRowCount();
+            case 3 -> dataTabs.getDctoProductoModel().getRowCount();
             default -> 0;
         };
         footer.setRegistroCount(count);
@@ -225,6 +235,198 @@ public class MainFrame extends JFrame {
                 } catch (Exception ex) {
                     ex.printStackTrace();
                     Toast.show("Error al actualizar descuentos", Toast.Type.ERROR);
+                }
+            }
+        }.execute();
+    }
+
+    private void cargarDescuentoDVDesdeExcel() {
+        JFileChooser fileChooser = new JFileChooser();
+        fileChooser.setDialogTitle("Seleccionar Archivo de Descuentos DV");
+        fileChooser.setFileFilter(new FileNameExtensionFilter("Archivos Excel (*.xlsx, *.xls)", "xlsx", "xls"));
+        
+        int userSelection = fileChooser.showOpenDialog(this);
+        if (userSelection != JFileChooser.APPROVE_OPTION) {
+            return;
+        }
+        
+        File selectedFile = fileChooser.getSelectedFile();
+        Toast.show("Leyendo archivo Excel de descuentos...", Toast.Type.INFO);
+        
+        new SwingWorker<java.util.Map<String, Double>, Void>() {
+            private final ImportadorService importadorService = new ImportadorService();
+
+            @Override
+            protected java.util.Map<String, Double> doInBackground() throws Exception {
+                return importadorService.leerExcelDescuentoDV(selectedFile);
+            }
+            
+            @Override
+            protected void done() {
+                try {
+                    java.util.Map<String, Double> dctosMap = get();
+                    if (dctosMap == null || dctosMap.isEmpty()) {
+                        Toast.show("No se encontraron descuentos válidos en el archivo.", Toast.Type.WARNING);
+                        return;
+                    }
+                    
+                    int confirm = JOptionPane.showConfirmDialog(MainFrame.this,
+                            "Se leyeron " + dctosMap.size() + " descuentos del archivo Excel.\n¿Deseas aplicarlos en la base de datos?",
+                            "Confirmar Carga de Descuentos",
+                            JOptionPane.YES_NO_OPTION,
+                            JOptionPane.QUESTION_MESSAGE);
+                            
+                    if (confirm != JOptionPane.YES_OPTION) {
+                        return;
+                    }
+                    
+                    Toast.show("Actualizando descuentos por volumen...", Toast.Type.INFO);
+                    
+                    new SwingWorker<Void, Void>() {
+                        @Override
+                        protected Void doInBackground() throws Exception {
+                            service.actualizarDescuentosVolumenMap(dctosMap);
+                            return null;
+                        }
+                        
+                        @Override
+                        protected void done() {
+                            try {
+                                get();
+                                Toast.show("Se actualizaron " + dctosMap.size() + " descuentos correctamente.", Toast.Type.SUCCESS);
+                                loadData();
+                            } catch (Exception ex) {
+                                ex.printStackTrace();
+                                Toast.show("Error al actualizar descuentos en la base de datos.", Toast.Type.ERROR);
+                            }
+                        }
+                    }.execute();
+                    
+                } catch (Exception ex) {
+                    ex.printStackTrace();
+                    Toast.show("Error al leer el archivo Excel: " + ex.getMessage(), Toast.Type.ERROR);
+                }
+            }
+        }.execute();
+    }
+
+    private void cargarDescuentoDPDesdeExcel() {
+        JFileChooser fileChooser = new JFileChooser();
+        fileChooser.setDialogTitle("Seleccionar Archivo de Descuentos DA");
+        fileChooser.setFileFilter(new FileNameExtensionFilter("Archivos Excel (*.xlsx, *.xls)", "xlsx", "xls"));
+        
+        int userSelection = fileChooser.showOpenDialog(this);
+        if (userSelection != JFileChooser.APPROVE_OPTION) {
+            return;
+        }
+        
+        File selectedFile = fileChooser.getSelectedFile();
+        Toast.show("Leyendo archivo Excel de descuentos...", Toast.Type.INFO);
+        
+        new SwingWorker<java.util.Map<String, Double>, Void>() {
+            private final ImportadorService importadorService = new ImportadorService();
+
+            @Override
+            protected java.util.Map<String, Double> doInBackground() throws Exception {
+                return importadorService.leerExcelDescuentoDA(selectedFile);
+            }
+            
+            @Override
+            protected void done() {
+                try {
+                    java.util.Map<String, Double> dctosMap = get();
+                    if (dctosMap == null || dctosMap.isEmpty()) {
+                        Toast.show("No se encontraron descuentos válidos en el archivo.", Toast.Type.WARNING);
+                        return;
+                    }
+                    
+                    int confirm = JOptionPane.showConfirmDialog(MainFrame.this,
+                            "Se leyeron " + dctosMap.size() + " descuentos DA del archivo Excel.\n¿Deseas aplicarlos en la base de datos?",
+                            "Confirmar Carga de Descuentos",
+                            JOptionPane.YES_NO_OPTION,
+                            JOptionPane.QUESTION_MESSAGE);
+                            
+                    if (confirm != JOptionPane.YES_OPTION) {
+                        return;
+                    }
+                    
+                    Toast.show("Actualizando descuentos por producto (DA)...", Toast.Type.INFO);
+                    
+                    new SwingWorker<Void, Void>() {
+                        @Override
+                        protected Void doInBackground() throws Exception {
+                            service.actualizarDescuentosProductoDAMap(dctosMap);
+                            return null;
+                        }
+                        
+                        @Override
+                        protected void done() {
+                            try {
+                                get();
+                                Toast.show("Se actualizaron " + dctosMap.size() + " descuentos correctamente.", Toast.Type.SUCCESS);
+                                loadData();
+                            } catch (Exception ex) {
+                                ex.printStackTrace();
+                                Toast.show("Error al actualizar descuentos en la base de datos.", Toast.Type.ERROR);
+                            }
+                        }
+                    }.execute();
+                    
+                } catch (Exception ex) {
+                    ex.printStackTrace();
+                    Toast.show("Error al leer el archivo Excel: " + ex.getMessage(), Toast.Type.ERROR);
+                }
+            }
+        }.execute();
+    }
+
+    private void aplicarDescuentoDP() {
+        List<String> codigos = dataTabs.getDctoProductoModel().getSelectedCodigos();
+        if (codigos.isEmpty()) {
+            Toast.show("Selecciona al menos un producto de la lista", Toast.Type.WARNING);
+            return;
+        }
+
+        String dctoStr = dataTabs.getTxtDPDcto().getText().trim();
+        double dctoDA;
+        try {
+            dctoDA = Double.parseDouble(dctoStr);
+            if (dctoDA < 0 || dctoDA > 100) {
+                Toast.show("El porcentaje debe estar entre 0 y 100", Toast.Type.WARNING);
+                return;
+            }
+        } catch (NumberFormatException e) {
+            Toast.show("Porcentaje de descuento inválido", Toast.Type.WARNING);
+            return;
+        }
+
+        int confirm = JOptionPane.showConfirmDialog(this,
+                "¿Deseas aplicar un descuento DA del " + String.format("%.2f", dctoDA) + "% a los " + codigos.size() + " productos seleccionados?",
+                "Confirmar Descuento por Producto",
+                JOptionPane.YES_NO_OPTION,
+                JOptionPane.QUESTION_MESSAGE);
+
+        if (confirm != JOptionPane.YES_OPTION) {
+            return;
+        }
+
+        Toast.show("Actualizando descuentos por producto (DA)...", Toast.Type.INFO);
+        new SwingWorker<Void, Void>() {
+            @Override
+            protected Void doInBackground() throws Exception {
+                service.actualizarDescuentosProductoDA(codigos, dctoDA);
+                return null;
+            }
+
+            @Override
+            protected void done() {
+                try {
+                    get();
+                    Toast.show(codigos.size() + " descuentos por producto (DA) actualizados correctamente", Toast.Type.SUCCESS);
+                    loadData();
+                } catch (Exception ex) {
+                    ex.printStackTrace();
+                    Toast.show("Error al actualizar descuentos por producto", Toast.Type.ERROR);
                 }
             }
         }.execute();

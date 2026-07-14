@@ -23,3 +23,12 @@ db.properties
 .vscode/
 *.xlsx
 output.txt
+investigation_results.txt
+WhatsApp Ptt 2026-06-30 at 12.30.03 PM.ogg
+src/main/java/com/droai/DescuentoInvestigator3.java
+src/main/java/com/droai/DescuentoInvestigator4.java
+src/main/java/com/droai/DiscountInvestigator.java
+src/main/java/com/droai/ExcelHeaderPrinter.java
+src/main/java/com/droai/ExcelInspector.java
+.gitignore
+src/main/java/com/droai/ExcelSearcher.java

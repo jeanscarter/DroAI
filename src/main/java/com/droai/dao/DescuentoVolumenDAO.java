@@ -152,4 +152,119 @@ public class DescuentoVolumenDAO {
             }
         }
     }
+
+    public void updateDescuentosVolumenMap(java.util.Map<String, Double> dctosMap) throws SQLException {
+        if (dctosMap == null || dctosMap.isEmpty()) {
+            return;
+        }
+
+        try (Connection conn = DatabaseConfig.getDataSource().getConnection()) {
+            conn.setAutoCommit(false);
+            try {
+                // 1. Obtener el máximo co_desc actual para posibles inserciones
+                int nextCoDesc = 1;
+                try (Statement stmt = conn.createStatement();
+                     ResultSet rs = stmt.executeQuery("SELECT MAX(co_desc) FROM saDescArticulo")) {
+                    if (rs.next()) {
+                        String maxVal = rs.getString(1);
+                        if (maxVal != null && !maxVal.trim().isEmpty()) {
+                            try {
+                                nextCoDesc = Integer.parseInt(maxVal.trim()) + 1;
+                            } catch (NumberFormatException e) {
+                                nextCoDesc = 30000;
+                            }
+                        }
+                    }
+                }
+
+                // 2. Preparar sentencias
+                String sqlCheckArticulo = "SELECT co_art FROM saArticulo WHERE co_art = ?";
+                String sqlCheck = "SELECT COUNT(*) FROM saDescArticulo WHERE co_art = ? AND fecha_ini IS NULL";
+                String sqlUpdate = "UPDATE saDescArticulo SET porc1 = ?, co_us_mo = 'ADMIN', fe_us_mo = GETDATE() WHERE co_art = ? AND tip_cli = ? AND fecha_ini IS NULL";
+                String sqlInsert = "INSERT INTO saDescArticulo (co_desc, des_des, co_art, tip_cli, hasta1, hasta2, hasta3, hasta4, hasta5, porc1, porc2, porc3, porc4, porc5, porc6, co_us_in, fe_us_in, co_us_mo, fe_us_mo, rowguid) " +
+                                   "VALUES (?, 'Descuento por Volumen', ?, ?, 99999999.99, 99999999.99, 99999999.99, 0.0, 0.0, ?, 0.0, 0.0, 0.0, 0.0, 0.0, 'ADMIN', GETDATE(), 'ADMIN', GETDATE(), ?)";
+
+                try (PreparedStatement psCheckArticulo = conn.prepareStatement(sqlCheckArticulo);
+                     PreparedStatement psCheck = conn.prepareStatement(sqlCheck);
+                     PreparedStatement psUpdate = conn.prepareStatement(sqlUpdate);
+                     PreparedStatement psInsert = conn.prepareStatement(sqlInsert)) {
+
+                    for (java.util.Map.Entry<String, Double> entry : dctosMap.entrySet()) {
+                        String coArt = entry.getKey().trim();
+                        double nuevoPorcentaje = entry.getValue();
+
+                        // Verificar si el artículo existe en saArticulo
+                        String matchedCoArt = null;
+                        psCheckArticulo.setString(1, coArt);
+                        try (ResultSet rs = psCheckArticulo.executeQuery()) {
+                            if (rs.next()) {
+                                matchedCoArt = rs.getString("co_art").trim();
+                            }
+                        }
+
+                        // Si no existe, y es puramente numérico, intentar con relleno a 6 dígitos (formato estándar Profit)
+                        if (matchedCoArt == null && coArt.matches("\\d+")) {
+                            try {
+                                String padded = String.format("%06d", Integer.parseInt(coArt));
+                                psCheckArticulo.setString(1, padded);
+                                try (ResultSet rs = psCheckArticulo.executeQuery()) {
+                                    if (rs.next()) {
+                                        matchedCoArt = rs.getString("co_art").trim();
+                                    }
+                                }
+                            } catch (NumberFormatException ignored) {
+                            }
+                        }
+
+                        // Si no existe en saArticulo, se omite para evitar violar la clave foránea (FK_saDescArticulo_saArticulo)
+                        if (matchedCoArt == null) {
+                            System.out.println("Advertencia: Se omitió el artículo porque no existe en la tabla saArticulo: " + coArt);
+                            continue;
+                        }
+
+                        // Verificar si ya tiene descuento
+                        psCheck.setString(1, matchedCoArt);
+                        boolean exists = false;
+                        try (ResultSet rs = psCheck.executeQuery()) {
+                            if (rs.next() && rs.getInt(1) > 0) {
+                                exists = true;
+                            }
+                        }
+
+                        if (exists) {
+                            // Actualizar para los 7 tipos de clientes (000001 a 000007)
+                            for (int i = 1; i <= 7; i++) {
+                                String tipCli = String.format("%06d", i);
+                                psUpdate.setDouble(1, nuevoPorcentaje);
+                                psUpdate.setString(2, matchedCoArt);
+                                psUpdate.setString(3, tipCli);
+                                psUpdate.addBatch();
+                            }
+                            psUpdate.executeBatch();
+                        } else {
+                            // Insertar registros para los 7 tipos de clientes
+                            for (int i = 1; i <= 7; i++) {
+                                String tipCli = String.format("%06d", i);
+                                String coDesc = String.format("%06d", nextCoDesc++);
+                                UUID guid = UUID.randomUUID();
+
+                                psInsert.setString(1, coDesc);
+                                psInsert.setString(2, matchedCoArt);
+                                psInsert.setString(3, tipCli);
+                                psInsert.setDouble(4, nuevoPorcentaje);
+                                psInsert.setString(5, guid.toString());
+                                psInsert.addBatch();
+                            }
+                            psInsert.executeBatch();
+                        }
+                    }
+                }
+
+                conn.commit();
+            } catch (SQLException e) {
+                conn.rollback();
+                throw e;
+            }
+        }
+    }
 }
