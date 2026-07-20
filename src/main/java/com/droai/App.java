@@ -50,14 +50,15 @@ public class App {
             }
 
             // ═══════════════════════════════════════════════════════
-            //  PASO 2: Login exitoso → Abrir ventana principal
+            //  PASO 2: Login exitoso → Abrir Dashboard Administrativo
             // ═══════════════════════════════════════════════════════
             System.out.println("[DroAI] ✔ Acceso autorizado: "
                     + SesionUsuario.current().getCoUsuario()
-                    + " (" + SesionUsuario.current().getNombreUsuario() + ")");
+                    + " (" + SesionUsuario.current().getNombreUsuario() + ")"
+                    + " — Máquina: " + SesionUsuario.current().getMaquina());
 
-            com.droai.ui.MainFrame frame = new com.droai.ui.MainFrame();
-            frame.setVisible(true);
+            com.droai.ui.AdminDashboardFrame dashboard = new com.droai.ui.AdminDashboardFrame();
+            dashboard.setVisible(true);
         });
     }
 }

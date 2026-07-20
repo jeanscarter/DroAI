@@ -2,6 +2,7 @@ package com.droai.dao;
 
 import com.droai.config.DatabaseConfig;
 import com.droai.model.DescuentoProductoRow;
+import com.droai.model.SesionUsuario;
 
 import java.sql.*;
 import java.util.ArrayList;
@@ -110,15 +111,19 @@ public class DescuentoProductoDAO {
             return;
         }
 
+        String coUsuario = SesionUsuario.isAutenticado()
+                ? SesionUsuario.current().getCoUsuario() : "SYSTEM";
+
         try (Connection conn = DatabaseConfig.getDataSource().getConnection()) {
             conn.setAutoCommit(false);
             try {
                 // 1. Actualizar el DA en saArticulo (columna volumen)
-                String sqlUpdateArt = "UPDATE saArticulo SET volumen = ?, co_us_mo = 'ADMIN', fe_us_mo = GETDATE() WHERE co_art = ?";
+                String sqlUpdateArt = "UPDATE saArticulo SET volumen = ?, co_us_mo = ?, fe_us_mo = GETDATE() WHERE co_art = ?";
                 try (PreparedStatement psUpdateArt = conn.prepareStatement(sqlUpdateArt)) {
                     for (String coArt : codigosArticulos) {
                         psUpdateArt.setDouble(1, dctoDA);
-                        psUpdateArt.setString(2, coArt.trim());
+                        psUpdateArt.setString(2, coUsuario);
+                        psUpdateArt.setString(3, coArt.trim());
                         psUpdateArt.addBatch();
                     }
                     psUpdateArt.executeBatch();
@@ -144,7 +149,7 @@ public class DescuentoProductoDAO {
                 String sqlCheck = "SELECT COUNT(*) FROM saDescArticulo WHERE co_art = ? AND tip_cli = ?";
                 String sqlUpdate = """
                         UPDATE saDescArticulo
-                        SET porc1 = ?, co_us_mo = 'ADMIN', fe_us_mo = GETDATE()
+                        SET porc1 = ?, co_us_mo = ?, fe_us_mo = GETDATE()
                         WHERE co_art = ? AND tip_cli = ?
                         """;
                 String sqlInsert = """
@@ -157,7 +162,7 @@ public class DescuentoProductoDAO {
                             (?, 'Descuento por Producto', ?, ?,
                              99999999.99, 99999999.99, 99999999.99, 0.0, 0.0,
                              ?, 0.0, 0.0, 0.0, 0.0, 0.0,
-                             'ADMIN', GETDATE(), 'ADMIN', GETDATE(), ?)
+                             ?, GETDATE(), ?, GETDATE(), ?)
                         """;
 
                 try (PreparedStatement psCheck = conn.prepareStatement(sqlCheck);
@@ -181,8 +186,9 @@ public class DescuentoProductoDAO {
 
                             if (exists) {
                                 psUpdate.setDouble(1, dctoDV);
-                                psUpdate.setString(2, cleanCoArt);
-                                psUpdate.setString(3, tipCli);
+                                psUpdate.setString(2, coUsuario);
+                                psUpdate.setString(3, cleanCoArt);
+                                psUpdate.setString(4, tipCli);
                                 psUpdate.addBatch();
                             } else {
                                 String coDesc = String.format("%06d", nextCoDesc++);
@@ -191,7 +197,9 @@ public class DescuentoProductoDAO {
                                 psInsert.setString(2, cleanCoArt);
                                 psInsert.setString(3, tipCli);
                                 psInsert.setDouble(4, dctoDV);
-                                psInsert.setString(5, guid.toString());
+                                psInsert.setString(5, coUsuario);
+                                psInsert.setString(6, coUsuario);
+                                psInsert.setString(7, guid.toString());
                                 psInsert.addBatch();
                             }
                         }
@@ -214,14 +222,18 @@ public class DescuentoProductoDAO {
             return;
         }
 
+        String coUsuario = SesionUsuario.isAutenticado()
+                ? SesionUsuario.current().getCoUsuario() : "SYSTEM";
+
         try (Connection conn = DatabaseConfig.getDataSource().getConnection()) {
             conn.setAutoCommit(false);
             try {
-                String sqlUpdateArt = "UPDATE saArticulo SET volumen = ?, co_us_mo = 'ADMIN', fe_us_mo = GETDATE() WHERE co_art = ?";
+                String sqlUpdateArt = "UPDATE saArticulo SET volumen = ?, co_us_mo = ?, fe_us_mo = GETDATE() WHERE co_art = ?";
                 try (PreparedStatement psUpdateArt = conn.prepareStatement(sqlUpdateArt)) {
                     for (String coArt : codigosArticulos) {
                         psUpdateArt.setDouble(1, dctoDA);
-                        psUpdateArt.setString(2, coArt.trim());
+                        psUpdateArt.setString(2, coUsuario);
+                        psUpdateArt.setString(3, coArt.trim());
                         psUpdateArt.addBatch();
                     }
                     psUpdateArt.executeBatch();
@@ -239,16 +251,20 @@ public class DescuentoProductoDAO {
             return;
         }
 
+        String coUsuario = SesionUsuario.isAutenticado()
+                ? SesionUsuario.current().getCoUsuario() : "SYSTEM";
+
         try (Connection conn = DatabaseConfig.getDataSource().getConnection()) {
             conn.setAutoCommit(false);
             try {
-                String sqlUpdateArt = "UPDATE saArticulo SET volumen = ?, co_us_mo = 'ADMIN', fe_us_mo = GETDATE() WHERE co_art = ?";
+                String sqlUpdateArt = "UPDATE saArticulo SET volumen = ?, co_us_mo = ?, fe_us_mo = GETDATE() WHERE co_art = ?";
                 try (PreparedStatement psUpdateArt = conn.prepareStatement(sqlUpdateArt)) {
                     for (java.util.Map.Entry<String, Double> entry : dctosMap.entrySet()) {
                         String coArt = entry.getKey().trim();
                         double nuevoPorcentaje = entry.getValue();
                         psUpdateArt.setDouble(1, nuevoPorcentaje);
-                        psUpdateArt.setString(2, coArt);
+                        psUpdateArt.setString(2, coUsuario);
+                        psUpdateArt.setString(3, coArt);
                         psUpdateArt.addBatch();
                     }
                     psUpdateArt.executeBatch();

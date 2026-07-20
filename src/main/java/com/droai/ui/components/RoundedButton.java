@@ -39,6 +39,12 @@ public class RoundedButton extends JButton {
         });
     }
 
+    @Override
+    public void updateUI() {
+        super.updateUI();
+        currentBg = getBaseColor();
+    }
+
     private Color getBaseColor() {
         Color bg = UIManager.getColor("Button.background");
         return bg != null ? bg : new Color(50, 55, 68);

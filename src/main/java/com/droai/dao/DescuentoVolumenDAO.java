@@ -2,6 +2,7 @@ package com.droai.dao;
 
 import com.droai.config.DatabaseConfig;
 import com.droai.model.DescuentoVolumenRow;
+import com.droai.model.SesionUsuario;
 
 import java.sql.*;
 import java.util.ArrayList;
@@ -73,6 +74,9 @@ public class DescuentoVolumenDAO {
             return;
         }
 
+        String coUsuario = SesionUsuario.isAutenticado()
+                ? SesionUsuario.current().getCoUsuario() : "SYSTEM";
+
         try (Connection conn = DatabaseConfig.getDataSource().getConnection()) {
             conn.setAutoCommit(false);
             try {
@@ -95,9 +99,9 @@ public class DescuentoVolumenDAO {
 
                 // 2. Preparar sentencias
                 String sqlCheck = "SELECT COUNT(*) FROM saDescArticulo WHERE co_art = ? AND fecha_ini IS NULL";
-                String sqlUpdate = "UPDATE saDescArticulo SET porc1 = ?, co_us_mo = 'ADMIN', fe_us_mo = GETDATE() WHERE co_art = ? AND tip_cli = ? AND fecha_ini IS NULL";
+                String sqlUpdate = "UPDATE saDescArticulo SET porc1 = ?, co_us_mo = ?, fe_us_mo = GETDATE() WHERE co_art = ? AND tip_cli = ? AND fecha_ini IS NULL";
                 String sqlInsert = "INSERT INTO saDescArticulo (co_desc, des_des, co_art, tip_cli, hasta1, hasta2, hasta3, hasta4, hasta5, porc1, porc2, porc3, porc4, porc5, porc6, co_us_in, fe_us_in, co_us_mo, fe_us_mo, rowguid) " +
-                                   "VALUES (?, 'Descuento por Volumen', ?, ?, 99999999.99, 99999999.99, 99999999.99, 0.0, 0.0, ?, 0.0, 0.0, 0.0, 0.0, 0.0, 'ADMIN', GETDATE(), 'ADMIN', GETDATE(), ?)";
+                                   "VALUES (?, 'Descuento por Volumen', ?, ?, 99999999.99, 99999999.99, 99999999.99, 0.0, 0.0, ?, 0.0, 0.0, 0.0, 0.0, 0.0, ?, GETDATE(), ?, GETDATE(), ?)";
 
                 try (PreparedStatement psCheck = conn.prepareStatement(sqlCheck);
                      PreparedStatement psUpdate = conn.prepareStatement(sqlUpdate);
@@ -121,8 +125,9 @@ public class DescuentoVolumenDAO {
                             for (int i = 1; i <= 7; i++) {
                                 String tipCli = String.format("%06d", i);
                                 psUpdate.setDouble(1, nuevoPorcentaje);
-                                psUpdate.setString(2, cleanCoArt);
-                                psUpdate.setString(3, tipCli);
+                                psUpdate.setString(2, coUsuario);
+                                psUpdate.setString(3, cleanCoArt);
+                                psUpdate.setString(4, tipCli);
                                 psUpdate.addBatch();
                             }
                             psUpdate.executeBatch();
@@ -137,7 +142,9 @@ public class DescuentoVolumenDAO {
                                 psInsert.setString(2, cleanCoArt);
                                 psInsert.setString(3, tipCli);
                                 psInsert.setDouble(4, nuevoPorcentaje);
-                                psInsert.setString(5, guid.toString());
+                                psInsert.setString(5, coUsuario);
+                                psInsert.setString(6, coUsuario);
+                                psInsert.setString(7, guid.toString());
                                 psInsert.addBatch();
                             }
                             psInsert.executeBatch();
@@ -157,6 +164,9 @@ public class DescuentoVolumenDAO {
         if (dctosMap == null || dctosMap.isEmpty()) {
             return;
         }
+
+        String coUsuario = SesionUsuario.isAutenticado()
+                ? SesionUsuario.current().getCoUsuario() : "SYSTEM";
 
         try (Connection conn = DatabaseConfig.getDataSource().getConnection()) {
             conn.setAutoCommit(false);
@@ -180,9 +190,9 @@ public class DescuentoVolumenDAO {
                 // 2. Preparar sentencias
                 String sqlCheckArticulo = "SELECT co_art FROM saArticulo WHERE co_art = ?";
                 String sqlCheck = "SELECT COUNT(*) FROM saDescArticulo WHERE co_art = ? AND fecha_ini IS NULL";
-                String sqlUpdate = "UPDATE saDescArticulo SET porc1 = ?, co_us_mo = 'ADMIN', fe_us_mo = GETDATE() WHERE co_art = ? AND tip_cli = ? AND fecha_ini IS NULL";
+                String sqlUpdate = "UPDATE saDescArticulo SET porc1 = ?, co_us_mo = ?, fe_us_mo = GETDATE() WHERE co_art = ? AND tip_cli = ? AND fecha_ini IS NULL";
                 String sqlInsert = "INSERT INTO saDescArticulo (co_desc, des_des, co_art, tip_cli, hasta1, hasta2, hasta3, hasta4, hasta5, porc1, porc2, porc3, porc4, porc5, porc6, co_us_in, fe_us_in, co_us_mo, fe_us_mo, rowguid) " +
-                                   "VALUES (?, 'Descuento por Volumen', ?, ?, 99999999.99, 99999999.99, 99999999.99, 0.0, 0.0, ?, 0.0, 0.0, 0.0, 0.0, 0.0, 'ADMIN', GETDATE(), 'ADMIN', GETDATE(), ?)";
+                                   "VALUES (?, 'Descuento por Volumen', ?, ?, 99999999.99, 99999999.99, 99999999.99, 0.0, 0.0, ?, 0.0, 0.0, 0.0, 0.0, 0.0, ?, GETDATE(), ?, GETDATE(), ?)";
 
                 try (PreparedStatement psCheckArticulo = conn.prepareStatement(sqlCheckArticulo);
                      PreparedStatement psCheck = conn.prepareStatement(sqlCheck);
@@ -236,8 +246,9 @@ public class DescuentoVolumenDAO {
                             for (int i = 1; i <= 7; i++) {
                                 String tipCli = String.format("%06d", i);
                                 psUpdate.setDouble(1, nuevoPorcentaje);
-                                psUpdate.setString(2, matchedCoArt);
-                                psUpdate.setString(3, tipCli);
+                                psUpdate.setString(2, coUsuario);
+                                psUpdate.setString(3, matchedCoArt);
+                                psUpdate.setString(4, tipCli);
                                 psUpdate.addBatch();
                             }
                             psUpdate.executeBatch();
@@ -252,7 +263,9 @@ public class DescuentoVolumenDAO {
                                 psInsert.setString(2, matchedCoArt);
                                 psInsert.setString(3, tipCli);
                                 psInsert.setDouble(4, nuevoPorcentaje);
-                                psInsert.setString(5, guid.toString());
+                                psInsert.setString(5, coUsuario);
+                                psInsert.setString(6, coUsuario);
+                                psInsert.setString(7, guid.toString());
                                 psInsert.addBatch();
                             }
                             psInsert.executeBatch();

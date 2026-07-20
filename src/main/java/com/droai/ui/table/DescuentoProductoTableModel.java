@@ -15,7 +15,7 @@ public class DescuentoProductoTableModel extends AbstractTableModel {
     private static final String[] COLUMNS = {
             "Seleccionar", "Código", "Código de Barra", "Descripción", "Principio Activo",
             "Marca", "Costo Fábrica", "Arancel %", "Costo Actual", "Utilidad %",
-            "Precio 1", "% Dcto (DA)", "Precio Dcto", "Desde", "Hasta"
+            "Precio 1", "% Dcto (DP)", "Precio Dcto", "Desde", "Hasta"
     };
 
     private List<DescuentoProductoRow> allData = new ArrayList<>();

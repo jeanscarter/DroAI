@@ -492,7 +492,7 @@ public class ImportadorService {
                         if (norm.contains("cod int") || norm.equals("codigo") || norm.equals("co_art") || norm.equals("cod_int")) {
                             colCodInt = c;
                         }
-                        if (norm.contains("descuento") || norm.contains("dcto") || norm.equals("dv") || norm.equals("porc1")) {
+                        if (norm.contains("descuento") || norm.contains("dcto") || norm.equals("dv") || norm.equals("porc1") || norm.equals("flash")) {
                             colDescuento = c;
                         }
                     }
@@ -582,7 +582,7 @@ public class ImportadorService {
                         if (norm.contains("cod int") || norm.equals("codigo") || norm.equals("co_art") || norm.equals("cod_int")) {
                             colCodInt = c;
                         }
-                        if (norm.contains("descuento") || norm.contains("dcto") || norm.equals("da") || norm.equals("porc1") || norm.equals("volumen")) {
+                        if (norm.contains("descuento") || norm.contains("dcto") || norm.equals("da") || norm.equals("porc1") || norm.equals("volumen") || norm.equals("flash")) {
                             colDescuento = c;
                         }
                     }

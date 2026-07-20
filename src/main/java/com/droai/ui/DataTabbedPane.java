@@ -50,7 +50,7 @@ public class DataTabbedPane extends JTabbedPane {
 
         simuladorModel = new ResumenTableModel();
         tblSimulador = createStyledTable(simuladorModel);
-        addTab("  Simulador  ", wrapTable(tblSimulador));
+        addTab("  Descuentos Adicional  ", wrapTable(tblSimulador));
 
         // Pestaña Descuentos x Volumen con panel interactivo
         dctoVolumenModel = new DescuentoVolumenTableModel();
@@ -128,11 +128,11 @@ public class DataTabbedPane extends JTabbedPane {
         btnDPUnselectAll.addActionListener(e -> dctoProductoModel.selectAll(false));
         pnlDPActions.add(btnDPUnselectAll);
 
-        btnDPImportExcel = new JButton("📥 Cargar Excel DA");
+        btnDPImportExcel = new JButton("📥 Cargar Excel DP");
         btnDPImportExcel.setFont(new Font("Segoe UI", Font.BOLD, 11));
         pnlDPActions.add(btnDPImportExcel);
 
-        JLabel lblDPDcto = new JLabel("% Dcto (DA):");
+        JLabel lblDPDcto = new JLabel("% Dcto (DP):");
         lblDPDcto.setFont(new Font("Segoe UI", Font.BOLD, 11));
         pnlDPActions.add(lblDPDcto);
 

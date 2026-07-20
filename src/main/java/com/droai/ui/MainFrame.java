@@ -35,7 +35,7 @@ public class MainFrame extends JFrame {
 
     public MainFrame() {
         setTitle("DroAI — Catálogo de Productos");
-        setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
+        setDefaultCloseOperation(JFrame.DISPOSE_ON_CLOSE);
         setSize(1540, 920);
         setMinimumSize(new Dimension(1200, 750));
         setExtendedState(JFrame.MAXIMIZED_BOTH);
@@ -312,7 +312,7 @@ public class MainFrame extends JFrame {
 
     private void cargarDescuentoDPDesdeExcel() {
         JFileChooser fileChooser = new JFileChooser();
-        fileChooser.setDialogTitle("Seleccionar Archivo de Descuentos DA");
+        fileChooser.setDialogTitle("Seleccionar Archivo de Descuentos DP");
         fileChooser.setFileFilter(new FileNameExtensionFilter("Archivos Excel (*.xlsx, *.xls)", "xlsx", "xls"));
         
         int userSelection = fileChooser.showOpenDialog(this);
@@ -341,7 +341,7 @@ public class MainFrame extends JFrame {
                     }
                     
                     int confirm = JOptionPane.showConfirmDialog(MainFrame.this,
-                            "Se leyeron " + dctosMap.size() + " descuentos DA del archivo Excel.\n¿Deseas aplicarlos en la base de datos?",
+                            "Se leyeron " + dctosMap.size() + " descuentos DP del archivo Excel.\n¿Deseas aplicarlos en la base de datos?",
                             "Confirmar Carga de Descuentos",
                             JOptionPane.YES_NO_OPTION,
                             JOptionPane.QUESTION_MESSAGE);
@@ -350,7 +350,7 @@ public class MainFrame extends JFrame {
                         return;
                     }
                     
-                    Toast.show("Actualizando descuentos por producto (DA)...", Toast.Type.INFO);
+                    Toast.show("Actualizando descuentos por producto (DP)...", Toast.Type.INFO);
                     
                     new SwingWorker<Void, Void>() {
                         @Override
@@ -401,7 +401,7 @@ public class MainFrame extends JFrame {
         }
 
         int confirm = JOptionPane.showConfirmDialog(this,
-                "¿Deseas aplicar un descuento DA del " + String.format("%.2f", dctoDA) + "% a los " + codigos.size() + " productos seleccionados?",
+                "¿Deseas aplicar un descuento DP del " + String.format("%.2f", dctoDA) + "% a los " + codigos.size() + " productos seleccionados?",
                 "Confirmar Descuento por Producto",
                 JOptionPane.YES_NO_OPTION,
                 JOptionPane.QUESTION_MESSAGE);
@@ -410,7 +410,7 @@ public class MainFrame extends JFrame {
             return;
         }
 
-        Toast.show("Actualizando descuentos por producto (DA)...", Toast.Type.INFO);
+        Toast.show("Actualizando descuentos por producto (DP)...", Toast.Type.INFO);
         new SwingWorker<Void, Void>() {
             @Override
             protected Void doInBackground() throws Exception {
@@ -422,7 +422,7 @@ public class MainFrame extends JFrame {
             protected void done() {
                 try {
                     get();
-                    Toast.show(codigos.size() + " descuentos por producto (DA) actualizados correctamente", Toast.Type.SUCCESS);
+                    Toast.show(codigos.size() + " descuentos por producto (DP) actualizados correctamente", Toast.Type.SUCCESS);
                     loadData();
                 } catch (Exception ex) {
                     ex.printStackTrace();
