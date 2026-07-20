@@ -208,8 +208,27 @@ public class MainFrame extends JFrame {
             return;
         }
 
+        java.time.LocalDate localIni = dataTabs.getDateDVFechaIni().getDate();
+        java.time.LocalDate localFin = dataTabs.getDateDVFechaFin().getDate();
+
+        java.sql.Date fechaIni = (localIni != null) ? java.sql.Date.valueOf(localIni) : null;
+        java.sql.Date fechaFin = (localFin != null) ? java.sql.Date.valueOf(localFin) : null;
+
+        if (fechaIni != null && fechaFin != null && fechaFin.before(fechaIni)) {
+            Toast.show("La fecha 'Hasta' no puede ser anterior a la fecha 'Desde'", Toast.Type.WARNING);
+            return;
+        }
+
+        final java.sql.Date fIni = fechaIni;
+        final java.sql.Date fFin = fechaFin;
+
+        String msgConfirm = "¿Deseas aplicar un descuento del " + String.format("%.2f", porcentaje) + "% a los " + codigos.size() + " productos seleccionados?";
+        if (fIni != null || fFin != null) {
+            msgConfirm += "\nVigencia: [" + (fIni != null ? fIni : "Sin inicio") + "] a [" + (fFin != null ? fFin : "Sin fin") + "]";
+        }
+
         int confirm = JOptionPane.showConfirmDialog(this,
-                "¿Deseas aplicar un descuento del " + String.format("%.2f", porcentaje) + "% a los " + codigos.size() + " productos seleccionados?",
+                msgConfirm,
                 "Confirmar Descuento Masivo",
                 JOptionPane.YES_NO_OPTION,
                 JOptionPane.QUESTION_MESSAGE);
@@ -222,7 +241,7 @@ public class MainFrame extends JFrame {
         new SwingWorker<Void, Void>() {
             @Override
             protected Void doInBackground() throws Exception {
-                service.actualizarDescuentosVolumen(codigos, porcentaje);
+                service.actualizarDescuentosVolumen(codigos, porcentaje, fIni, fFin);
                 return null;
             }
 
@@ -249,29 +268,54 @@ public class MainFrame extends JFrame {
         if (userSelection != JFileChooser.APPROVE_OPTION) {
             return;
         }
+
+        java.time.LocalDate localIni = dataTabs.getDateDVFechaIni().getDate();
+        java.time.LocalDate localFin = dataTabs.getDateDVFechaFin().getDate();
+
+        java.sql.Date fechaIni = (localIni != null) ? java.sql.Date.valueOf(localIni) : null;
+        java.sql.Date fechaFin = (localFin != null) ? java.sql.Date.valueOf(localFin) : null;
+
+        if (fechaIni != null && fechaFin != null && fechaFin.before(fechaIni)) {
+            Toast.show("La fecha 'Hasta' no puede ser anterior a la fecha 'Desde'", Toast.Type.WARNING);
+            return;
+        }
+
+        final java.sql.Date fIni = fechaIni;
+        final java.sql.Date fFin = fechaFin;
         
         File selectedFile = fileChooser.getSelectedFile();
         Toast.show("Leyendo archivo Excel de descuentos...", Toast.Type.INFO);
         
-        new SwingWorker<java.util.Map<String, Double>, Void>() {
+        new SwingWorker<List<ImportadorService.DescuentoDVImportItem>, Void>() {
             private final ImportadorService importadorService = new ImportadorService();
 
             @Override
-            protected java.util.Map<String, Double> doInBackground() throws Exception {
-                return importadorService.leerExcelDescuentoDV(selectedFile);
+            protected List<ImportadorService.DescuentoDVImportItem> doInBackground() throws Exception {
+                return importadorService.leerExcelDescuentoDVItems(selectedFile);
             }
             
             @Override
             protected void done() {
                 try {
-                    java.util.Map<String, Double> dctosMap = get();
-                    if (dctosMap == null || dctosMap.isEmpty()) {
+                    List<ImportadorService.DescuentoDVImportItem> items = get();
+                    if (items == null || items.isEmpty()) {
                         Toast.show("No se encontraron descuentos válidos en el archivo.", Toast.Type.WARNING);
                         return;
                     }
+
+                    long conFechasExcel = items.stream().filter(i -> i.getFechaIni() != null || i.getFechaFin() != null).count();
+
+                    String msgConfirm = "Se leyeron " + items.size() + " descuentos del archivo Excel.\n";
+                    if (conFechasExcel > 0) {
+                        msgConfirm += conFechasExcel + " registros contienen su propio rango de fechas en el Excel.\n";
+                    }
+                    if (fIni != null || fFin != null) {
+                        msgConfirm += "Vigencia por defecto UI: [" + (fIni != null ? fIni : "Sin inicio") + "] a [" + (fFin != null ? fFin : "Sin fin") + "]\n";
+                    }
+                    msgConfirm += "¿Deseas aplicarlos en la base de datos?";
                     
                     int confirm = JOptionPane.showConfirmDialog(MainFrame.this,
-                            "Se leyeron " + dctosMap.size() + " descuentos del archivo Excel.\n¿Deseas aplicarlos en la base de datos?",
+                            msgConfirm,
                             "Confirmar Carga de Descuentos",
                             JOptionPane.YES_NO_OPTION,
                             JOptionPane.QUESTION_MESSAGE);
@@ -285,7 +329,7 @@ public class MainFrame extends JFrame {
                     new SwingWorker<Void, Void>() {
                         @Override
                         protected Void doInBackground() throws Exception {
-                            service.actualizarDescuentosVolumenMap(dctosMap);
+                            service.actualizarDescuentosVolumenItems(items, fIni, fFin);
                             return null;
                         }
                         
@@ -293,7 +337,7 @@ public class MainFrame extends JFrame {
                         protected void done() {
                             try {
                                 get();
-                                Toast.show("Se actualizaron " + dctosMap.size() + " descuentos correctamente.", Toast.Type.SUCCESS);
+                                Toast.show("Se actualizaron " + items.size() + " descuentos correctamente.", Toast.Type.SUCCESS);
                                 loadData();
                             } catch (Exception ex) {
                                 ex.printStackTrace();
@@ -465,9 +509,9 @@ public class MainFrame extends JFrame {
             }
         } else if (mainSelectedIndex == 2) { // Descuentos x Volumen
             isDV = true;
-            dvData = dataTabs.getDctoVolumenModel().getFilteredData();
+            dvData = dataTabs.getDctoVolumenRowsVisibles();
         } else if (mainSelectedIndex == 0) { // Catálogo
-            catalogoData = dataTabs.getCatalogoModel().getFilteredData();
+            catalogoData = dataTabs.getCatalogoRowsVisibles();
         }
 
         final boolean exportReporte = isReporte;
@@ -543,6 +587,7 @@ public class MainFrame extends JFrame {
                 FlatLightLaf.setup();
             }
             FlatLaf.updateUI();
+            dataTabs.updateDatePickerThemes(isDarkTheme);
         } catch (Exception ex) {
             ex.printStackTrace();
         }

@@ -37,11 +37,23 @@ public class CatalogoService {
     }
 
     public void actualizarDescuentosVolumen(List<String> codigos, double nuevoPorcentaje) throws SQLException {
-        descuentoVolumenDAO.updateDescuentosVolumen(codigos, nuevoPorcentaje);
+        descuentoVolumenDAO.updateDescuentosVolumen(codigos, nuevoPorcentaje, null, null);
+    }
+
+    public void actualizarDescuentosVolumen(List<String> codigos, double nuevoPorcentaje, java.sql.Date fechaIni, java.sql.Date fechaFin) throws SQLException {
+        descuentoVolumenDAO.updateDescuentosVolumen(codigos, nuevoPorcentaje, fechaIni, fechaFin);
     }
 
     public void actualizarDescuentosVolumenMap(java.util.Map<String, Double> dctosMap) throws SQLException {
-        descuentoVolumenDAO.updateDescuentosVolumenMap(dctosMap);
+        descuentoVolumenDAO.updateDescuentosVolumenMap(dctosMap, null, null);
+    }
+
+    public void actualizarDescuentosVolumenMap(java.util.Map<String, Double> dctosMap, java.sql.Date fechaIni, java.sql.Date fechaFin) throws SQLException {
+        descuentoVolumenDAO.updateDescuentosVolumenMap(dctosMap, fechaIni, fechaFin);
+    }
+
+    public void actualizarDescuentosVolumenItems(List<ImportadorService.DescuentoDVImportItem> items, java.sql.Date fechaIni, java.sql.Date fechaFin) throws SQLException {
+        descuentoVolumenDAO.updateDescuentosVolumenItems(items, fechaIni, fechaFin);
     }
 
     public List<DescuentoProductoRow> obtenerDescuentosProducto() throws SQLException {

@@ -192,7 +192,8 @@ public class ExcelExporter {
 
             Sheet sheet = wb.createSheet();
             String[] headers = {
-                    "Codigo", "Descripcion", "Marca", "Codigo de Barra", "Precio", "Descuento DV"
+                    "Codigo", "Descripcion", "Marca", "Codigo de Barra", "Precio", "Descuento DV",
+                    "Fecha Inicio", "Fecha Fin"
             };
 
             Row hr = sheet.createRow(0);
@@ -211,6 +212,8 @@ public class ExcelExporter {
                 row.createCell(3).setCellValue(r.getCodigoBarra());
                 setCellNum(row, 4, r.getPrecio1(), currencyStyle);
                 setCellNum(row, 5, r.getDescuentoDV(), numberStyle);
+                row.createCell(6).setCellValue(r.getFechaIni());
+                row.createCell(7).setCellValue(r.getFechaFin());
             }
 
             sheet.createFreezePane(0, 1);

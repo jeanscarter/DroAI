@@ -13,6 +13,14 @@ public class DescuentoVolumenRow {
     private double precio1;         // precio nivel 1
     private double descuentoDV;     // porc1 de saDescArticulo (primer rango)
 
+    // Campos de vigencia por fechas y auditoría de usuario
+    private String fechaIni;
+    private String fechaFin;
+    private String coUsIn;
+    private String feUsIn;
+    private String coUsMo;
+    private String feUsMo;
+
     // Campos auxiliares para filtrado (no visibles en la tabla)
     private String codProveedor;
     private String nombreProveedor;
@@ -40,6 +48,24 @@ public class DescuentoVolumenRow {
 
     public double getDescuentoDV() { return descuentoDV; }
     public void setDescuentoDV(double descuentoDV) { this.descuentoDV = descuentoDV; }
+
+    public String getFechaIni() { return fechaIni; }
+    public void setFechaIni(String fechaIni) { this.fechaIni = fechaIni; }
+
+    public String getFechaFin() { return fechaFin; }
+    public void setFechaFin(String fechaFin) { this.fechaFin = fechaFin; }
+
+    public String getCoUsIn() { return coUsIn; }
+    public void setCoUsIn(String coUsIn) { this.coUsIn = coUsIn; }
+
+    public String getFeUsIn() { return feUsIn; }
+    public void setFeUsIn(String feUsIn) { this.feUsIn = feUsIn; }
+
+    public String getCoUsMo() { return coUsMo; }
+    public void setCoUsMo(String coUsMo) { this.coUsMo = coUsMo; }
+
+    public String getFeUsMo() { return feUsMo; }
+    public void setFeUsMo(String feUsMo) { this.feUsMo = feUsMo; }
 
     public String getCodProveedor() { return codProveedor; }
     public void setCodProveedor(String codProveedor) { this.codProveedor = codProveedor; }

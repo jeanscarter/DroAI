@@ -13,7 +13,8 @@ import java.util.stream.Collectors;
 public class DescuentoVolumenTableModel extends AbstractTableModel {
 
     private static final String[] COLUMNS = {
-            "Seleccionar", "Codigo", "Descripcion", "Marca", "Codigo de Barra", "Precio", "Descuento DV"
+            "Seleccionar", "Codigo", "Descripcion", "Marca", "Codigo de Barra", "Precio", "Descuento DV",
+            "Fecha Inicio", "Fecha Fin"
     };
 
     private List<DescuentoVolumenRow> allData = new ArrayList<>();
@@ -42,7 +43,7 @@ public class DescuentoVolumenTableModel extends AbstractTableModel {
     public Class<?> getColumnClass(int col) {
         return switch (col) {
             case 0 -> Boolean.class;
-            case 1, 2, 3, 4 -> String.class;
+            case 1, 2, 3, 4, 7, 8 -> String.class;
             case 5, 6 -> Double.class;
             default -> Object.class;
         };
@@ -64,6 +65,8 @@ public class DescuentoVolumenTableModel extends AbstractTableModel {
             case 4 -> r.getCodigoBarra();
             case 5 -> r.getPrecio1();
             case 6 -> r.getDescuentoDV();
+            case 7 -> r.getFechaIni();
+            case 8 -> r.getFechaFin();
             default -> null;
         };
     }

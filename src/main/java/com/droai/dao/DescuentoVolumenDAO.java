@@ -19,6 +19,12 @@ public class DescuentoVolumenDAO {
                 ISNULL(a.ref, '') AS codigoBarra,
                 ISNULL(pr.monto, 0) AS precio1,
                 ISNULL(da.porc1, 0) AS descuentoDV,
+                ISNULL(CONVERT(varchar, da.fecha_ini, 23), '') AS fechaIni,
+                ISNULL(CONVERT(varchar, da.fecha_fin, 23), '') AS fechaFin,
+                ISNULL(da.co_us_in, '') AS coUsIn,
+                ISNULL(CONVERT(varchar, da.fe_us_in, 120), '') AS feUsIn,
+                ISNULL(da.co_us_mo, '') AS coUsMo,
+                ISNULL(CONVERT(varchar, da.fe_us_mo, 120), '') AS feUsMo,
                 ISNULL(ap.co_prov, '') AS codProveedor,
                 ISNULL(p.prov_des, '') AS nombreProveedor,
                 ISNULL(a.co_lin, '') AS codLinea,
@@ -41,7 +47,7 @@ public class DescuentoVolumenDAO {
                 WHERE co_precio = '01' 
                 GROUP BY co_art
             ) pr ON a.co_art = pr.co_art
-            LEFT JOIN saDescArticulo da ON a.co_art = da.co_art AND da.tip_cli = '000001' AND da.fecha_ini IS NULL
+            LEFT JOIN saDescArticulo da ON a.co_art = da.co_art AND da.tip_cli = '000001'
             ORDER BY a.co_art
             """;
 
@@ -59,6 +65,12 @@ public class DescuentoVolumenDAO {
                 row.setCodigoBarra(rs.getString("codigoBarra").trim());
                 row.setPrecio1(rs.getDouble("precio1"));
                 row.setDescuentoDV(rs.getDouble("descuentoDV"));
+                row.setFechaIni(rs.getString("fechaIni") != null ? rs.getString("fechaIni").trim() : "");
+                row.setFechaFin(rs.getString("fechaFin") != null ? rs.getString("fechaFin").trim() : "");
+                row.setCoUsIn(rs.getString("coUsIn") != null ? rs.getString("coUsIn").trim() : "");
+                row.setFeUsIn(rs.getString("feUsIn") != null ? rs.getString("feUsIn").trim() : "");
+                row.setCoUsMo(rs.getString("coUsMo") != null ? rs.getString("coUsMo").trim() : "");
+                row.setFeUsMo(rs.getString("feUsMo") != null ? rs.getString("feUsMo").trim() : "");
                 row.setCodProveedor(rs.getString("codProveedor").trim());
                 row.setNombreProveedor(rs.getString("nombreProveedor").trim());
                 row.setCodLinea(rs.getString("codLinea").trim());
@@ -70,6 +82,10 @@ public class DescuentoVolumenDAO {
     }
 
     public void updateDescuentosVolumen(List<String> codigosArticulos, double nuevoPorcentaje) throws SQLException {
+        updateDescuentosVolumen(codigosArticulos, nuevoPorcentaje, null, null);
+    }
+
+    public void updateDescuentosVolumen(List<String> codigosArticulos, double nuevoPorcentaje, Date fechaIni, Date fechaFin) throws SQLException {
         if (codigosArticulos == null || codigosArticulos.isEmpty()) {
             return;
         }
@@ -90,7 +106,6 @@ public class DescuentoVolumenDAO {
                             try {
                                 nextCoDesc = Integer.parseInt(maxVal.trim()) + 1;
                             } catch (NumberFormatException e) {
-                                // En caso de valor no numérico, buscar por conteo o valor seguro
                                 nextCoDesc = 30000;
                             }
                         }
@@ -98,20 +113,18 @@ public class DescuentoVolumenDAO {
                 }
 
                 // 2. Preparar sentencias
-                String sqlCheck = "SELECT COUNT(*) FROM saDescArticulo WHERE co_art = ? AND fecha_ini IS NULL";
-                String sqlUpdate = "UPDATE saDescArticulo SET porc1 = ?, co_us_mo = ?, fe_us_mo = GETDATE() WHERE co_art = ? AND tip_cli = ? AND fecha_ini IS NULL";
-                String sqlInsert = "INSERT INTO saDescArticulo (co_desc, des_des, co_art, tip_cli, hasta1, hasta2, hasta3, hasta4, hasta5, porc1, porc2, porc3, porc4, porc5, porc6, co_us_in, fe_us_in, co_us_mo, fe_us_mo, rowguid) " +
-                                   "VALUES (?, 'Descuento por Volumen', ?, ?, 99999999.99, 99999999.99, 99999999.99, 0.0, 0.0, ?, 0.0, 0.0, 0.0, 0.0, 0.0, ?, GETDATE(), ?, GETDATE(), ?)";
+                String sqlCheck = "SELECT COUNT(*) FROM saDescArticulo WHERE co_art = ?";
+                String sqlUpdate = "UPDATE saDescArticulo SET porc1 = ?, fecha_ini = ?, fecha_fin = ?, co_us_mo = ?, fe_us_mo = GETDATE() WHERE co_art = ? AND tip_cli = ?";
+                String sqlInsert = "INSERT INTO saDescArticulo (co_desc, des_des, co_art, tip_cli, hasta1, hasta2, hasta3, hasta4, hasta5, porc1, porc2, porc3, porc4, porc5, porc6, fecha_ini, fecha_fin, co_us_in, fe_us_in, co_us_mo, fe_us_mo, rowguid) " +
+                                   "VALUES (?, 'Descuento por Volumen', ?, ?, 99999999.99, 99999999.99, 99999999.99, 0.0, 0.0, ?, 0.0, 0.0, 0.0, 0.0, 0.0, ?, ?, ?, GETDATE(), ?, GETDATE(), ?)";
 
                 try (PreparedStatement psCheck = conn.prepareStatement(sqlCheck);
                      PreparedStatement psUpdate = conn.prepareStatement(sqlUpdate);
                      PreparedStatement psInsert = conn.prepareStatement(sqlInsert)) {
 
                     for (String coArt : codigosArticulos) {
-                        // Limitar longitud al formato de Profit Plus
                         String cleanCoArt = coArt.trim();
                         
-                        // Verificar si ya tiene descuento
                         psCheck.setString(1, cleanCoArt);
                         boolean exists = false;
                         try (ResultSet rs = psCheck.executeQuery()) {
@@ -121,18 +134,18 @@ public class DescuentoVolumenDAO {
                         }
 
                         if (exists) {
-                            // Actualizar para los 7 tipos de clientes (000001 a 000007)
                             for (int i = 1; i <= 7; i++) {
                                 String tipCli = String.format("%06d", i);
                                 psUpdate.setDouble(1, nuevoPorcentaje);
-                                psUpdate.setString(2, coUsuario);
-                                psUpdate.setString(3, cleanCoArt);
-                                psUpdate.setString(4, tipCli);
+                                if (fechaIni != null) psUpdate.setDate(2, fechaIni); else psUpdate.setNull(2, Types.DATE);
+                                if (fechaFin != null) psUpdate.setDate(3, fechaFin); else psUpdate.setNull(3, Types.DATE);
+                                psUpdate.setString(4, coUsuario);
+                                psUpdate.setString(5, cleanCoArt);
+                                psUpdate.setString(6, tipCli);
                                 psUpdate.addBatch();
                             }
                             psUpdate.executeBatch();
                         } else {
-                            // Insertar registros para los 7 tipos de clientes
                             for (int i = 1; i <= 7; i++) {
                                 String tipCli = String.format("%06d", i);
                                 String coDesc = String.format("%06d", nextCoDesc++);
@@ -142,9 +155,11 @@ public class DescuentoVolumenDAO {
                                 psInsert.setString(2, cleanCoArt);
                                 psInsert.setString(3, tipCli);
                                 psInsert.setDouble(4, nuevoPorcentaje);
-                                psInsert.setString(5, coUsuario);
-                                psInsert.setString(6, coUsuario);
-                                psInsert.setString(7, guid.toString());
+                                if (fechaIni != null) psInsert.setDate(5, fechaIni); else psInsert.setNull(5, Types.DATE);
+                                if (fechaFin != null) psInsert.setDate(6, fechaFin); else psInsert.setNull(6, Types.DATE);
+                                psInsert.setString(7, coUsuario);
+                                psInsert.setString(8, coUsuario);
+                                psInsert.setString(9, guid.toString());
                                 psInsert.addBatch();
                             }
                             psInsert.executeBatch();
@@ -161,6 +176,10 @@ public class DescuentoVolumenDAO {
     }
 
     public void updateDescuentosVolumenMap(java.util.Map<String, Double> dctosMap) throws SQLException {
+        updateDescuentosVolumenMap(dctosMap, null, null);
+    }
+
+    public void updateDescuentosVolumenMap(java.util.Map<String, Double> dctosMap, Date fechaIni, Date fechaFin) throws SQLException {
         if (dctosMap == null || dctosMap.isEmpty()) {
             return;
         }
@@ -171,7 +190,6 @@ public class DescuentoVolumenDAO {
         try (Connection conn = DatabaseConfig.getDataSource().getConnection()) {
             conn.setAutoCommit(false);
             try {
-                // 1. Obtener el máximo co_desc actual para posibles inserciones
                 int nextCoDesc = 1;
                 try (Statement stmt = conn.createStatement();
                      ResultSet rs = stmt.executeQuery("SELECT MAX(co_desc) FROM saDescArticulo")) {
@@ -187,12 +205,11 @@ public class DescuentoVolumenDAO {
                     }
                 }
 
-                // 2. Preparar sentencias
                 String sqlCheckArticulo = "SELECT co_art FROM saArticulo WHERE co_art = ?";
-                String sqlCheck = "SELECT COUNT(*) FROM saDescArticulo WHERE co_art = ? AND fecha_ini IS NULL";
-                String sqlUpdate = "UPDATE saDescArticulo SET porc1 = ?, co_us_mo = ?, fe_us_mo = GETDATE() WHERE co_art = ? AND tip_cli = ? AND fecha_ini IS NULL";
-                String sqlInsert = "INSERT INTO saDescArticulo (co_desc, des_des, co_art, tip_cli, hasta1, hasta2, hasta3, hasta4, hasta5, porc1, porc2, porc3, porc4, porc5, porc6, co_us_in, fe_us_in, co_us_mo, fe_us_mo, rowguid) " +
-                                   "VALUES (?, 'Descuento por Volumen', ?, ?, 99999999.99, 99999999.99, 99999999.99, 0.0, 0.0, ?, 0.0, 0.0, 0.0, 0.0, 0.0, ?, GETDATE(), ?, GETDATE(), ?)";
+                String sqlCheck = "SELECT COUNT(*) FROM saDescArticulo WHERE co_art = ?";
+                String sqlUpdate = "UPDATE saDescArticulo SET porc1 = ?, fecha_ini = ?, fecha_fin = ?, co_us_mo = ?, fe_us_mo = GETDATE() WHERE co_art = ? AND tip_cli = ?";
+                String sqlInsert = "INSERT INTO saDescArticulo (co_desc, des_des, co_art, tip_cli, hasta1, hasta2, hasta3, hasta4, hasta5, porc1, porc2, porc3, porc4, porc5, porc6, fecha_ini, fecha_fin, co_us_in, fe_us_in, co_us_mo, fe_us_mo, rowguid) " +
+                                   "VALUES (?, 'Descuento por Volumen', ?, ?, 99999999.99, 99999999.99, 99999999.99, 0.0, 0.0, ?, 0.0, 0.0, 0.0, 0.0, 0.0, ?, ?, ?, GETDATE(), ?, GETDATE(), ?)";
 
                 try (PreparedStatement psCheckArticulo = conn.prepareStatement(sqlCheckArticulo);
                      PreparedStatement psCheck = conn.prepareStatement(sqlCheck);
@@ -203,7 +220,6 @@ public class DescuentoVolumenDAO {
                         String coArt = entry.getKey().trim();
                         double nuevoPorcentaje = entry.getValue();
 
-                        // Verificar si el artículo existe en saArticulo
                         String matchedCoArt = null;
                         psCheckArticulo.setString(1, coArt);
                         try (ResultSet rs = psCheckArticulo.executeQuery()) {
@@ -212,7 +228,6 @@ public class DescuentoVolumenDAO {
                             }
                         }
 
-                        // Si no existe, y es puramente numérico, intentar con relleno a 6 dígitos (formato estándar Profit)
                         if (matchedCoArt == null && coArt.matches("\\d+")) {
                             try {
                                 String padded = String.format("%06d", Integer.parseInt(coArt));
@@ -226,13 +241,11 @@ public class DescuentoVolumenDAO {
                             }
                         }
 
-                        // Si no existe en saArticulo, se omite para evitar violar la clave foránea (FK_saDescArticulo_saArticulo)
                         if (matchedCoArt == null) {
                             System.out.println("Advertencia: Se omitió el artículo porque no existe en la tabla saArticulo: " + coArt);
                             continue;
                         }
 
-                        // Verificar si ya tiene descuento
                         psCheck.setString(1, matchedCoArt);
                         boolean exists = false;
                         try (ResultSet rs = psCheck.executeQuery()) {
@@ -242,18 +255,18 @@ public class DescuentoVolumenDAO {
                         }
 
                         if (exists) {
-                            // Actualizar para los 7 tipos de clientes (000001 a 000007)
                             for (int i = 1; i <= 7; i++) {
                                 String tipCli = String.format("%06d", i);
                                 psUpdate.setDouble(1, nuevoPorcentaje);
-                                psUpdate.setString(2, coUsuario);
-                                psUpdate.setString(3, matchedCoArt);
-                                psUpdate.setString(4, tipCli);
+                                if (fechaIni != null) psUpdate.setDate(2, fechaIni); else psUpdate.setNull(2, Types.DATE);
+                                if (fechaFin != null) psUpdate.setDate(3, fechaFin); else psUpdate.setNull(3, Types.DATE);
+                                psUpdate.setString(4, coUsuario);
+                                psUpdate.setString(5, matchedCoArt);
+                                psUpdate.setString(6, tipCli);
                                 psUpdate.addBatch();
                             }
                             psUpdate.executeBatch();
                         } else {
-                            // Insertar registros para los 7 tipos de clientes
                             for (int i = 1; i <= 7; i++) {
                                 String tipCli = String.format("%06d", i);
                                 String coDesc = String.format("%06d", nextCoDesc++);
@@ -263,9 +276,130 @@ public class DescuentoVolumenDAO {
                                 psInsert.setString(2, matchedCoArt);
                                 psInsert.setString(3, tipCli);
                                 psInsert.setDouble(4, nuevoPorcentaje);
-                                psInsert.setString(5, coUsuario);
-                                psInsert.setString(6, coUsuario);
-                                psInsert.setString(7, guid.toString());
+                                if (fechaIni != null) psInsert.setDate(5, fechaIni); else psInsert.setNull(5, Types.DATE);
+                                if (fechaFin != null) psInsert.setDate(6, fechaFin); else psInsert.setNull(6, Types.DATE);
+                                psInsert.setString(7, coUsuario);
+                                psInsert.setString(8, coUsuario);
+                                psInsert.setString(9, guid.toString());
+                                psInsert.addBatch();
+                            }
+                            psInsert.executeBatch();
+                        }
+                    }
+                }
+
+                conn.commit();
+            } catch (SQLException e) {
+                conn.rollback();
+                throw e;
+            }
+        }
+    }
+
+    public void updateDescuentosVolumenItems(List<com.droai.service.ImportadorService.DescuentoDVImportItem> items, Date fallbackIni, Date fallbackFin) throws SQLException {
+        if (items == null || items.isEmpty()) {
+            return;
+        }
+
+        String coUsuario = SesionUsuario.isAutenticado()
+                ? SesionUsuario.current().getCoUsuario() : "SYSTEM";
+
+        try (Connection conn = DatabaseConfig.getDataSource().getConnection()) {
+            conn.setAutoCommit(false);
+            try {
+                int nextCoDesc = 1;
+                try (Statement stmt = conn.createStatement();
+                     ResultSet rs = stmt.executeQuery("SELECT MAX(co_desc) FROM saDescArticulo")) {
+                    if (rs.next()) {
+                        String maxVal = rs.getString(1);
+                        if (maxVal != null && !maxVal.trim().isEmpty()) {
+                            try {
+                                nextCoDesc = Integer.parseInt(maxVal.trim()) + 1;
+                            } catch (NumberFormatException e) {
+                                nextCoDesc = 30000;
+                            }
+                        }
+                    }
+                }
+
+                String sqlCheckArticulo = "SELECT co_art FROM saArticulo WHERE co_art = ?";
+                String sqlCheck = "SELECT COUNT(*) FROM saDescArticulo WHERE co_art = ?";
+                String sqlUpdate = "UPDATE saDescArticulo SET porc1 = ?, fecha_ini = ?, fecha_fin = ?, co_us_mo = ?, fe_us_mo = GETDATE() WHERE co_art = ? AND tip_cli = ?";
+                String sqlInsert = "INSERT INTO saDescArticulo (co_desc, des_des, co_art, tip_cli, hasta1, hasta2, hasta3, hasta4, hasta5, porc1, porc2, porc3, porc4, porc5, porc6, fecha_ini, fecha_fin, co_us_in, fe_us_in, co_us_mo, fe_us_mo, rowguid) " +
+                                   "VALUES (?, 'Descuento por Volumen', ?, ?, 99999999.99, 99999999.99, 99999999.99, 0.0, 0.0, ?, 0.0, 0.0, 0.0, 0.0, 0.0, ?, ?, ?, GETDATE(), ?, GETDATE(), ?)";
+
+                try (PreparedStatement psCheckArticulo = conn.prepareStatement(sqlCheckArticulo);
+                     PreparedStatement psCheck = conn.prepareStatement(sqlCheck);
+                     PreparedStatement psUpdate = conn.prepareStatement(sqlUpdate);
+                     PreparedStatement psInsert = conn.prepareStatement(sqlInsert)) {
+
+                    for (com.droai.service.ImportadorService.DescuentoDVImportItem item : items) {
+                        String coArt = item.getCodigoArticulo().trim();
+                        double nuevoPorcentaje = item.getPorcentaje();
+                        Date itemIni = (item.getFechaIni() != null) ? item.getFechaIni() : fallbackIni;
+                        Date itemFin = (item.getFechaFin() != null) ? item.getFechaFin() : fallbackFin;
+
+                        String matchedCoArt = null;
+                        psCheckArticulo.setString(1, coArt);
+                        try (ResultSet rs = psCheckArticulo.executeQuery()) {
+                            if (rs.next()) {
+                                matchedCoArt = rs.getString("co_art").trim();
+                            }
+                        }
+
+                        if (matchedCoArt == null && coArt.matches("\\d+")) {
+                            try {
+                                String padded = String.format("%06d", Integer.parseInt(coArt));
+                                psCheckArticulo.setString(1, padded);
+                                try (ResultSet rs = psCheckArticulo.executeQuery()) {
+                                    if (rs.next()) {
+                                        matchedCoArt = rs.getString("co_art").trim();
+                                    }
+                                }
+                            } catch (NumberFormatException ignored) {
+                            }
+                        }
+
+                        if (matchedCoArt == null) {
+                            System.out.println("Advertencia: Se omitió el artículo porque no existe en la tabla saArticulo: " + coArt);
+                            continue;
+                        }
+
+                        psCheck.setString(1, matchedCoArt);
+                        boolean exists = false;
+                        try (ResultSet rs = psCheck.executeQuery()) {
+                            if (rs.next() && rs.getInt(1) > 0) {
+                                exists = true;
+                            }
+                        }
+
+                        if (exists) {
+                            for (int i = 1; i <= 7; i++) {
+                                String tipCli = String.format("%06d", i);
+                                psUpdate.setDouble(1, nuevoPorcentaje);
+                                if (itemIni != null) psUpdate.setDate(2, itemIni); else psUpdate.setNull(2, Types.DATE);
+                                if (itemFin != null) psUpdate.setDate(3, itemFin); else psUpdate.setNull(3, Types.DATE);
+                                psUpdate.setString(4, coUsuario);
+                                psUpdate.setString(5, matchedCoArt);
+                                psUpdate.setString(6, tipCli);
+                                psUpdate.addBatch();
+                            }
+                            psUpdate.executeBatch();
+                        } else {
+                            for (int i = 1; i <= 7; i++) {
+                                String tipCli = String.format("%06d", i);
+                                String coDesc = String.format("%06d", nextCoDesc++);
+                                UUID guid = UUID.randomUUID();
+
+                                psInsert.setString(1, coDesc);
+                                psInsert.setString(2, matchedCoArt);
+                                psInsert.setString(3, tipCli);
+                                psInsert.setDouble(4, nuevoPorcentaje);
+                                if (itemIni != null) psInsert.setDate(5, itemIni); else psInsert.setNull(5, Types.DATE);
+                                if (itemFin != null) psInsert.setDate(6, itemFin); else psInsert.setNull(6, Types.DATE);
+                                psInsert.setString(7, coUsuario);
+                                psInsert.setString(8, coUsuario);
+                                psInsert.setString(9, guid.toString());
                                 psInsert.addBatch();
                             }
                             psInsert.executeBatch();

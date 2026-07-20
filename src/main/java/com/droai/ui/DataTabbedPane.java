@@ -1,14 +1,22 @@
 package com.droai.ui;
 
+import com.droai.model.ArticuloRow;
+import com.droai.model.DescuentoVolumenRow;
 import com.droai.ui.table.CatalogoTableModel;
 import com.droai.ui.table.DescuentoProductoTableModel;
 import com.droai.ui.table.ResumenTableModel;
 import com.formdev.flatlaf.FlatClientProperties;
+import com.github.lgooddatepicker.components.DatePicker;
+import com.github.lgooddatepicker.components.DatePickerSettings;
 
 import javax.swing.*;
 import javax.swing.table.DefaultTableCellRenderer;
 import javax.swing.table.JTableHeader;
 import java.awt.*;
+import java.time.DayOfWeek;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.Locale;
 
 import com.droai.ui.table.DescuentoVolumenTableModel;
 import net.miginfocom.swing.MigLayout;
@@ -28,6 +36,8 @@ public class DataTabbedPane extends JTabbedPane {
 
     // Controles para panel de acciones masivas de Descuentos x Volumen
     private final JTextField txtDVPorcentaje;
+    private final DatePicker dateDVFechaIni;
+    private final DatePicker dateDVFechaFin;
     private final JButton btnDVAplicar;
     private final JButton btnDVSelectAll;
     private final JButton btnDVUnselectAll;
@@ -65,7 +75,7 @@ public class DataTabbedPane extends JTabbedPane {
         pnlDctoVolumen.add(wrapTable(tblDctoVolumen), "grow");
 
         // Panel de acciones inferior
-        JPanel pnlDVActions = new JPanel(new MigLayout("insets 8 16 8 16, fillx, gap 10", "[]10[]10[]push[]10[]10[]", "[]"));
+        JPanel pnlDVActions = new JPanel(new MigLayout("insets 8 16 8 16, fillx, gap 8", "[]8[]8[]push[]8[]8[]8[]8[]8[]", "[]"));
         pnlDVActions.setBorder(BorderFactory.createMatteBorder(1, 0, 0, 0, UIManager.getColor("Component.borderColor")));
 
         btnDVSelectAll = new JButton("☑ Seleccionar Todos");
@@ -82,14 +92,28 @@ public class DataTabbedPane extends JTabbedPane {
         btnDVImportExcel.setFont(new Font("Segoe UI", Font.BOLD, 11));
         pnlDVActions.add(btnDVImportExcel);
 
-        JLabel lblDVInfo = new JLabel("Aplicar Descuento DV (%):");
+        JLabel lblDVInfo = new JLabel("Aplicar DV (%):");
         lblDVInfo.setFont(new Font("Segoe UI", Font.BOLD, 11));
         pnlDVActions.add(lblDVInfo);
 
         txtDVPorcentaje = new JTextField("0.00");
         txtDVPorcentaje.setFont(new Font("Segoe UI", Font.BOLD, 12));
         txtDVPorcentaje.setHorizontalAlignment(SwingConstants.RIGHT);
-        pnlDVActions.add(txtDVPorcentaje, "w 80!");
+        pnlDVActions.add(txtDVPorcentaje, "w 60!");
+
+        JLabel lblDVFechaIni = new JLabel("Desde:");
+        lblDVFechaIni.setFont(new Font("Segoe UI", Font.BOLD, 11));
+        pnlDVActions.add(lblDVFechaIni);
+
+        dateDVFechaIni = createDatePicker();
+        pnlDVActions.add(dateDVFechaIni);
+
+        JLabel lblDVFechaFin = new JLabel("Hasta:");
+        lblDVFechaFin.setFont(new Font("Segoe UI", Font.BOLD, 11));
+        pnlDVActions.add(lblDVFechaFin);
+
+        dateDVFechaFin = createDatePicker();
+        pnlDVActions.add(dateDVFechaFin);
 
         btnDVAplicar = new JButton("⚡ Aplicar a Seleccionados");
         btnDVAplicar.setFont(new Font("Segoe UI Emoji", Font.BOLD, 11));
@@ -181,8 +205,89 @@ public class DataTabbedPane extends JTabbedPane {
         return tblDctoVolumen;
     }
 
+    public List<DescuentoVolumenRow> getDctoVolumenRowsVisibles() {
+        List<DescuentoVolumenRow> visibleRows = new ArrayList<>();
+        List<DescuentoVolumenRow> filteredData = dctoVolumenModel.getFilteredData();
+        for (int i = 0; i < tblDctoVolumen.getRowCount(); i++) {
+            int modelRow = tblDctoVolumen.convertRowIndexToModel(i);
+            if (modelRow >= 0 && modelRow < filteredData.size()) {
+                visibleRows.add(filteredData.get(modelRow));
+            }
+        }
+        return visibleRows;
+    }
+
+    public List<ArticuloRow> getCatalogoRowsVisibles() {
+        List<ArticuloRow> visibleRows = new ArrayList<>();
+        List<ArticuloRow> filteredData = catalogoModel.getFilteredData();
+        for (int i = 0; i < tblCatalogo.getRowCount(); i++) {
+            int modelRow = tblCatalogo.convertRowIndexToModel(i);
+            if (modelRow >= 0 && modelRow < filteredData.size()) {
+                visibleRows.add(filteredData.get(modelRow));
+            }
+        }
+        return visibleRows;
+    }
+
     public JTextField getTxtDVPorcentaje() {
         return txtDVPorcentaje;
+    }
+
+    public DatePicker getDateDVFechaIni() {
+        return dateDVFechaIni;
+    }
+
+    public DatePicker getDateDVFechaFin() {
+        return dateDVFechaFin;
+    }
+
+    public void updateDatePickerThemes(boolean isDark) {
+        applyThemeToDatePicker(dateDVFechaIni, isDark);
+        applyThemeToDatePicker(dateDVFechaFin, isDark);
+    }
+
+    private DatePicker createDatePicker() {
+        DatePickerSettings settings = new DatePickerSettings(Locale.of("es", "VE"));
+        settings.setFormatForDatesCommonEra("yyyy-MM-dd");
+        settings.setAllowEmptyDates(true);
+        settings.setFirstDayOfWeek(DayOfWeek.MONDAY);
+
+        settings.setFontValidDate(new Font("Segoe UI", Font.PLAIN, 11));
+
+        DatePicker picker = new DatePicker(settings);
+        picker.setPreferredSize(new Dimension(145, 28));
+        applyThemeToDatePicker(picker, true); // por defecto tema oscuro
+        return picker;
+    }
+
+    public static void applyThemeToDatePicker(DatePicker picker, boolean isDark) {
+        if (picker == null) return;
+        DatePickerSettings settings = picker.getSettings();
+
+        Color bgPanel = isDark ? new Color(0x1E, 0x23, 0x2E) : Color.WHITE;
+        Color fgText  = isDark ? new Color(0xF8, 0xFA, 0xFC) : new Color(0x0F, 0x17, 0x2A);
+        Color inputBg = isDark ? new Color(0x1E, 0x23, 0x2E) : Color.WHITE;
+        Color inputFg = isDark ? new Color(0xF8, 0xFA, 0xFC) : new Color(0x0F, 0x17, 0x2A);
+        Color accent  = isDark ? new Color(0x2A, 0x6B, 0xFF) : new Color(0x1D, 0x4E, 0xD8);
+
+        // 1. Campo de texto
+        settings.setColor(DatePickerSettings.DateArea.TextFieldBackgroundValidDate, inputBg);
+        settings.setColor(DatePickerSettings.DateArea.DatePickerTextValidDate, inputFg);
+
+        // 2. Fondos del panel desplegable de calendario
+        settings.setColor(DatePickerSettings.DateArea.BackgroundOverallCalendarPanel, bgPanel);
+        settings.setColor(DatePickerSettings.DateArea.BackgroundMonthAndYearMenuLabels, bgPanel);
+        settings.setColor(DatePickerSettings.DateArea.BackgroundTodayLabel, bgPanel);
+        settings.setColor(DatePickerSettings.DateArea.BackgroundClearLabel, bgPanel);
+        settings.setColor(DatePickerSettings.DateArea.BackgroundMonthAndYearNavigationButtons, bgPanel);
+
+        // 3. Textos y días
+        settings.setColor(DatePickerSettings.DateArea.CalendarBackgroundNormalDates, bgPanel);
+        settings.setColor(DatePickerSettings.DateArea.CalendarTextNormalDates, fgText);
+        settings.setColor(DatePickerSettings.DateArea.CalendarTextWeekdays, fgText);
+
+        // 4. Fecha seleccionada
+        settings.setColor(DatePickerSettings.DateArea.CalendarBackgroundSelectedDate, accent);
     }
 
     public JButton getBtnDVAplicar() {

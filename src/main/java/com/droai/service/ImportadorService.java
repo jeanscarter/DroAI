@@ -466,12 +466,59 @@ public class ImportadorService {
         }
     }
 
-    public java.util.Map<String, Double> leerExcelDescuentoDV(File file) throws IOException {
-        java.util.Map<String, Double> dctosMap = new java.util.HashMap<>();
+    public static class DescuentoDVImportItem {
+        private final String codigoArticulo;
+        private final double porcentaje;
+        private final java.sql.Date fechaIni;
+        private final java.sql.Date fechaFin;
+
+        public DescuentoDVImportItem(String codigoArticulo, double porcentaje, java.sql.Date fechaIni, java.sql.Date fechaFin) {
+            this.codigoArticulo = codigoArticulo;
+            this.porcentaje = porcentaje;
+            this.fechaIni = fechaIni;
+            this.fechaFin = fechaFin;
+        }
+
+        public String getCodigoArticulo() { return codigoArticulo; }
+        public double getPorcentaje() { return porcentaje; }
+        public java.sql.Date getFechaIni() { return fechaIni; }
+        public java.sql.Date getFechaFin() { return fechaFin; }
+    }
+
+    private java.sql.Date parseCellDate(Cell cell) {
+        if (cell == null) return null;
+        try {
+            if (cell.getCellType() == CellType.NUMERIC && DateUtil.isCellDateFormatted(cell)) {
+                java.util.Date date = cell.getDateCellValue();
+                if (date != null) {
+                    return new java.sql.Date(date.getTime());
+                }
+            } else if (cell.getCellType() == CellType.STRING) {
+                String str = cell.getStringCellValue().trim();
+                if (str.isEmpty()) return null;
+
+                if (str.matches("\\d{4}-\\d{2}-\\d{2}")) {
+                    return java.sql.Date.valueOf(str);
+                }
+                if (str.matches("\\d{1,2}[/-]\\d{1,2}[/-]\\d{4}")) {
+                    String[] parts = str.split("[/-]");
+                    int day = Integer.parseInt(parts[0]);
+                    int month = Integer.parseInt(parts[1]);
+                    int year = Integer.parseInt(parts[2]);
+                    return java.sql.Date.valueOf(String.format("%04d-%02d-%02d", year, month, day));
+                }
+            }
+        } catch (Exception ignored) {
+        }
+        return null;
+    }
+
+    public List<DescuentoDVImportItem> leerExcelDescuentoDVItems(File file) throws IOException {
+        List<DescuentoDVImportItem> items = new ArrayList<>();
         try (FileInputStream fis = new FileInputStream(file);
              Workbook wb = new XSSFWorkbook(fis)) {
 
-            Sheet sheet = wb.getSheetAt(0); // Tomamos la primera pestaña
+            Sheet sheet = wb.getSheetAt(0);
             if (sheet == null) {
                 throw new IOException("El archivo Excel no tiene hojas.");
             }
@@ -479,6 +526,8 @@ public class ImportadorService {
             int headerRowIdx = -1;
             int colCodInt = -1;
             int colDescuento = -1;
+            int colFechaIni = -1;
+            int colFechaFin = -1;
 
             // 1. Buscar la fila de encabezados
             for (int r = 0; r <= Math.min(sheet.getLastRowNum(), 20); r++) {
@@ -489,11 +538,17 @@ public class ImportadorService {
                     String val = getCellString(row, c);
                     if (val != null) {
                         String norm = val.trim().toLowerCase();
-                        if (norm.contains("cod int") || norm.equals("codigo") || norm.equals("co_art") || norm.equals("cod_int")) {
+                        if (norm.contains("cod int") || norm.equals("codigo") || norm.equals("co_art") || norm.equals("cod_int") || norm.equals("ref")) {
                             colCodInt = c;
                         }
                         if (norm.contains("descuento") || norm.contains("dcto") || norm.equals("dv") || norm.equals("porc1") || norm.equals("flash")) {
                             colDescuento = c;
+                        }
+                        if (norm.contains("fecha inicial") || norm.contains("fecha inicio") || norm.contains("fecha desde") || norm.equals("fecha_ini") || norm.equals("desde") || norm.equals("f. inicio") || norm.equals("f. desde")) {
+                            colFechaIni = c;
+                        }
+                        if (norm.contains("fecha final") || norm.contains("fecha fin") || norm.contains("fecha hasta") || norm.equals("fecha_fin") || norm.equals("hasta") || norm.equals("f. fin") || norm.equals("f. hasta")) {
+                            colFechaFin = c;
                         }
                     }
                 }
@@ -544,14 +599,24 @@ public class ImportadorService {
                     }
                 }
 
-                // Si el descuento viene en formato decimal (ej: 0.05 para 5%), convertir a porcentaje (5.0)
-                // Pero si es mayor que 1.0 (ej: 5.0 para 5%), dejarlo igual.
                 if (valDcto > 0.0 && valDcto <= 1.0) {
                     valDcto = valDcto * 100.0;
                 }
 
-                dctosMap.put(cod.trim(), valDcto);
+                java.sql.Date fechaIni = (colFechaIni != -1) ? parseCellDate(row.getCell(colFechaIni)) : null;
+                java.sql.Date fechaFin = (colFechaFin != -1) ? parseCellDate(row.getCell(colFechaFin)) : null;
+
+                items.add(new DescuentoDVImportItem(cod.trim(), valDcto, fechaIni, fechaFin));
             }
+        }
+        return items;
+    }
+
+    public java.util.Map<String, Double> leerExcelDescuentoDV(File file) throws IOException {
+        java.util.Map<String, Double> dctosMap = new java.util.HashMap<>();
+        List<DescuentoDVImportItem> items = leerExcelDescuentoDVItems(file);
+        for (DescuentoDVImportItem item : items) {
+            dctosMap.put(item.getCodigoArticulo(), item.getPorcentaje());
         }
         return dctosMap;
     }
