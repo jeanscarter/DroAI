@@ -13,13 +13,53 @@ import java.util.UUID;
 public class CargaMasivaCostosPreciosDAO {
 
     /**
-     * Completa las filas leídas del Excel con los datos actuales de la BD (descripción, costo actual, precio 1 actual)
-     * y marca si el artículo existe en saArticulo.
+     * Consulta la tasa de cambio vigente para USD desde Profit (tabla saTasa o fallback a saMoneda).
+     */
+    public double obtenerTasaUSD() throws SQLException {
+        String sqlTasa = """
+                SELECT TOP 1 ISNULL(tasa_v, tasa_c) AS tasa
+                FROM saTasa
+                WHERE co_mone IN ('USD', 'US$')
+                ORDER BY fecha DESC, fe_us_mo DESC
+                """;
+
+        String sqlMonedaFallback = """
+                SELECT TOP 1 ISNULL(cambio, 1) AS tasa
+                FROM saMoneda
+                WHERE co_mone IN ('USD', 'US$') OR mone_des LIKE '%DOLAR%'
+                ORDER BY CASE WHEN co_mone = 'USD' THEN 1 ELSE 2 END
+                """;
+
+        try (Connection conn = DatabaseConfig.getDataSource().getConnection()) {
+            try (PreparedStatement ps = conn.prepareStatement(sqlTasa);
+                 ResultSet rs = ps.executeQuery()) {
+                if (rs.next()) {
+                    double t = rs.getDouble("tasa");
+                    if (t > 0) return t;
+                }
+            }
+
+            try (PreparedStatement ps = conn.prepareStatement(sqlMonedaFallback);
+                 ResultSet rs = ps.executeQuery()) {
+                if (rs.next()) {
+                    double t = rs.getDouble("tasa");
+                    if (t > 0) return t;
+                }
+            }
+        }
+        return 1.0;
+    }
+
+    /**
+     * Completa las filas leídas del Excel con los datos actuales de la BD (descripción, costo actual, precio 1 actual),
+     * calcula los equivalentes en Bs y $ con la tasa de Profit y marca si el artículo existe.
      */
     public void enriquecerConDatosBd(List<CargaMasivaCostosPreciosRow> filas) throws SQLException {
         if (filas == null || filas.isEmpty()) {
             return;
         }
+
+        double tasaUsd = obtenerTasaUSD();
 
         String sqlArticulo = """
                 SELECT a.co_art, ISNULL(a.art_des, '') AS descripcion, a.rowguid,
@@ -45,13 +85,18 @@ public class CargaMasivaCostosPreciosDAO {
                     WHERE co_precio = '01'
                     GROUP BY co_art
                 ) p1 ON a.co_art = p1.co_art
-                WHERE a.co_art = ?
+                WHERE LTRIM(RTRIM(a.co_art)) = ?
+                   OR (LEN(?) <= 6 AND ISNUMERIC(?) = 1 AND LTRIM(RTRIM(a.co_art)) = RIGHT('000000' + ?, 6))
                 """;
 
         try (Connection conn = DatabaseConfig.getDataSource().getConnection();
              PreparedStatement ps = conn.prepareStatement(sqlArticulo)) {
 
             for (CargaMasivaCostosPreciosRow row : filas) {
+                row.setTasaUsd(tasaUsd);
+                row.setCostoNuevoBs(row.getCostoNuevoUsd() * tasaUsd);
+                row.setPrecio1NuevoBs(row.getPrecio1NuevoUsd() * tasaUsd);
+
                 if (row.getCoArt() == null || row.getCoArt().isBlank()) {
                     row.setValido(false);
                     row.setExisteEnBd(false);
@@ -59,13 +104,26 @@ public class CargaMasivaCostosPreciosDAO {
                     continue;
                 }
 
-                ps.setString(1, row.getCoArt().trim());
+                String codeClean = row.getCoArt().trim();
+                ps.setString(1, codeClean);
+                ps.setString(2, codeClean);
+                ps.setString(3, codeClean);
+                ps.setString(4, codeClean);
+
                 try (ResultSet rs = ps.executeQuery()) {
                     if (rs.next()) {
+                        row.setCoArt(rs.getString("co_art").trim());
                         row.setExisteEnBd(true);
-                        row.setDescripcion(rs.getString("descripcion"));
-                        row.setCostoActual(rs.getDouble("costoActual"));
-                        row.setPrecio1Actual(rs.getDouble("precio1Actual"));
+                        row.setDescripcion(rs.getString("descripcion").trim());
+
+                        double cUsd = rs.getDouble("costoActual");
+                        double pUsd = rs.getDouble("precio1Actual");
+
+                        row.setCostoActualUsd(cUsd);
+                        row.setCostoActualBs(cUsd * tasaUsd);
+
+                        row.setPrecio1ActualUsd(pUsd);
+                        row.setPrecio1ActualBs(pUsd * tasaUsd);
 
                         if (row.tieneCambios()) {
                             row.setValido(true);
@@ -87,7 +145,7 @@ public class CargaMasivaCostosPreciosDAO {
 
     /**
      * Aplica la carga masiva en lote dentro de una sola transacción SQL.
-     * Actualiza costos en saCostoHistoricoEntrada y precios en saArtPrecio.
+     * Actualiza costos en saCostoHistoricoEntrada y precios en saArtPrecio (directamente en USD $).
      *
      * @return Número de registros procesados con éxito.
      */
@@ -146,31 +204,31 @@ public class CargaMasivaCostosPreciosDAO {
                     boolean huboActualizacion = false;
                     String coArt = row.getCoArt().trim();
 
-                    // 1. Actualizar Costo si cambió
-                    if (row.getCostoNuevo() > 0 && Math.abs(row.getCostoNuevo() - row.getCostoActual()) > 0.0001) {
+                    // 1. Actualizar Costo (en USD $) si cambió
+                    if (row.getCostoNuevoUsd() > 0 && Math.abs(row.getCostoNuevoUsd() - row.getCostoActualUsd()) > 0.0001) {
                         psRowguid.setString(1, coArt);
                         try (ResultSet rs = psRowguid.executeQuery()) {
                             if (rs.next()) {
                                 Object rowguidObj = rs.getObject("rowguid");
                                 psCosto.setObject(1, rowguidObj);
-                                psCosto.setDouble(2, row.getCostoNuevo());
-                                psCosto.setDouble(3, row.getCostoNuevo());
+                                psCosto.setDouble(2, row.getCostoNuevoUsd());
+                                psCosto.setDouble(3, row.getCostoNuevoUsd());
                                 psCosto.executeUpdate();
                                 huboActualizacion = true;
                             }
                         }
                     }
 
-                    // 2. Actualizar / Insertar Precio 1 si cambió
-                    if (row.getPrecio1Nuevo() > 0 && Math.abs(row.getPrecio1Nuevo() - row.getPrecio1Actual()) > 0.0001) {
-                        psUpdPrecio.setDouble(1, row.getPrecio1Nuevo());
+                    // 2. Actualizar / Insertar Precio 1 (en USD $) si cambió
+                    if (row.getPrecio1NuevoUsd() > 0 && Math.abs(row.getPrecio1NuevoUsd() - row.getPrecio1ActualUsd()) > 0.0001) {
+                        psUpdPrecio.setDouble(1, row.getPrecio1NuevoUsd());
                         psUpdPrecio.setString(2, usuario);
                         psUpdPrecio.setString(3, coArt);
                         int rowsUpd = psUpdPrecio.executeUpdate();
 
                         if (rowsUpd == 0) {
                             psInsPrecio.setString(1, coArt);
-                            psInsPrecio.setDouble(2, row.getPrecio1Nuevo());
+                            psInsPrecio.setDouble(2, row.getPrecio1NuevoUsd());
                             psInsPrecio.setString(3, usuario);
                             psInsPrecio.setString(4, usuario);
                             psInsPrecio.executeUpdate();

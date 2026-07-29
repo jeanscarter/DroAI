@@ -42,7 +42,7 @@ public class FooterPanel extends JPanel {
         add(lblRegistros);
 
         // Ficha Producto
-        btnFichaProducto = accentButton("📋 Ficha Producto");
+        btnFichaProducto = accentButton("Ficha Producto");
         btnFichaProducto.addActionListener(e -> { if (onFichaProducto != null) onFichaProducto.run(); });
         add(btnFichaProducto);
 
@@ -63,7 +63,7 @@ public class FooterPanel extends JPanel {
         add(cmbColumna3, "w 120!");
 
         // Exportar Excel
-        btnExportar = new JButton("📊 Exportar Excel");
+        btnExportar = new JButton("Exportar Excel");
         btnExportar.setFont(new Font("Segoe UI Emoji", Font.BOLD, 11));
         btnExportar.setBackground(new Color(46, 125, 50));
         btnExportar.setForeground(Color.WHITE);

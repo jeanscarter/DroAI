@@ -50,9 +50,15 @@ public class DescuentoProductoTableModel extends AbstractTableModel {
         };
     }
 
+    private java.util.function.BiConsumer<String, Double> onCellDiscountEdited;
+
+    public void setOnCellDiscountEdited(java.util.function.BiConsumer<String, Double> cb) {
+        this.onCellDiscountEdited = cb;
+    }
+
     @Override
     public boolean isCellEditable(int row, int col) {
-        return col == 0;
+        return col == 0 || col == 11;
     }
 
     @Override
@@ -80,10 +86,39 @@ public class DescuentoProductoTableModel extends AbstractTableModel {
 
     @Override
     public void setValueAt(Object value, int row, int col) {
+        if (row < 0 || row >= filteredData.size()) return;
+        DescuentoProductoRow r = filteredData.get(row);
+
         if (col == 0 && value instanceof Boolean selected) {
-            DescuentoProductoRow r = filteredData.get(row);
             selectionMap.put(r.getCodigo(), selected);
             fireTableCellUpdated(row, col);
+        } else if (col == 11) {
+            double nuevoDcto = 0.0;
+            if (value instanceof Number n) {
+                nuevoDcto = n.doubleValue();
+            } else if (value != null) {
+                try {
+                    String str = value.toString().replace(",", ".").trim();
+                    if (!str.isEmpty()) {
+                        nuevoDcto = Double.parseDouble(str);
+                    }
+                } catch (NumberFormatException ignored) {}
+            }
+            if (nuevoDcto < 0) nuevoDcto = 0.0;
+            if (nuevoDcto > 100) nuevoDcto = 100.0;
+
+            r.setDctoPct2(nuevoDcto);
+            double precio1 = r.getPrecio1();
+            r.setPrecioDcto(precio1 * (1.0 - (nuevoDcto / 100.0)));
+            selectionMap.put(r.getCodigo(), true);
+
+            fireTableCellUpdated(row, 0);
+            fireTableCellUpdated(row, 11);
+            fireTableCellUpdated(row, 12);
+
+            if (onCellDiscountEdited != null) {
+                onCellDiscountEdited.accept(r.getCodigo(), nuevoDcto);
+            }
         }
     }
 

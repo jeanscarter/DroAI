@@ -79,17 +79,19 @@ public class DataTabbedPane extends JTabbedPane {
         JPanel pnlDVActions = new JPanel(new MigLayout("insets 8 16 8 16, fillx, gap 8", "[]8[]8[]push[]8[]8[]8[]8[]8[]", "[]"));
         pnlDVActions.setBorder(BorderFactory.createMatteBorder(1, 0, 0, 0, UIManager.getColor("Component.borderColor")));
 
-        btnDVSelectAll = new JButton("☑ Seleccionar Todos");
+        pnlDVActions.setBorder(BorderFactory.createMatteBorder(1, 0, 0, 0, UIManager.getColor("Component.borderColor")));
+
+        btnDVSelectAll = new JButton("Seleccionar Todos");
         btnDVSelectAll.setFont(new Font("Segoe UI", Font.BOLD, 11));
         btnDVSelectAll.addActionListener(e -> dctoVolumenModel.selectAll(true));
         pnlDVActions.add(btnDVSelectAll);
 
-        btnDVUnselectAll = new JButton("☒ Deseleccionar Todos");
+        btnDVUnselectAll = new JButton("Deseleccionar Todos");
         btnDVUnselectAll.setFont(new Font("Segoe UI", Font.BOLD, 11));
         btnDVUnselectAll.addActionListener(e -> dctoVolumenModel.selectAll(false));
         pnlDVActions.add(btnDVUnselectAll);
 
-        btnDVImportExcel = new JButton("📥 Cargar Excel DV");
+        btnDVImportExcel = new JButton("Cargar Excel DV");
         btnDVImportExcel.setFont(new Font("Segoe UI", Font.BOLD, 11));
         pnlDVActions.add(btnDVImportExcel);
 
@@ -116,8 +118,8 @@ public class DataTabbedPane extends JTabbedPane {
         dateDVFechaFin = createDatePicker();
         pnlDVActions.add(dateDVFechaFin);
 
-        btnDVAplicar = new JButton("⚡ Aplicar a Seleccionados");
-        btnDVAplicar.setFont(new Font("Segoe UI Emoji", Font.BOLD, 11));
+        btnDVAplicar = new JButton("Aplicar a Seleccionados");
+        btnDVAplicar.setFont(new Font("Segoe UI", Font.BOLD, 11));
         btnDVAplicar.setBackground(UIManager.getColor("Component.accentColor"));
         btnDVAplicar.setForeground(Color.WHITE);
         btnDVAplicar.setFocusPainted(false);
@@ -143,17 +145,17 @@ public class DataTabbedPane extends JTabbedPane {
         JPanel pnlDPActions = new JPanel(new MigLayout("insets 8 16 8 16, fillx, gap 10", "[]10[]10[]push[]10[]10[]", "[]"));
         pnlDPActions.setBorder(BorderFactory.createMatteBorder(1, 0, 0, 0, UIManager.getColor("Component.borderColor")));
 
-        btnDPSelectAll = new JButton("\u2611 Seleccionar Todos");
+        btnDPSelectAll = new JButton("Seleccionar Todos");
         btnDPSelectAll.setFont(new Font("Segoe UI", Font.BOLD, 11));
         btnDPSelectAll.addActionListener(e -> dctoProductoModel.selectAll(true));
         pnlDPActions.add(btnDPSelectAll);
 
-        btnDPUnselectAll = new JButton("\u2612 Deseleccionar Todos");
+        btnDPUnselectAll = new JButton("Deseleccionar Todos");
         btnDPUnselectAll.setFont(new Font("Segoe UI", Font.BOLD, 11));
         btnDPUnselectAll.addActionListener(e -> dctoProductoModel.selectAll(false));
         pnlDPActions.add(btnDPUnselectAll);
 
-        btnDPImportExcel = new JButton("📥 Cargar Excel DP");
+        btnDPImportExcel = new JButton("Cargar Excel DP");
         btnDPImportExcel.setFont(new Font("Segoe UI", Font.BOLD, 11));
         pnlDPActions.add(btnDPImportExcel);
 
@@ -166,8 +168,8 @@ public class DataTabbedPane extends JTabbedPane {
         txtDPDcto.setHorizontalAlignment(SwingConstants.RIGHT);
         pnlDPActions.add(txtDPDcto, "w 80!");
 
-        btnDPAplicar = new JButton("\u26A1 Aplicar a Seleccionados");
-        btnDPAplicar.setFont(new Font("Segoe UI Emoji", Font.BOLD, 11));
+        btnDPAplicar = new JButton("Aplicar a Seleccionados");
+        btnDPAplicar.setFont(new Font("Segoe UI", Font.BOLD, 11));
         btnDPAplicar.setBackground(UIManager.getColor("Component.accentColor"));
         btnDPAplicar.setForeground(Color.WHITE);
         btnDPAplicar.setFocusPainted(false);

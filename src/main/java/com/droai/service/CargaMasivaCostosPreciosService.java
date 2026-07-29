@@ -29,55 +29,71 @@ public class CargaMasivaCostosPreciosService {
              Workbook workbook = WorkbookFactory.create(fis)) {
 
             Sheet sheet = workbook.getSheetAt(0);
-            if (sheet.getPhysicalNumberOfRows() < 2) {
+            if (sheet == null || sheet.getPhysicalNumberOfRows() == 0) {
                 throw new IllegalArgumentException("El archivo Excel no contiene filas de datos.");
             }
 
-            Row headerRow = sheet.getRow(0);
-            if (headerRow == null) {
-                throw new IllegalArgumentException("El archivo Excel no posee fila de encabezados.");
+            Row row0 = sheet.getRow(0);
+            if (row0 == null) {
+                throw new IllegalArgumentException("El archivo Excel no posee fila inicial.");
             }
 
             int colCodigo = -1;
             int colCosto = -1;
             int colPrecio = -1;
+            boolean tieneEncabezado = false;
 
-            for (Cell cell : headerRow) {
+            // Evaluar si la fila 0 contiene palabras clave de encabezado
+            for (Cell cell : row0) {
                 String val = getCellValueAsString(cell).toLowerCase().trim();
                 if (val.contains("cod") || val.contains("co_art") || val.contains("código") || val.contains("codigo") || val.contains("articulo")) {
                     if (colCodigo == -1) colCodigo = cell.getColumnIndex();
+                    tieneEncabezado = true;
                 } else if (val.contains("costo")) {
                     if (colCosto == -1) colCosto = cell.getColumnIndex();
+                    tieneEncabezado = true;
                 } else if (val.contains("precio")) {
                     if (colPrecio == -1) colPrecio = cell.getColumnIndex();
+                    tieneEncabezado = true;
                 }
             }
 
-            // Si no se detectaron por encabezado exacto, asumir orden por defecto: Col 0: Código, Col 1: Costo, Col 2: Precio
-            if (colCodigo == -1) colCodigo = 0;
-            if (colCosto == -1) colCosto = 1;
-            if (colPrecio == -1) colPrecio = 2;
+            int startRow;
+            if (tieneEncabezado) {
+                startRow = 1;
+                if (colCodigo == -1) colCodigo = 0;
+                if (colCosto == -1) colCosto = 1;
+                if (colPrecio == -1) colPrecio = 2;
+            } else {
+                startRow = 0;
+                colCodigo = 0;
+                colCosto = 1;
+                colPrecio = 2;
+            }
 
-            for (int r = 1; r <= sheet.getLastRowNum(); r++) {
+            for (int r = startRow; r <= sheet.getLastRowNum(); r++) {
                 Row row = sheet.getRow(r);
                 if (row == null) continue;
 
                 String codigo = getCellValueAsString(row.getCell(colCodigo)).trim();
+                if (codigo.endsWith(".0")) {
+                    codigo = codigo.substring(0, codigo.length() - 2);
+                }
                 if (codigo.isEmpty()) continue;
 
-                double costo = parseDoubleSafe(getCellValueAsString(row.getCell(colCosto)));
-                double precio = parseDoubleSafe(getCellValueAsString(row.getCell(colPrecio)));
+                double costoUsd = parseDoubleSafe(getCellValueAsString(row.getCell(colCosto)));
+                double precioUsd = parseDoubleSafe(getCellValueAsString(row.getCell(colPrecio)));
 
                 CargaMasivaCostosPreciosRow item = new CargaMasivaCostosPreciosRow();
                 item.setCoArt(codigo);
-                item.setCostoNuevo(costo);
-                item.setPrecio1Nuevo(precio);
+                item.setCostoNuevoUsd(costoUsd);
+                item.setPrecio1NuevoUsd(precioUsd);
 
                 filas.add(item);
             }
         }
 
-        // Consultar los datos actuales en BD (DROA_A) para enriquecer la tabla de vista previa
+        // Consultar los datos actuales en BD (DROA_A) y aplicar conversión con tasa de Profit
         dao.enriquecerConDatosBd(filas);
         return filas;
     }

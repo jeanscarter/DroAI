@@ -91,11 +91,11 @@ public class HeaderPanel extends JPanel {
         add(pnlOrden);
 
         // -- Filtrar / Buscar botones --
-        btnFiltrar = new RoundedButton("🔽", "Filtrar");
+        btnFiltrar = new RoundedButton("filtrar", "Filtrar");
         btnFiltrar.addActionListener(e -> { if (onFiltrar != null) onFiltrar.run(); });
         add(btnFiltrar);
 
-        btnBuscar = new RoundedButton("🔍", "Buscar");
+        btnBuscar = new RoundedButton("buscar", "Buscar");
         add(btnBuscar);
 
         // -- Utilidad card (compact) --
@@ -130,22 +130,22 @@ public class HeaderPanel extends JPanel {
         lblVar.setFont(lblVar.getFont().deriveFont(Font.BOLD, 11f));
         pnlVar.add(lblVar);
 
-        btnPreciosPct = accentButton("📊 Precios %");
+        btnPreciosPct = accentButton("Precios %");
         btnPreciosPct.addActionListener(e -> openVariacionPrecios());
         pnlVar.add(btnPreciosPct, "growx");
 
-        btnTasaCambio = accentButton("💲 Tasa de Cambio");
+        btnTasaCambio = accentButton("Tasa de Cambio");
         btnTasaCambio.addActionListener(e -> openTasaCambio());
         pnlVar.add(btnTasaCambio, "growx");
         add(pnlVar);
 
         // -- Toolbar actions (top-right) --
-        btnImprimir = new RoundedButton("🖨️", "Imprimir");
-        btnImportar = new RoundedButton("📥", "Importar");
-        btnSubir    = new RoundedButton("📤", "Subir");
-        btnGuardar  = new RoundedButton("💾", "Guardar");
-        btnDeshacer = new RoundedButton("↩️", "Deshacer");
-        btnTema     = new RoundedButton("🌓", "Tema");
+        btnImprimir = new RoundedButton("imprimir", "Imprimir");
+        btnImportar = new RoundedButton("importar", "Importar");
+        btnSubir    = new RoundedButton("subir", "Subir");
+        btnGuardar  = new RoundedButton("guardar", "Guardar");
+        btnDeshacer = new RoundedButton("deshacer", "Deshacer");
+        btnTema     = new RoundedButton("tema", "Tema");
 
         btnGuardar.addActionListener(e -> { if (onGuardar != null) onGuardar.run(); });
         btnDeshacer.addActionListener(e -> { if (onDeshacer != null) onDeshacer.run(); });
@@ -159,8 +159,7 @@ public class HeaderPanel extends JPanel {
         add(btnTema, "wrap");
 
         // ============== ROW 2: compact search bar ==============
-        JLabel lblSearch = styledLabel("🔍");
-        lblSearch.setFont(new Font("Segoe UI Emoji", Font.PLAIN, 13));
+        JLabel lblSearch = styledLabel("");
         add(lblSearch);
 
         txtBuscar = new JTextField();

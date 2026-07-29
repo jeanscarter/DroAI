@@ -85,8 +85,8 @@ public class ImportarPanel extends JPanel {
         innerTabs.setFont(new Font("Segoe UI", Font.BOLD, 13));
         innerTabs.putClientProperty(FlatClientProperties.TABBED_PANE_TAB_TYPE, "underlined");
 
-        innerTabs.addTab("  📥 Importar Excel  ", buildImportPanel());
-        innerTabs.addTab("  📋 Reporte de Productos  ", buildReportePanel());
+        innerTabs.addTab("  Importar Excel  ", buildImportPanel());
+        innerTabs.addTab("  Reporte de Productos  ", buildReportePanel());
 
         add(innerTabs, "grow");
     }
@@ -107,12 +107,12 @@ public class ImportarPanel extends JPanel {
         JPanel titleRow = new JPanel(new MigLayout("insets 0, fillx", "[]push[]", "[]"));
         titleRow.setOpaque(false);
 
-        JLabel lblTitle = new JLabel("📥  Importar Datos desde Excel");
+        JLabel lblTitle = new JLabel("Importar Datos desde Excel");
         lblTitle.setFont(new Font("Segoe UI", Font.BOLD, 18));
         lblTitle.setForeground(ACCENT);
         titleRow.add(lblTitle);
 
-        btnLogin = createStyledButton("🔐  Autenticar", ACCENT);
+        btnLogin = createStyledButton("Autenticar", ACCENT);
         btnLogin.addActionListener(e -> abrirLogin());
         titleRow.add(btnLogin);
         panel.add(titleRow, "growx");
@@ -214,7 +214,7 @@ public class ImportarPanel extends JPanel {
         progressBar.setPreferredSize(new Dimension(0, 28));
         cardAcciones.add(progressBar, "growx");
 
-        btnImportar = createStyledButton("⚡  Procesar e Importar a BD", SUCCESS_GREEN);
+        btnImportar = createStyledButton("Procesar e Importar a BD", SUCCESS_GREEN);
         btnImportar.setEnabled(false);
         btnImportar.addActionListener(e -> ejecutarImportacion());
         cardAcciones.add(btnImportar);
@@ -240,7 +240,7 @@ public class ImportarPanel extends JPanel {
         panel.setOpaque(false);
 
         // ── Título ──
-        JLabel lblReporteTitle = new JLabel("📋  Reporte de Productos — Línea / Principio Activo / Categoría / Proveedor");
+        JLabel lblReporteTitle = new JLabel("Reporte de Productos — Línea / Principio Activo / Categoría / Proveedor");
         lblReporteTitle.setFont(new Font("Segoe UI", Font.BOLD, 18));
         lblReporteTitle.setForeground(ACCENT);
         panel.add(lblReporteTitle, "growx");

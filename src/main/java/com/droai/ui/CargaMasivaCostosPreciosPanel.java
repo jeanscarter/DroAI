@@ -26,6 +26,7 @@ public class CargaMasivaCostosPreciosPanel extends JPanel {
     private final JButton btnAplicar;
     private final JTextField txtFiltro;
     private final JLabel lblArchivoInfo;
+    private final JLabel lblTasaInfo;
     private final JLabel lblEstadisticas;
 
     private List<CargaMasivaCostosPreciosRow> allRows = new ArrayList<>();
@@ -39,10 +40,10 @@ public class CargaMasivaCostosPreciosPanel extends JPanel {
         setLayout(new MigLayout("insets 16, fill, wrap", "[grow]", "[]12[grow]12[]"));
 
         // ── Header Panel ──
-        JPanel pnlHeader = new JPanel(new MigLayout("insets 10 16 10 16, fillx", "[]12[]push[]", "[]"));
+        JPanel pnlHeader = new JPanel(new MigLayout("insets 10 16 10 16, fillx", "[]12[]12[]push[]", "[]"));
         pnlHeader.setBorder(BorderFactory.createMatteBorder(0, 0, 1, 0, UIManager.getColor("Component.borderColor")));
 
-        btnCargarExcel = new JButton("📥 Seleccionar Archivo Excel (.xlsx)");
+        btnCargarExcel = new JButton("Seleccionar Archivo Excel (.xlsx)");
         btnCargarExcel.setFont(new Font("Segoe UI", Font.BOLD, 12));
         btnCargarExcel.setCursor(Cursor.getPredefinedCursor(Cursor.HAND_CURSOR));
         btnCargarExcel.addActionListener(e -> seleccionarYProcesarExcel());
@@ -53,8 +54,13 @@ public class CargaMasivaCostosPreciosPanel extends JPanel {
         lblArchivoInfo.setForeground(UIManager.getColor("Label.disabledForeground"));
         pnlHeader.add(lblArchivoInfo);
 
+        lblTasaInfo = new JLabel("Tasa Profit (saTasa): ---");
+        lblTasaInfo.setFont(new Font("Segoe UI", Font.BOLD, 12));
+        lblTasaInfo.setForeground(new Color(30, 136, 229));
+        pnlHeader.add(lblTasaInfo);
+
         txtFiltro = new JTextField();
-        txtFiltro.putClientProperty(FlatClientProperties.PLACEHOLDER_TEXT, "🔍 Filtrar por código o descripción...");
+        txtFiltro.putClientProperty(FlatClientProperties.PLACEHOLDER_TEXT, "Filtrar por código o descripción...");
         txtFiltro.setFont(new Font("Segoe UI", Font.PLAIN, 12));
         txtFiltro.addActionListener(e -> filtrarTabla());
         txtFiltro.addKeyListener(new java.awt.event.KeyAdapter() {
@@ -88,13 +94,12 @@ public class CargaMasivaCostosPreciosPanel extends JPanel {
             }
         };
 
-        tablePreview.getColumnModel().getColumn(2).setCellRenderer(numericRenderer);
-        tablePreview.getColumnModel().getColumn(3).setCellRenderer(numericRenderer);
-        tablePreview.getColumnModel().getColumn(4).setCellRenderer(numericRenderer);
-        tablePreview.getColumnModel().getColumn(5).setCellRenderer(numericRenderer);
+        for (int c = 2; c <= 9; c++) {
+            tablePreview.getColumnModel().getColumn(c).setCellRenderer(numericRenderer);
+        }
 
         // Renderer de Estado con colores
-        tablePreview.getColumnModel().getColumn(6).setCellRenderer(new DefaultTableCellRenderer() {
+        tablePreview.getColumnModel().getColumn(10).setCellRenderer(new DefaultTableCellRenderer() {
             @Override
             public Component getTableCellRendererComponent(JTable table, Object value, boolean isSelected, boolean hasFocus, int row, int column) {
                 JLabel label = (JLabel) super.getTableCellRendererComponent(table, value, isSelected, hasFocus, row, column);
@@ -102,11 +107,11 @@ public class CargaMasivaCostosPreciosPanel extends JPanel {
                 label.setFont(new Font("Segoe UI", Font.BOLD, 11));
 
                 String estado = value != null ? value.toString() : "";
-                if (estado.contains("✔") || estado.contains("✅")) {
+                if (estado.contains("Listo") || estado.contains("éxito") || estado.contains("exito")) {
                     label.setForeground(new Color(46, 125, 50));
-                } else if (estado.contains("❌")) {
+                } else if (estado.contains("no existe") || estado.contains("Error") || estado.contains("vacío")) {
                     label.setForeground(new Color(198, 40, 40));
-                } else if (estado.contains("⚠️")) {
+                } else if (estado.contains("Sin cambios")) {
                     label.setForeground(new Color(230, 81, 0));
                 } else {
                     label.setForeground(UIManager.getColor("Label.foreground"));
@@ -127,7 +132,7 @@ public class CargaMasivaCostosPreciosPanel extends JPanel {
         lblEstadisticas.setFont(new Font("Segoe UI", Font.BOLD, 12));
         pnlFooter.add(lblEstadisticas);
 
-        btnAplicar = new JButton("⚡ Aplicar Carga Masiva a la Base de Datos (DROA_A)");
+        btnAplicar = new JButton("Aplicar Carga Masiva");
         btnAplicar.setFont(new Font("Segoe UI", Font.BOLD, 12));
         btnAplicar.setBackground(UIManager.getColor("Component.accentColor"));
         btnAplicar.setForeground(Color.WHITE);
@@ -152,10 +157,10 @@ public class CargaMasivaCostosPreciosPanel extends JPanel {
         int res = fc.showOpenDialog(this);
         if (res == JFileChooser.APPROVE_OPTION) {
             selectedFile = fc.getSelectedFile();
-            lblArchivoInfo.setText("📄 " + selectedFile.getName());
+            lblArchivoInfo.setText("Archivo: " + selectedFile.getName());
 
             btnCargarExcel.setEnabled(false);
-            lblEstadisticas.setText("⏳ Leyendo archivo Excel y consultando base de datos...");
+            lblEstadisticas.setText("Leyendo archivo Excel y consultando base de datos...");
 
             SwingWorker<List<CargaMasivaCostosPreciosRow>, Void> worker = new SwingWorker<>() {
                 @Override
@@ -168,11 +173,15 @@ public class CargaMasivaCostosPreciosPanel extends JPanel {
                     btnCargarExcel.setEnabled(true);
                     try {
                         allRows = get();
+                        if (!allRows.isEmpty()) {
+                            double tasaUsd = allRows.get(0).getTasaUsd();
+                            lblTasaInfo.setText(String.format("Tasa Profit (saTasa): %.4f Bs/$", tasaUsd));
+                        }
                         filtrarTabla();
                         actualizarEstadisticas();
-                        Toast.show("✔ Vista previa cargada correctamente: " + allRows.size() + " registros.", Toast.Type.SUCCESS);
+                        Toast.show("Vista previa cargada correctamente: " + allRows.size() + " registros.", Toast.Type.SUCCESS);
                     } catch (Exception ex) {
-                        lblEstadisticas.setText("❌ Error al procesar Excel.");
+                        lblEstadisticas.setText("Error al procesar Excel.");
                         JOptionPane.showMessageDialog(CargaMasivaCostosPreciosPanel.this,
                                 "Error al cargar el archivo Excel:\n" + ex.getMessage(),
                                 "Error de Carga", JOptionPane.ERROR_MESSAGE);
@@ -214,7 +223,7 @@ public class CargaMasivaCostosPreciosPanel extends JPanel {
             }
         }
 
-        lblEstadisticas.setText(String.format("Total Filas: %d  |  ✔ Válidos: %d  |  ⚡ Con Cambios a Aplicar: %d  |  ❌ Errores/No Encontrados: %d",
+        lblEstadisticas.setText(String.format("Total Filas: %d  |  Válidos: %d  |  Con Cambios a Aplicar: %d  |  Errores/No Encontrados: %d",
                 total, validos, conCambios, errores));
 
         btnAplicar.setEnabled(conCambios > 0);
@@ -281,8 +290,10 @@ public class CargaMasivaCostosPreciosPanel extends JPanel {
 
     private class CargaMasivaTableModel extends AbstractTableModel {
         private final String[] COLUMNS = {
-                "Código", "Descripción del Producto", "Costo Actual ($)", "Nuevo Costo ($)",
-                "Precio 1 Actual ($)", "Nuevo Precio 1 ($)", "Estado"
+                "Código", "Descripción del Producto",
+                "Costo Act. ($)", "Costo Act. (Bs)", "Nuevo Costo ($)", "Nuevo Costo (Bs)",
+                "Precio 1 Act. ($)", "Precio 1 Act. (Bs)", "Nuevo Precio 1 ($)", "Nuevo Precio 1 (Bs)",
+                "Estado"
         };
 
         @Override
@@ -308,18 +319,22 @@ public class CargaMasivaCostosPreciosPanel extends JPanel {
             return switch (columnIndex) {
                 case 0 -> row.getCoArt();
                 case 1 -> row.getDescripcion();
-                case 2 -> row.getCostoActual();
-                case 3 -> row.getCostoNuevo();
-                case 4 -> row.getPrecio1Actual();
-                case 5 -> row.getPrecio1Nuevo();
-                case 6 -> row.getEstado();
+                case 2 -> row.getCostoActualUsd();
+                case 3 -> row.getCostoActualBs();
+                case 4 -> row.getCostoNuevoUsd();
+                case 5 -> row.getCostoNuevoBs();
+                case 6 -> row.getPrecio1ActualUsd();
+                case 7 -> row.getPrecio1ActualBs();
+                case 8 -> row.getPrecio1NuevoUsd();
+                case 9 -> row.getPrecio1NuevoBs();
+                case 10 -> row.getEstado();
                 default -> null;
             };
         }
 
         @Override
         public Class<?> getColumnClass(int columnIndex) {
-            if (columnIndex == 2 || columnIndex == 3 || columnIndex == 4 || columnIndex == 5) {
+            if (columnIndex >= 2 && columnIndex <= 9) {
                 return Double.class;
             }
             return String.class;
