@@ -60,7 +60,7 @@ public class ArticuloDAO {
                 ISNULL(a.campo4, '')    AS campo4,
                 ISNULL(a.campo5, '')    AS campo5,
                 ISNULL(a.campo6, '')    AS campo6,
-                ISNULL(a.destaca, 0)    AS destacado,
+                0                       AS destacado,
                 ISNULL(a.anulado, 0)    AS anulado,
                 ISNULL(a.margen_min, 0) AS margenMin,
                 ISNULL(a.margen_max, 0) AS margenMax
@@ -108,7 +108,10 @@ public class ArticuloDAO {
                 SELECT cod_articulo_rowguid, costo, costo_pro
                 FROM (
                     SELECT cod_articulo_rowguid, costo, costo_pro,
-                           ROW_NUMBER() OVER (PARTITION BY cod_articulo_rowguid ORDER BY fecha_emision DESC) AS rn
+                           ROW_NUMBER() OVER (
+                               PARTITION BY cod_articulo_rowguid
+                               ORDER BY CASE WHEN tipo_doc = 'PROV' THEN 1 ELSE 2 END, fecha_emision DESC
+                           ) AS rn
                     FROM saCostoHistoricoEntrada
                     WHERE costo > 0
                 ) ranked

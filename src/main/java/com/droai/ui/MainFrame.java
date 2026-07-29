@@ -82,6 +82,8 @@ public class MainFrame extends JFrame {
         dataTabs.getBtnDPAplicar().addActionListener(e -> aplicarDescuentoDP());
         dataTabs.getBtnDPImportExcel().addActionListener(e -> cargarDescuentoDPDesdeExcel());
 
+        dataTabs.getCargaMasivaPanel().setOnCargaExitosa(this::loadData);
+
         footer.setOnColumna3Changed(columna -> {
             header.setTercerRadioText(columna);
             dataTabs.getCatalogoModel().setColumnaDinamica(columna);

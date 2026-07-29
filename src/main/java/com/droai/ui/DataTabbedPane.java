@@ -28,6 +28,7 @@ public class DataTabbedPane extends JTabbedPane {
     private final JTable tblDctoVolumen;
     private final JTable tblDctoProducto;
     private final ImportarPanel importarPanel;
+    private final CargaMasivaCostosPreciosPanel cargaMasivaPanel;
 
     private final CatalogoTableModel catalogoModel;
     private final ResumenTableModel simuladorModel;
@@ -177,8 +178,15 @@ public class DataTabbedPane extends JTabbedPane {
 
         addTab("  Descuento x Producto  ", pnlDctoProducto);
 
+        cargaMasivaPanel = new CargaMasivaCostosPreciosPanel();
+        addTab("  Carga Masiva Costos/Precios  ", cargaMasivaPanel);
+
         importarPanel = new ImportarPanel();
         addTab("  Importar Datos  ", importarPanel);
+    }
+
+    public CargaMasivaCostosPreciosPanel getCargaMasivaPanel() {
+        return cargaMasivaPanel;
     }
 
     public CatalogoTableModel getCatalogoModel() {

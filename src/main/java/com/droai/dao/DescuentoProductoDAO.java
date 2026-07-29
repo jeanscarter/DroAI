@@ -63,7 +63,10 @@ public class DescuentoProductoDAO {
                 SELECT cod_articulo_rowguid, costo
                 FROM (
                     SELECT cod_articulo_rowguid, costo,
-                           ROW_NUMBER() OVER (PARTITION BY cod_articulo_rowguid ORDER BY fecha_emision DESC) AS rn
+                           ROW_NUMBER() OVER (
+                               PARTITION BY cod_articulo_rowguid
+                               ORDER BY CASE WHEN tipo_doc = 'PROV' THEN 1 ELSE 2 END, fecha_emision DESC
+                           ) AS rn
                     FROM saCostoHistoricoEntrada
                     WHERE costo > 0
                 ) ranked
