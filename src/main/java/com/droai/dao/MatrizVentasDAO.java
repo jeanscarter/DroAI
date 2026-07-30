@@ -30,12 +30,12 @@ public class MatrizVentasDAO {
                 r.monto_imp AS montoIva,
                 r.porc_imp AS ivaPct,
                 ((r.prec_vta * r.total_art) + r.monto_imp) AS totRenglonIva,
-                r.cost_vta AS costoVenta,
-                (r.cost_vta * r.total_art) AS totalCostoVenta,
+                ISNULL(ce.costo, 0) AS costoVenta,
+                (ISNULL(ce.costo, 0) * r.total_art) AS totalCostoVenta,
                 0 AS totCvDp,
-                ((r.prec_vta * r.total_art) - (r.cost_vta * r.total_art)) AS montoUtilidad,
+                ((r.prec_vta * r.total_art) - (ISNULL(ce.costo, 0) * r.total_art)) AS montoUtilidad,
                 0 AS utilPct,
-                0 AS costoActual,
+                ISNULL(ce.costo, 0) AS costoActual,
                 ISNULL(sa.stock, 0) AS stockActual,
                 a.co_lin AS codLinea,
                 l.lin_des AS linea,
@@ -58,6 +58,19 @@ public class MatrizVentasDAO {
             LEFT JOIN saLineaArticulo l ON a.co_lin = l.co_lin
             LEFT JOIN saSubLinea sl ON a.co_subl = sl.co_subl
             LEFT JOIN saStockAlmacen sa ON a.co_art = sa.co_art AND r.co_alma = sa.co_alma
+            LEFT JOIN (
+                SELECT cod_articulo_rowguid, costo
+                FROM (
+                    SELECT cod_articulo_rowguid, costo,
+                           ROW_NUMBER() OVER (
+                               PARTITION BY cod_articulo_rowguid
+                               ORDER BY CASE WHEN tipo_doc = 'PROV' THEN 1 ELSE 2 END, fecha_emision DESC
+                           ) AS rn
+                    FROM saCostoHistoricoEntrada
+                    WHERE costo > 0
+                ) ranked
+                WHERE rn = 1
+            ) ce ON a.rowguid = ce.cod_articulo_rowguid
             WHERE f.fec_emis BETWEEN ? AND ?
             ORDER BY f.fec_emis DESC, f.doc_num DESC
             """;

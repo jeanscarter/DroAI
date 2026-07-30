@@ -36,12 +36,12 @@ public class PrecioDAO {
             r.monto_imp    AS montoIva,
             r.porc_imp     AS ivaPct,
             (r.prec_vta * r.total_art) + r.monto_imp AS totRenglonIva,
-            r.cost_vta     AS costoVenta,
-            (r.cost_vta * r.total_art) AS totalCostoVenta,
+            ISNULL(ce.costo, 0) AS costoVenta,
+            (ISNULL(ce.costo, 0) * r.total_art) AS totalCostoVenta,
             0              AS totCvDp,
-            ((r.prec_vta * r.total_art) - (r.cost_vta * r.total_art)) AS montoUtilidad,
+            ((r.prec_vta * r.total_art) - (ISNULL(ce.costo, 0) * r.total_art)) AS montoUtilidad,
             0              AS utilPct,
-            0              AS costoActual,
+            ISNULL(ce.costo, 0) AS costoActual,
             0              AS stockActual,
             l.co_lin       AS codLinea,
             l.lin_des      AS linea
@@ -51,6 +51,19 @@ public class PrecioDAO {
         LEFT JOIN saCliente c ON f.co_cli = c.co_cli
         LEFT JOIN saVendedor v ON f.co_ven = v.co_ven
         LEFT JOIN saLineaArticulo l ON a.co_lin = l.co_lin
+        LEFT JOIN (
+            SELECT cod_articulo_rowguid, costo
+            FROM (
+                SELECT cod_articulo_rowguid, costo,
+                       ROW_NUMBER() OVER (
+                           PARTITION BY cod_articulo_rowguid
+                           ORDER BY CASE WHEN tipo_doc = 'PROV' THEN 1 ELSE 2 END, fecha_emision DESC
+                       ) AS rn
+                FROM saCostoHistoricoEntrada
+                WHERE costo > 0
+            ) ranked
+            WHERE rn = 1
+        ) ce ON a.rowguid = ce.cod_articulo_rowguid
         WHERE f.fec_emis BETWEEN ? AND ?
         ORDER BY f.fec_emis DESC, f.doc_num DESC
         """;
@@ -111,12 +124,25 @@ public class PrecioDAO {
             SUM(r.prec_vta * r.total_art * r.porc_desc / 100.0) AS descuento,
             SUM(r.prec_vta * r.total_art * (1 - r.porc_desc / 100.0)) AS neto,
             AVG(r.porc_desc) AS porcentaje,
-            SUM(r.cost_vta * r.total_art) AS costoOm,
+            SUM(ISNULL(ce.costo, 0) * r.total_art) AS costoOm,
             CASE WHEN SUM(r.prec_vta * r.total_art * (1 - r.porc_desc / 100.0)) = 0 THEN 0
-                 ELSE ((SUM(r.prec_vta * r.total_art * (1 - r.porc_desc / 100.0)) - SUM(r.cost_vta * r.total_art)) / SUM(r.prec_vta * r.total_art * (1 - r.porc_desc / 100.0))) * 100.0 END AS utilPct
+                 ELSE ((SUM(r.prec_vta * r.total_art * (1 - r.porc_desc / 100.0)) - SUM(ISNULL(ce.costo, 0) * r.total_art)) / SUM(r.prec_vta * r.total_art * (1 - r.porc_desc / 100.0))) * 100.0 END AS utilPct
         FROM saFacturaVentaReng r
         INNER JOIN saFacturaVenta f ON f.doc_num = r.doc_num
         INNER JOIN saArticulo     a ON a.co_art  = r.co_art
+        LEFT JOIN (
+            SELECT cod_articulo_rowguid, costo
+            FROM (
+                SELECT cod_articulo_rowguid, costo,
+                       ROW_NUMBER() OVER (
+                           PARTITION BY cod_articulo_rowguid
+                           ORDER BY CASE WHEN tipo_doc = 'PROV' THEN 1 ELSE 2 END, fecha_emision DESC
+                       ) AS rn
+                FROM saCostoHistoricoEntrada
+                WHERE costo > 0
+            ) ranked
+            WHERE rn = 1
+        ) ce ON a.rowguid = ce.cod_articulo_rowguid
         WHERE f.fec_emis BETWEEN ? AND ?
         GROUP BY a.co_art, a.art_des
         ORDER BY a.co_art
@@ -135,12 +161,25 @@ public class PrecioDAO {
             SUM(r.prec_vta * r.total_art * r.porc_desc / 100.0) AS descuento,
             SUM(r.prec_vta * r.total_art * (1 - r.porc_desc / 100.0)) AS neto,
             AVG(r.porc_desc) AS porcentaje,
-            SUM(r.cost_vta * r.total_art) AS costoOm,
+            SUM(ISNULL(ce.costo, 0) * r.total_art) AS costoOm,
             CASE WHEN SUM(r.prec_vta * r.total_art * (1 - r.porc_desc / 100.0)) = 0 THEN 0
-                 ELSE ((SUM(r.prec_vta * r.total_art * (1 - r.porc_desc / 100.0)) - SUM(r.cost_vta * r.total_art)) / SUM(r.prec_vta * r.total_art * (1 - r.porc_desc / 100.0))) * 100.0 END AS utilPct
+                 ELSE ((SUM(r.prec_vta * r.total_art * (1 - r.porc_desc / 100.0)) - SUM(ISNULL(ce.costo, 0) * r.total_art)) / SUM(r.prec_vta * r.total_art * (1 - r.porc_desc / 100.0))) * 100.0 END AS utilPct
         FROM saFacturaVentaReng r
         INNER JOIN saFacturaVenta f ON f.doc_num = r.doc_num
         INNER JOIN saArticulo     a ON a.co_art  = r.co_art
+        LEFT JOIN (
+            SELECT cod_articulo_rowguid, costo
+            FROM (
+                SELECT cod_articulo_rowguid, costo,
+                       ROW_NUMBER() OVER (
+                           PARTITION BY cod_articulo_rowguid
+                           ORDER BY CASE WHEN tipo_doc = 'PROV' THEN 1 ELSE 2 END, fecha_emision DESC
+                       ) AS rn
+                FROM saCostoHistoricoEntrada
+                WHERE costo > 0
+            ) ranked
+            WHERE rn = 1
+        ) ce ON a.rowguid = ce.cod_articulo_rowguid
         WHERE f.fec_emis BETWEEN ? AND ?
         GROUP BY a.co_art, a.art_des
         ORDER BY a.co_art

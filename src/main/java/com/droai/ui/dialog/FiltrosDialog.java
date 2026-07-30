@@ -1,5 +1,7 @@
 package com.droai.ui.dialog;
 
+import com.droai.dao.CatalogoFiltrosDAO;
+import com.droai.dao.CatalogoFiltrosDAO.OptionItem;
 import com.droai.model.FiltrosCriteria;
 import com.droai.model.FiltrosCriteria.FiltroCosto;
 import com.droai.model.FiltrosCriteria.FiltroPrecio;
@@ -8,13 +10,11 @@ import net.miginfocom.swing.MigLayout;
 
 import javax.swing.*;
 import java.awt.*;
+import java.util.List;
 
 /**
  * Diálogo modal de "Filtros" que replica la ventana de Profit Plus.
- *
- * <p>Layout basado en la imagen de referencia: campos de texto, combos,
- * checkboxes, radio buttons agrupados por Costo/Precio/Stock,
- * campos de fecha, y botones "Aplicar Filtros" / "Quitar Filtros" a la derecha.
+ * Carga dinámicamente Grupos, SubGrupos, Proveedores y Almacenes desde la base de datos.
  */
 public class FiltrosDialog extends JDialog {
 
@@ -35,8 +35,8 @@ public class FiltrosDialog extends JDialog {
     private final JTextField txtProveedor;
 
     // ── Combos ──
-    private final JComboBox<String> cmbCodigoOp, cmbMoneda, cmbGrupo, cmbSubGrupo;
-    private final JComboBox<String> cmbProveedorOp, cmbAlmacen;
+    private final JComboBox<String> cmbCodigoOp, cmbMoneda;
+    private final JComboBox<Object> cmbGrupo, cmbSubGrupo, cmbProveedorOp, cmbAlmacen;
 
     // ── Campos de fecha ──
     @SuppressWarnings("unused")
@@ -59,9 +59,10 @@ public class FiltrosDialog extends JDialog {
     // ── Radio buttons: Stock ──
     private final JRadioButton rbStockTodos, rbStockConStock, rbStockSinStock;
 
-    // ── Resultado ──
+    // ── Resultado y listas auxiliares ──
     private FiltrosCriteria resultado = null;
     private boolean filtrosEliminados = false;
+    private List<OptionItem> proveedoresList = new java.util.ArrayList<>();
 
     public FiltrosDialog(Frame owner) {
         this(owner, null);
@@ -97,11 +98,11 @@ public class FiltrosDialog extends JDialog {
         formPanel.add(styledLabel("Código:"));
         txtCodigo = styledField(90);
         formPanel.add(txtCodigo);
-        cmbCodigoOp = styledCombo(new String[]{""}, 50);
+        cmbCodigoOp = styledComboString(new String[]{""}, 50);
         formPanel.add(cmbCodigoOp);
 
         formPanel.add(styledLabel("Moneda:"));
-        cmbMoneda = styledCombo(new String[]{"", "USD", "BS", "EUR"}, 100);
+        cmbMoneda = styledComboString(new String[]{"", "USD", "BS", "EUR"}, 100);
         formPanel.add(cmbMoneda);
 
         chkMostrarInactivos = styledCheck("Mostrar Inactivos", false);
@@ -120,7 +121,6 @@ public class FiltrosDialog extends JDialog {
         txtReferencia = styledField(200);
         formPanel.add(txtReferencia, "span 3, growx");
 
-        // Etiqueta "Desde la fecha de Creacion"
         JLabel lblFechaCreacion = styledLabel("Desde la fecha de Creacion");
         lblFechaCreacion.setFont(new Font("Segoe UI", Font.BOLD, 10));
         formPanel.add(lblFechaCreacion, "span 2, wrap");
@@ -130,7 +130,6 @@ public class FiltrosDialog extends JDialog {
         txtCodBarra = styledField(200);
         formPanel.add(txtCodBarra, "span 3, growx");
 
-        // Campos de fecha de creación: / /
         JPanel pnlFechaCreacion = buildFechaPanel();
         txtFechaCreacionDia = (JTextField) pnlFechaCreacion.getClientProperty("dia");
         txtFechaCreacionMes = (JTextField) pnlFechaCreacion.getClientProperty("mes");
@@ -147,14 +146,14 @@ public class FiltrosDialog extends JDialog {
         txtModelo = styledField(90);
         formPanel.add(txtModelo);
 
-        // Etiqueta "Desde la fecha de Actualización" ya se pone arriba del campo
         JLabel lblFechaAct = styledLabel("Desde la fecha de Actualizacion");
         lblFechaAct.setFont(new Font("Segoe UI", Font.BOLD, 10));
         formPanel.add(lblFechaAct, "span 2, wrap");
 
         // ══════════════ Fila 6: Grupo + Fecha de Actualización ══════════════
         formPanel.add(styledLabel("Grupo:"));
-        cmbGrupo = styledCombo(new String[]{""}, 120);
+        cmbGrupo = styledComboObject(120);
+        cmbGrupo.addActionListener(e -> onGrupoChanged());
         formPanel.add(cmbGrupo, "span 3");
 
         JPanel pnlFechaAct = buildFechaPanel();
@@ -166,7 +165,7 @@ public class FiltrosDialog extends JDialog {
 
         // ══════════════ Fila 7: SubGrupo ══════════════
         formPanel.add(styledLabel("SubGrupo:"));
-        cmbSubGrupo = styledCombo(new String[]{""}, 120);
+        cmbSubGrupo = styledComboObject(120);
         formPanel.add(cmbSubGrupo, "span 5, wrap");
 
         // ══════════════ Fila 8: Proveedor (dentro de borde titulado) ══════════════
@@ -181,7 +180,21 @@ public class FiltrosDialog extends JDialog {
             TEXT_LABEL
         ));
 
-        cmbProveedorOp = styledCombo(new String[]{""}, 50);
+        cmbProveedorOp = styledComboObject(120);
+        cmbProveedorOp.setEditable(true);
+        Component editorComp = cmbProveedorOp.getEditor().getEditorComponent();
+        if (editorComp instanceof JTextField tf) {
+            tf.setBackground(BG_FIELD);
+            tf.setForeground(TEXT_VALUE);
+            tf.setCaretColor(CARET);
+            tf.setBorder(BorderFactory.createEmptyBorder(2, 4, 2, 4));
+            tf.getDocument().addDocumentListener(new javax.swing.event.DocumentListener() {
+                public void insertUpdate(javax.swing.event.DocumentEvent e) { onProveedorEditorChanged(tf.getText()); }
+                public void removeUpdate(javax.swing.event.DocumentEvent e) { onProveedorEditorChanged(tf.getText()); }
+                public void changedUpdate(javax.swing.event.DocumentEvent e) { onProveedorEditorChanged(tf.getText()); }
+            });
+        }
+        cmbProveedorOp.addActionListener(e -> onProveedorChanged());
         pnlProveedor.add(cmbProveedorOp);
         txtProveedor = styledField(200);
         pnlProveedor.add(txtProveedor, "growx");
@@ -220,7 +233,7 @@ public class FiltrosDialog extends JDialog {
         formPanel.add(txtCampo1, "wrap");
 
         // ══════════════ Fila 10: Solo Precio <= Costo + Campo 2 ══════════════
-        formPanel.add(new JLabel(), "skip 1"); // spacer
+        formPanel.add(new JLabel(), "skip 1");
         chkSoloPrecioMenorCosto = styledCheck("Solo Precio <= Costo", false);
         formPanel.add(chkSoloPrecioMenorCosto, "span 2");
 
@@ -275,7 +288,7 @@ public class FiltrosDialog extends JDialog {
             new Font("Segoe UI", Font.BOLD, 11),
             TEXT_LABEL
         ));
-        cmbAlmacen = styledCombo(new String[]{""}, 120);
+        cmbAlmacen = styledComboObject(120);
         pnlAlmacen.add(cmbAlmacen, "growx");
         formPanel.add(pnlAlmacen, "span 6, growx, wrap");
 
@@ -304,9 +317,108 @@ public class FiltrosDialog extends JDialog {
 
         setContentPane(root);
 
+        // Cargar los catálogos dinámicamente desde la BD
+        cargarCatalogosBD();
+
         // Cargar criterios anteriores si existen
         if (criteriaAnterior != null) {
             cargarCriteria(criteriaAnterior);
+        }
+    }
+
+    private void cargarCatalogosBD() {
+        new SwingWorker<Void, Void>() {
+            private List<OptionItem> lineas;
+            private List<OptionItem> proveedores;
+            private List<OptionItem> almacenes;
+
+            @Override
+            protected Void doInBackground() {
+                CatalogoFiltrosDAO dao = new CatalogoFiltrosDAO();
+                lineas = dao.obtenerLineas();
+                proveedores = dao.obtenerProveedores();
+                almacenes = dao.obtenerAlmacenes();
+                return null;
+            }
+
+            @Override
+            protected void done() {
+                DefaultComboBoxModel<Object> modelGrupo = new DefaultComboBoxModel<>();
+                modelGrupo.addElement(new OptionItem("", ""));
+                if (lineas != null) {
+                    for (OptionItem item : lineas) modelGrupo.addElement(item);
+                }
+                cmbGrupo.setModel(modelGrupo);
+
+                proveedoresList = (proveedores != null) ? proveedores : new java.util.ArrayList<>();
+                DefaultComboBoxModel<Object> modelProv = new DefaultComboBoxModel<>();
+                modelProv.addElement(new OptionItem("", ""));
+                for (OptionItem item : proveedoresList) modelProv.addElement(item);
+                cmbProveedorOp.setModel(modelProv);
+
+                DefaultComboBoxModel<Object> modelAlma = new DefaultComboBoxModel<>();
+                modelAlma.addElement(new OptionItem("", ""));
+                if (almacenes != null) {
+                    for (OptionItem item : almacenes) modelAlma.addElement(item);
+                }
+                cmbAlmacen.setModel(modelAlma);
+
+                actualizarSubGrupos("");
+            }
+        }.execute();
+    }
+
+    private void onGrupoChanged() {
+        Object sel = cmbGrupo.getSelectedItem();
+        String coLin = (sel instanceof OptionItem item) ? item.code() : "";
+        actualizarSubGrupos(coLin);
+    }
+
+    private void actualizarSubGrupos(String coLin) {
+        new SwingWorker<List<OptionItem>, Void>() {
+            @Override
+            protected List<OptionItem> doInBackground() {
+                CatalogoFiltrosDAO dao = new CatalogoFiltrosDAO();
+                return dao.obtenerSubLineas(coLin);
+            }
+
+            @Override
+            protected void done() {
+                try {
+                    List<OptionItem> sublineas = get();
+                    DefaultComboBoxModel<Object> modelSub = new DefaultComboBoxModel<>();
+                    modelSub.addElement(new OptionItem("", ""));
+                    if (sublineas != null) {
+                        for (OptionItem item : sublineas) modelSub.addElement(item);
+                    }
+                    cmbSubGrupo.setModel(modelSub);
+                } catch (Exception ex) {
+                    ex.printStackTrace();
+                }
+            }
+        }.execute();
+    }
+
+    private void onProveedorEditorChanged(String text) {
+        if (text == null || text.isBlank()) {
+            txtProveedor.setText("");
+            return;
+        }
+        String query = text.trim().toLowerCase();
+        for (OptionItem item : proveedoresList) {
+            if (item.code().toLowerCase().equals(query) || item.code().toLowerCase().startsWith(query)) {
+                txtProveedor.setText(item.name());
+                return;
+            }
+        }
+    }
+
+    private void onProveedorChanged() {
+        Object sel = cmbProveedorOp.getSelectedItem();
+        if (sel instanceof OptionItem item && !item.code().isEmpty()) {
+            txtProveedor.setText(item.name());
+        } else if (sel != null) {
+            onProveedorEditorChanged(sel.toString());
         }
     }
 
@@ -326,12 +438,40 @@ public class FiltrosDialog extends JDialog {
         resultado.setUbicacion(txtUbicacion.getText());
         resultado.setCampo1(txtCampo1.getText());
         resultado.setCampo2(txtCampo2.getText());
-        resultado.setProveedor(txtProveedor.getText());
+
+        // Proveedor: código del combo o texto ingresado
+        Object selProv = cmbProveedorOp.getSelectedItem();
+        if (selProv instanceof OptionItem item && !item.code().isEmpty()) {
+            resultado.setProveedor(item.code());
+        } else {
+            resultado.setProveedor(txtProveedor.getText());
+        }
 
         resultado.setMoneda(getComboText(cmbMoneda));
-        resultado.setGrupo(getComboText(cmbGrupo));
-        resultado.setSubGrupo(getComboText(cmbSubGrupo));
-        resultado.setAlmacen(getComboText(cmbAlmacen));
+
+        // Grupo (Línea)
+        Object selGrupo = cmbGrupo.getSelectedItem();
+        if (selGrupo instanceof OptionItem item && !item.code().isEmpty()) {
+            resultado.setGrupo(item.code());
+        } else {
+            resultado.setGrupo(getComboTextObject(cmbGrupo));
+        }
+
+        // SubGrupo (SubLínea)
+        Object selSubGrupo = cmbSubGrupo.getSelectedItem();
+        if (selSubGrupo instanceof OptionItem item && !item.code().isEmpty()) {
+            resultado.setSubGrupo(item.code());
+        } else {
+            resultado.setSubGrupo(getComboTextObject(cmbSubGrupo));
+        }
+
+        // Almacén
+        Object selAlma = cmbAlmacen.getSelectedItem();
+        if (selAlma instanceof OptionItem item && !item.code().isEmpty()) {
+            resultado.setAlmacen(item.code());
+        } else {
+            resultado.setAlmacen(getComboTextObject(cmbAlmacen));
+        }
 
         resultado.setMostrarInactivos(chkMostrarInactivos.isSelected());
         resultado.setCualquierPosicion(chkCualquierPosicion.isSelected());
@@ -369,7 +509,6 @@ public class FiltrosDialog extends JDialog {
     }
 
     private void quitarFiltros() {
-        // Señal para eliminar todos los filtros (resultado null + flag)
         resultado = null;
         filtrosEliminados = true;
         dispose();
@@ -391,9 +530,10 @@ public class FiltrosDialog extends JDialog {
         txtProveedor.setText(c.getProveedor());
 
         setComboText(cmbMoneda, c.getMoneda());
-        setComboText(cmbGrupo, c.getGrupo());
-        setComboText(cmbSubGrupo, c.getSubGrupo());
-        setComboText(cmbAlmacen, c.getAlmacen());
+        setComboSelectedCode(cmbGrupo, c.getGrupo());
+        setComboSelectedCode(cmbSubGrupo, c.getSubGrupo());
+        setComboSelectedCode(cmbProveedorOp, c.getProveedor());
+        setComboSelectedCode(cmbAlmacen, c.getAlmacen());
 
         chkMostrarInactivos.setSelected(c.isMostrarInactivos());
         chkCualquierPosicion.setSelected(c.isCualquierPosicion());
@@ -421,16 +561,10 @@ public class FiltrosDialog extends JDialog {
     //  API Pública
     // ═══════════════════════════════════════════════════════════════
 
-    /**
-     * Retorna los criterios seleccionados, o null si el diálogo fue cerrado sin aplicar.
-     */
     public FiltrosCriteria getResultado() {
         return resultado;
     }
 
-    /**
-     * Indica si el usuario presionó "Quitar Filtros" (distinto de cerrar sin acción).
-     */
     public boolean isFiltrosEliminados() {
         return filtrosEliminados;
     }
@@ -480,7 +614,6 @@ public class FiltrosDialog extends JDialog {
         lblIcon.setHorizontalAlignment(SwingConstants.CENTER);
         content.add(lblIcon);
 
-        // Texto con salto de línea
         String[] lines = text.split("\n");
         for (String line : lines) {
             JLabel lblText = new JLabel(line);
@@ -504,7 +637,7 @@ public class FiltrosDialog extends JDialog {
     }
 
     // ═══════════════════════════════════════════════════════════════
-    //  Factory helpers (estilo consistente con TasaCambioDialog)
+    //  Factory helpers
     // ═══════════════════════════════════════════════════════════════
 
     private JLabel styledLabel(String text) {
@@ -528,8 +661,17 @@ public class FiltrosDialog extends JDialog {
         return tf;
     }
 
-    private JComboBox<String> styledCombo(String[] items, int width) {
+    private JComboBox<String> styledComboString(String[] items, int width) {
         JComboBox<String> cb = new JComboBox<>(items);
+        cb.setFont(new Font("Segoe UI", Font.PLAIN, 11));
+        cb.setBackground(BG_FIELD);
+        cb.setForeground(TEXT_VALUE);
+        cb.setPreferredSize(new Dimension(width, 26));
+        return cb;
+    }
+
+    private JComboBox<Object> styledComboObject(int width) {
+        JComboBox<Object> cb = new JComboBox<>();
         cb.setFont(new Font("Segoe UI", Font.PLAIN, 11));
         cb.setBackground(BG_FIELD);
         cb.setForeground(TEXT_VALUE);
@@ -560,6 +702,12 @@ public class FiltrosDialog extends JDialog {
         return sel != null ? sel.toString().trim() : "";
     }
 
+    private String getComboTextObject(JComboBox<Object> combo) {
+        Object sel = combo.getSelectedItem();
+        if (sel instanceof OptionItem item) return item.code();
+        return sel != null ? sel.toString().trim() : "";
+    }
+
     private void setComboText(JComboBox<String> combo, String text) {
         if (text == null || text.isEmpty()) {
             combo.setSelectedIndex(0);
@@ -567,4 +715,19 @@ public class FiltrosDialog extends JDialog {
             combo.setSelectedItem(text);
         }
     }
+
+    private void setComboSelectedCode(JComboBox<Object> combo, String code) {
+        if (code == null || code.isEmpty()) {
+            if (combo.getItemCount() > 0) combo.setSelectedIndex(0);
+            return;
+        }
+        for (int i = 0; i < combo.getItemCount(); i++) {
+            Object obj = combo.getItemAt(i);
+            if (obj instanceof OptionItem item && item.code().equalsIgnoreCase(code.trim())) {
+                combo.setSelectedIndex(i);
+                return;
+            }
+        }
+    }
 }
+

@@ -1,6 +1,7 @@
 package com.droai.ui;
 
 import com.droai.config.DatabaseConfig;
+import com.droai.model.ArticuloImportRow;
 import com.droai.model.ArticuloRow;
 import com.droai.model.DescuentoProductoRow;
 import com.droai.model.DescuentoVolumenRow;
@@ -496,56 +497,52 @@ public class MainFrame extends JFrame {
     }
 
     private void exportExcel() {
-        int mainSelectedIndex = dataTabs.getSelectedIndex();
-        boolean isReporte = false;
-        boolean isDV = false;
-        java.util.List<ProductoReporteRow> reporteData = null;
-        java.util.List<DescuentoVolumenRow> dvData = null;
-        java.util.List<ArticuloRow> catalogoData = null;
-
-        if (mainSelectedIndex == 4) { // Index of "Importar Datos"
-            ImportarPanel panel = dataTabs.getImportarPanel();
-            if (panel.isShowingReporteTab()) {
-                isReporte = true;
-                reporteData = panel.getReporteRowsVisibles();
-            }
-        } else if (mainSelectedIndex == 2) { // Descuentos x Volumen
-            isDV = true;
-            dvData = dataTabs.getDctoVolumenRowsVisibles();
-        } else if (mainSelectedIndex == 0) { // Catálogo
-            catalogoData = dataTabs.getCatalogoRowsVisibles();
-        }
-
-        final boolean exportReporte = isReporte;
-        final boolean exportDV = isDV;
-        final java.util.List<ProductoReporteRow> finalReporteData = reporteData;
-        final java.util.List<DescuentoVolumenRow> finalDVData = dvData;
-        final java.util.List<ArticuloRow> finalCatalogoData = catalogoData;
-
-        if (exportReporte && (finalReporteData == null || finalReporteData.isEmpty())) {
-            Toast.show("No hay datos cargados en el reporte de productos para exportar.", Toast.Type.WARNING);
-            return;
-        }
-        if (exportDV && (finalDVData == null || finalDVData.isEmpty())) {
-            Toast.show("No hay datos de descuentos por volumen para exportar.", Toast.Type.WARNING);
-            return;
-        }
-        if (!exportReporte && !exportDV && (finalCatalogoData == null || finalCatalogoData.isEmpty())) {
-            Toast.show("No hay datos en el catálogo de productos para exportar.", Toast.Type.WARNING);
-            return;
-        }
+        int tabIndex = dataTabs.getSelectedIndex();
 
         Toast.show("Generando reporte Excel...", Toast.Type.INFO);
         new SwingWorker<File, Void>() {
             @Override
             protected File doInBackground() throws Exception {
                 ExcelExporter exporter = new ExcelExporter();
-                if (exportReporte) {
-                    return exporter.exportReporteProductos(finalReporteData);
-                } else if (exportDV) {
-                    return exporter.exportDescuentosVolumen(finalDVData);
-                } else {
-                    return exporter.exportCatalogo(finalCatalogoData, footer.getTasa());
+                switch (tabIndex) {
+                    case 0 -> { // Catálogo de Productos
+                        List<ArticuloRow> data = dataTabs.getCatalogoRowsVisibles();
+                        if (data.isEmpty()) throw new IllegalStateException("No hay datos en el catálogo de productos para exportar.");
+                        return exporter.exportCatalogo(data, footer.getTasa());
+                    }
+                    case 1 -> { // Descuentos Adicional
+                        List<com.droai.model.ResumenRow> data = dataTabs.getSimuladorRowsVisibles();
+                        if (data.isEmpty()) throw new IllegalStateException("No hay datos de descuentos adicionales para exportar.");
+                        return exporter.exportDescuentosAdicionales(data);
+                    }
+                    case 2 -> { // Descuentos x Volumen
+                        List<DescuentoVolumenRow> data = dataTabs.getDctoVolumenRowsVisibles();
+                        if (data.isEmpty()) throw new IllegalStateException("No hay datos de descuentos por volumen para exportar.");
+                        return exporter.exportDescuentosVolumen(data);
+                    }
+                    case 3 -> { // Descuento x Producto
+                        List<DescuentoProductoRow> data = dataTabs.getDctoProductoRowsVisibles();
+                        if (data.isEmpty()) throw new IllegalStateException("No hay datos de descuento por producto para exportar.");
+                        return exporter.exportDescuentosProducto(data);
+                    }
+                    case 4 -> { // Carga Masiva Costos/Precios
+                        List<com.droai.model.CargaMasivaCostosPreciosRow> data = dataTabs.getCargaMasivaRowsVisibles();
+                        if (data.isEmpty()) throw new IllegalStateException("No hay datos de carga masiva para exportar.");
+                        return exporter.exportCargaMasiva(data);
+                    }
+                    case 5 -> { // Importar Datos
+                        ImportarPanel panel = dataTabs.getImportarPanel();
+                        if (panel.isShowingReporteTab()) {
+                            List<ProductoReporteRow> data = panel.getReporteRowsVisibles();
+                            if (data.isEmpty()) throw new IllegalStateException("No hay datos cargados en el reporte de productos para exportar.");
+                            return exporter.exportReporteProductos(data);
+                        } else {
+                            List<ArticuloImportRow> data = panel.getPreviewRowsVisibles();
+                            if (data.isEmpty()) throw new IllegalStateException("No hay vista previa de importación para exportar.");
+                            return exporter.exportImportarPreview(data);
+                        }
+                    }
+                    default -> throw new IllegalStateException("Pestaña no reconocida.");
                 }
             }
 
@@ -554,14 +551,14 @@ public class MainFrame extends JFrame {
                 try {
                     File file = get();
                     if (file != null) {
-                        Toast.show("Excel exportado correctamente", Toast.Type.SUCCESS);
+                        Toast.show("Excel exportado correctamente: " + file.getName(), Toast.Type.SUCCESS);
                         if (Desktop.isDesktopSupported()) {
                             Desktop.getDesktop().open(file);
                         }
                     }
                 } catch (Exception ex) {
-                    ex.printStackTrace();
-                    Toast.show("Error en exportación. Revisa la consola.", Toast.Type.ERROR);
+                    Throwable cause = ex.getCause() != null ? ex.getCause() : ex;
+                    Toast.show("⚠ " + cause.getMessage(), Toast.Type.WARNING);
                 }
             }
         }.execute();

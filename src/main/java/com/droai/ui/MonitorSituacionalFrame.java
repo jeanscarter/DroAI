@@ -423,6 +423,8 @@ public class MonitorSituacionalFrame extends JFrame {
      * Actualiza las tarjetas KPI con los datos del último resultado.
      */
     private void actualizarKpis() {
+        if (lastResult == null) return;
+
         NumberFormat nf = NumberFormat.getNumberInstance(Locale.of("es", "VE"));
         nf.setMinimumFractionDigits(2);
         nf.setMaximumFractionDigits(2);

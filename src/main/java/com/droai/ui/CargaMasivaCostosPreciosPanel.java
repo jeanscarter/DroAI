@@ -35,6 +35,10 @@ public class CargaMasivaCostosPreciosPanel extends JPanel {
 
     private Runnable onCargaExitosa;
 
+    public List<CargaMasivaCostosPreciosRow> getDisplayedRows() {
+        return displayedRows;
+    }
+
     public CargaMasivaCostosPreciosPanel() {
         this.service = new CargaMasivaCostosPreciosService();
         setLayout(new MigLayout("insets 16, fill, wrap", "[grow]", "[]12[grow]12[]"));

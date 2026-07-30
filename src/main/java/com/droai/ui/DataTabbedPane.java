@@ -227,6 +227,26 @@ public class DataTabbedPane extends JTabbedPane {
         return visibleRows;
     }
 
+    public List<com.droai.model.DescuentoProductoRow> getDctoProductoRowsVisibles() {
+        List<com.droai.model.DescuentoProductoRow> visibleRows = new ArrayList<>();
+        List<com.droai.model.DescuentoProductoRow> filteredData = dctoProductoModel.getFilteredData();
+        for (int i = 0; i < tblDctoProducto.getRowCount(); i++) {
+            int modelRow = tblDctoProducto.convertRowIndexToModel(i);
+            if (modelRow >= 0 && modelRow < filteredData.size()) {
+                visibleRows.add(filteredData.get(modelRow));
+            }
+        }
+        return visibleRows;
+    }
+
+    public List<com.droai.model.ResumenRow> getSimuladorRowsVisibles() {
+        return new ArrayList<>(simuladorModel.getData());
+    }
+
+    public List<com.droai.model.CargaMasivaCostosPreciosRow> getCargaMasivaRowsVisibles() {
+        return cargaMasivaPanel.getDisplayedRows();
+    }
+
     public List<ArticuloRow> getCatalogoRowsVisibles() {
         List<ArticuloRow> visibleRows = new ArrayList<>();
         List<ArticuloRow> filteredData = catalogoModel.getFilteredData();

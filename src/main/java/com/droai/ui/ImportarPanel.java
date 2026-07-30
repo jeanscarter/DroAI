@@ -651,6 +651,13 @@ public class ImportarPanel extends JPanel {
         return list;
     }
 
+    public List<ArticuloImportRow> getPreviewRowsVisibles() {
+        if (previewModel != null) {
+            return previewModel.getRows();
+        }
+        return new ArrayList<>();
+    }
+
     // ═══════════════════════════════════════════════════════════════
     //  TableModel: Preview Importación (dinámico)
     // ═══════════════════════════════════════════════════════════════
@@ -658,6 +665,10 @@ public class ImportarPanel extends JPanel {
     private static class PreviewTableModel extends AbstractTableModel {
         private String[] headers = {};
         private List<ArticuloImportRow> rows = List.of();
+
+        public List<ArticuloImportRow> getRows() {
+            return rows;
+        }
 
         public void setData(String[] headers, List<ArticuloImportRow> rows) {
             this.headers = headers != null ? headers : new String[0];

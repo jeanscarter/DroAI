@@ -270,6 +270,10 @@ public class CatalogoTableModel extends AbstractTableModel {
                 && !matchField(r.getSubLinea(), c.getSubGrupo(), anyPos)
                 && !matchField(r.getCodSub(), c.getSubGrupo(), anyPos)) return false;
 
+        // Almacén
+        if (!c.getAlmacen().isEmpty()
+                && !matchField(r.getUbicacion(), c.getAlmacen(), anyPos)) return false;
+
         // Costo
         double costo = (r.getCostoActual() > 0) ? r.getCostoActual() : r.getCostoOm();
         switch (c.getFiltroCosto()) {
