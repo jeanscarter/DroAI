@@ -26,14 +26,14 @@ public class MatrizVentasDAO {
                 r.porc_desc AS rawDiscounts,
                 (r.prec_vta * r.total_art) AS totalRenglon,
                 ISNULL(f.porc_desc_glob, 0) AS descPctGlobal,
-                ((r.prec_vta * r.total_art) * (1 - (ISNULL(f.porc_desc_glob, 0) / 100.0))) AS renglonDg,
+                r.reng_neto AS renglonDg,
                 r.monto_imp AS montoIva,
                 r.porc_imp AS ivaPct,
-                ((r.prec_vta * r.total_art) + r.monto_imp) AS totRenglonIva,
+                (r.reng_neto + r.monto_imp) AS totRenglonIva,
                 ISNULL(ce.costo, 0) AS costoVenta,
                 (ISNULL(ce.costo, 0) * r.total_art) AS totalCostoVenta,
                 0 AS totCvDp,
-                ((r.prec_vta * r.total_art) - (ISNULL(ce.costo, 0) * r.total_art)) AS montoUtilidad,
+                (r.reng_neto - (ISNULL(ce.costo, 0) * r.total_art)) AS montoUtilidad,
                 0 AS utilPct,
                 ISNULL(ce.costo, 0) AS costoActual,
                 ISNULL(sa.stock, 0) AS stockActual,
@@ -43,7 +43,9 @@ public class MatrizVentasDAO {
                 sl.subl_des AS subLinea,
                 p.co_prov AS codProveedor,
                 p.prov_des AS nombreProveedor,
-                c.co_zon AS zona,
+                ISNULL(z.zon_des, c.co_zon) AS zona,
+                ISNULL(c.ciudad, '') AS ciudad,
+                ISNULL(a.campo1, '') AS codProv,
                 r.co_alma AS almacen,
                 f.campo1 AS pedidoWeb,
                 f.campo2 AS origen,
@@ -51,13 +53,18 @@ public class MatrizVentasDAO {
             FROM saFacturaVenta f
             JOIN saFacturaVentaReng r ON f.doc_num = r.doc_num
             LEFT JOIN saCliente c ON f.co_cli = c.co_cli
+            LEFT JOIN saZona z ON c.co_zon = z.co_zon
             LEFT JOIN saVendedor v ON f.co_ven = v.co_ven
             LEFT JOIN saArticulo a ON r.co_art = a.co_art
-            LEFT JOIN (SELECT co_art, co_prov FROM saArtProveedorReng WHERE reng_num = 1) ap ON a.co_art = ap.co_art
+            LEFT JOIN (SELECT co_art, MIN(co_prov) AS co_prov FROM saArtProveedorReng GROUP BY co_art) ap ON a.co_art = ap.co_art
             LEFT JOIN saProveedor p ON ap.co_prov = p.co_prov
             LEFT JOIN saLineaArticulo l ON a.co_lin = l.co_lin
-            LEFT JOIN saSubLinea sl ON a.co_subl = sl.co_subl
-            LEFT JOIN saStockAlmacen sa ON a.co_art = sa.co_art AND r.co_alma = sa.co_alma
+            LEFT JOIN saSubLinea sl ON a.co_lin = sl.co_lin AND a.co_subl = sl.co_subl
+            LEFT JOIN (
+                SELECT co_art, co_alma, SUM(stock) AS stock
+                FROM saStockAlmacen
+                GROUP BY co_art, co_alma
+            ) sa ON a.co_art = sa.co_art AND r.co_alma = sa.co_alma
             LEFT JOIN (
                 SELECT cod_articulo_rowguid, costo
                 FROM (
@@ -71,14 +78,37 @@ public class MatrizVentasDAO {
                 ) ranked
                 WHERE rn = 1
             ) ce ON a.rowguid = ce.cod_articulo_rowguid
-            WHERE f.fec_emis BETWEEN ? AND ?
+            WHERE CONVERT(date, f.fec_emis) BETWEEN ? AND ? AND ISNULL(f.anulado, 0) = 0
             ORDER BY f.fec_emis DESC, f.doc_num DESC
             """;
 
-    public List<MatrizVentasRow> fetchMatrizVentas(LocalDate from, LocalDate to) throws SQLException {
-        List<MatrizVentasRow> rows = new ArrayList<>();
+    private static final org.slf4j.Logger logger = org.slf4j.LoggerFactory.getLogger(MatrizVentasDAO.class);
+    private static final LocalDate CUTOFF_DATE = LocalDate.of(2026, 7, 27);
+    private static final String HISTORICAL_DB = "DROA2_A";
 
-        try (Connection conn = DatabaseConfig.getDataSource().getConnection();
+    public List<MatrizVentasRow> fetchMatrizVentas(LocalDate from, LocalDate to) throws SQLException {
+        if (to.isBefore(CUTOFF_DATE)) {
+            // Rango completamente previo al 27/07/2026 -> DROA2_A
+            return fetchMatrizVentasForDb(from, to, HISTORICAL_DB);
+        } else if (!from.isBefore(CUTOFF_DATE)) {
+            // Rango a partir del 27/07/2026 -> BD actual por defecto
+            return fetchMatrizVentasForDb(from, to, null);
+        } else {
+            // Rango que abarca antes y después del 27/07/2026 -> Combinar consultas
+            List<MatrizVentasRow> combined = new ArrayList<>();
+            LocalDate endHistorical = CUTOFF_DATE.minusDays(1);
+            combined.addAll(fetchMatrizVentasForDb(from, endHistorical, HISTORICAL_DB));
+            combined.addAll(fetchMatrizVentasForDb(CUTOFF_DATE, to, null));
+            return combined;
+        }
+    }
+
+    public List<MatrizVentasRow> fetchMatrizVentasForDb(LocalDate from, LocalDate to, String targetDb) throws SQLException {
+        List<MatrizVentasRow> rows = new ArrayList<>();
+        logger.info("Consultando Matriz de Ventas en BD [{}] del {} al {}",
+                targetDb != null ? targetDb : "DEFAULT", from, to);
+
+        try (Connection conn = DatabaseConfig.getConnection(targetDb);
                 PreparedStatement ps = conn.prepareStatement(SQL_MATRIZ_VENTAS)) {
 
             ps.setDate(1, Date.valueOf(from));
@@ -120,6 +150,8 @@ public class MatrizVentasDAO {
                     row.setCodProveedor(rs.getString("codProveedor"));
                     row.setNombreProveedor(rs.getString("nombreProveedor"));
                     row.setZona(rs.getString("zona"));
+                    row.setCiudad(rs.getString("ciudad"));
+                    row.setCodProv(rs.getString("codProv"));
                     row.setAlmacen(rs.getString("almacen"));
                     row.setPedidoWeb(rs.getString("pedidoWeb"));
                     row.setOrigen(rs.getString("origen"));
@@ -133,26 +165,44 @@ public class MatrizVentasDAO {
     }
 
     /**
-     * Parses a composite discount string like "10+0+0+3" into its components:
-     * Index 0: DP, Index 1: DCT, Index 2: DA, Index 3: DV.
+    /**
+     * Parses a composite discount string like "3+0+4+10+6" into its components:
+     * When 5 discounts are present:
+     *   Index 0: DP (Descuento Producto)
+     *   Index 1: DA (Descuento Adicional)
+     *   Index 2: DCT (Descuento CT / Web)
+     *   Index 3: DC (Descuento Cliente)
+     *   Index 4: DV (Descuento Volumen)
+     *
+     * When 4 discounts (legacy) are present:
+     *   Index 0: DP, Index 1: DA, Index 2: DCT, Index 3: DV.
      */
     private void parseCompositeDiscounts(String raw, MatrizVentasRow row) {
         if (raw == null || raw.isBlank()) {
             row.setDp(0);
-            row.setDct(0);
             row.setDa(0);
+            row.setDct(0);
+            row.setDc(0);
             row.setDv(0);
             row.setDescPct(0);
             return;
         }
 
         String[] parts = raw.split("\\+");
-        row.setDp(parsePart(parts, 0));
-        row.setDct(parsePart(parts, 1));
-        row.setDa(parsePart(parts, 2));
-        row.setDv(parsePart(parts, 3));
-        
-        // Use DP as the primary descPct for consistency with previous behavior
+        if (parts.length >= 5) {
+            row.setDp(parsePart(parts, 0));
+            row.setDa(parsePart(parts, 1));
+            row.setDct(parsePart(parts, 2));
+            row.setDc(parsePart(parts, 3));
+            row.setDv(parsePart(parts, 4));
+        } else {
+            row.setDp(parsePart(parts, 0));
+            row.setDa(parsePart(parts, 1));
+            row.setDct(parsePart(parts, 2));
+            row.setDc(0);
+            row.setDv(parsePart(parts, 3));
+        }
+
         row.setDescPct(row.getDp());
     }
 

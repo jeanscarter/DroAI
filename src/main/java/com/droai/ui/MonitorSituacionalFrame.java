@@ -4,6 +4,7 @@ import com.droai.service.MonitorService;
 import com.droai.service.MonitorService.MonitorResult;
 import com.droai.ui.components.RoundedPanel;
 import com.droai.ui.components.Toast;
+import com.droai.ui.dialog.DetalleMonitorDialog;
 import com.droai.ui.table.MonitorSituacionalTableModel;
 import com.github.lgooddatepicker.components.DatePicker;
 import com.github.lgooddatepicker.components.DatePickerSettings;
@@ -56,7 +57,6 @@ public class MonitorSituacionalFrame extends JFrame {
     private final MonitorService monitorService;
 
     // ── Estado ──
-    private double tasaCambio = 183.13;
     private boolean monedaBs = true;
     private MonitorResult lastResult;
 
@@ -305,8 +305,16 @@ public class MonitorSituacionalFrame extends JFrame {
         btnVerMas.setBorderPainted(false);
         btnVerMas.setFocusPainted(false);
         btnVerMas.setCursor(Cursor.getPredefinedCursor(Cursor.HAND_CURSOR));
-        btnVerMas.addActionListener(e ->
-                Toast.show("Detalle de " + title + " próximamente", Toast.Type.INFO));
+        btnVerMas.addActionListener(e -> {
+            if ("Monto Total".equals(title) && lastResult != null) {
+                DetalleMonitorDialog dialog = new DetalleMonitorDialog(this, lastResult, monedaBs);
+                dialog.setVisible(true);
+            } else if (lastResult == null) {
+                Toast.show("Procese los datos primero para ver el detalle", Toast.Type.WARNING);
+            } else {
+                Toast.show("Detalle de " + title + " próximamente", Toast.Type.INFO);
+            }
+        });
         card.add(btnVerMas);
 
         // Línea inferior de acento
@@ -429,15 +437,13 @@ public class MonitorSituacionalFrame extends JFrame {
         nf.setMinimumFractionDigits(2);
         nf.setMaximumFractionDigits(2);
 
-        double monto = lastResult.montoTotal();
-        if (!monedaBs) {
-            monto = monto / tasaCambio;
-        }
+        double monto = monedaBs ? lastResult.montoTotal() : lastResult.montoTotalUsd();
 
         String simbolo = monedaBs ? "Bs " : "$ ";
         lblMontoTotal.setText(simbolo + nf.format(monto));
         NumberFormat nfUnits = NumberFormat.getNumberInstance(Locale.of("es", "VE"));
         nfUnits.setMaximumFractionDigits(0);
+        lblDocumentos.setText(nfUnits.format(lastResult.totalDocumentos()));
         lblUnidades.setText(nfUnits.format(lastResult.totalUnidades()));
 
         // Actualizar columna de moneda en la tabla

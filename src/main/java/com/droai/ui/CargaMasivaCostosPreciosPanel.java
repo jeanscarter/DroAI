@@ -24,6 +24,7 @@ public class CargaMasivaCostosPreciosPanel extends JPanel {
 
     private final JButton btnCargarExcel;
     private final JButton btnAplicar;
+    private final JCheckBox chkForzarActualizacion;
     private final JTextField txtFiltro;
     private final JLabel lblArchivoInfo;
     private final JLabel lblTasaInfo;
@@ -129,12 +130,19 @@ public class CargaMasivaCostosPreciosPanel extends JPanel {
         add(scrollTable, "grow");
 
         // ── Footer Panel ──
-        JPanel pnlFooter = new JPanel(new MigLayout("insets 10 16 10 16, fillx", "[]push[]", "[]"));
+        JPanel pnlFooter = new JPanel(new MigLayout("insets 10 16 10 16, fillx", "[]12[]push[]", "[]"));
         pnlFooter.setBorder(BorderFactory.createMatteBorder(1, 0, 0, 0, UIManager.getColor("Component.borderColor")));
 
         lblEstadisticas = new JLabel("Cargue un archivo Excel para ver la vista previa y estadísticas.");
         lblEstadisticas.setFont(new Font("Segoe UI", Font.BOLD, 12));
         pnlFooter.add(lblEstadisticas);
+
+        chkForzarActualizacion = new JCheckBox("Forzar Actualización");
+        chkForzarActualizacion.setFont(new Font("Segoe UI", Font.BOLD, 11));
+        chkForzarActualizacion.setForeground(new Color(230, 81, 0));
+        chkForzarActualizacion.setToolTipText("Permite aplicar la carga incluso si los valores son iguales a los actuales en la BD.");
+        chkForzarActualizacion.addActionListener(e -> actualizarEstadisticas());
+        pnlFooter.add(chkForzarActualizacion);
 
         btnAplicar = new JButton("Aplicar Carga Masiva");
         btnAplicar.setFont(new Font("Segoe UI", Font.BOLD, 12));
@@ -215,28 +223,34 @@ public class CargaMasivaCostosPreciosPanel extends JPanel {
         int validos = 0;
         int conCambios = 0;
         int errores = 0;
+        boolean forzar = chkForzarActualizacion.isSelected();
 
         for (CargaMasivaCostosPreciosRow row : allRows) {
             if (!row.isExisteEnBd() || !row.isValido()) {
                 errores++;
             } else {
                 validos++;
-                if (row.tieneCambios()) {
+                if (row.tieneCambios() || forzar) {
                     conCambios++;
                 }
             }
         }
 
-        lblEstadisticas.setText(String.format("Total Filas: %d  |  Válidos: %d  |  Con Cambios a Aplicar: %d  |  Errores/No Encontrados: %d",
-                total, validos, conCambios, errores));
+        String statsText = String.format("Total Filas: %d  |  Válidos: %d  |  Con Cambios a Aplicar: %d  |  Errores/No Encontrados: %d",
+                total, validos, conCambios, errores);
+        if (forzar && conCambios > 0) {
+            statsText += "  ⚡ (Forzar activo)";
+        }
+        lblEstadisticas.setText(statsText);
 
         btnAplicar.setEnabled(conCambios > 0);
     }
 
     private void aplicarCargaMasiva() {
+        boolean forzar = chkForzarActualizacion.isSelected();
         List<CargaMasivaCostosPreciosRow> porActualizar = new ArrayList<>();
         for (CargaMasivaCostosPreciosRow r : allRows) {
-            if (r.isValido() && r.isExisteEnBd() && r.tieneCambios()) {
+            if (r.isValido() && r.isExisteEnBd() && (r.tieneCambios() || forzar)) {
                 porActualizar.add(r);
             }
         }
@@ -261,7 +275,7 @@ public class CargaMasivaCostosPreciosPanel extends JPanel {
         SwingWorker<Integer, Void> worker = new SwingWorker<>() {
             @Override
             protected Integer doInBackground() throws Exception {
-                return service.ejecutarCargaMasiva(porActualizar);
+                return service.ejecutarCargaMasiva(porActualizar, forzar);
             }
 
             @Override

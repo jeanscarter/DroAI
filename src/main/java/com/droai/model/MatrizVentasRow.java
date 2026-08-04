@@ -14,8 +14,9 @@ public class MatrizVentasRow {
     private double cantidad;
     private double precio;
     private double dp;
-    private double dct;
     private double da;
+    private double dct;
+    private double dc;
     private double dv;
     private double descPct;
     private double totalRenglon;
@@ -48,6 +49,8 @@ public class MatrizVentasRow {
     private double costoOm;
     private double ivaPct;
     private double precioCiva;
+    private String ciudad;
+    private String codProv;
 
     public MatrizVentasRow() {
     }
@@ -69,7 +72,12 @@ public class MatrizVentasRow {
     }
 
     public String getCiRif() {
-        return ciRif;
+        if (ciRif == null) return "";
+        String trimmed = ciRif.trim();
+        if (trimmed.matches("(?i)^[JVEGP]\\d+.*")) {
+            return trimmed.substring(0, 1).toUpperCase() + "-" + trimmed.substring(1);
+        }
+        return trimmed;
     }
 
     public void setCiRif(String ciRif) {
@@ -162,6 +170,14 @@ public class MatrizVentasRow {
 
     public void setDa(double da) {
         this.da = da;
+    }
+
+    public double getDc() {
+        return dc;
+    }
+
+    public void setDc(double dc) {
+        this.dc = dc;
     }
 
     public double getDv() {
@@ -418,5 +434,48 @@ public class MatrizVentasRow {
 
     public void setPrecioCiva(double precioCiva) {
         this.precioCiva = precioCiva;
+    }
+
+    public String getCiudad() {
+        return ciudad != null ? ciudad : "";
+    }
+
+    public void setCiudad(String ciudad) {
+        this.ciudad = ciudad;
+    }
+
+    public String getCodProv() {
+        return codProv != null ? codProv : "";
+    }
+
+    public void setCodProv(String codProv) {
+        this.codProv = codProv;
+    }
+
+    public String getMes() {
+        if (fecha == null || fecha.isBlank()) return "";
+        try {
+            String[] months = {"ENERO", "FEBRERO", "MARZO", "ABRIL", "MAYO", "JUNIO",
+                               "JULIO", "AGOSTO", "SEPTIEMBRE", "OCTUBRE", "NOVIEMBRE", "DICIEMBRE"};
+            int m = -1;
+            int y = -1;
+            if (fecha.contains("-")) {
+                String[] parts = fecha.split("-");
+                if (parts.length >= 2) {
+                    y = Integer.parseInt(parts[0].trim());
+                    m = Integer.parseInt(parts[1].trim());
+                }
+            } else if (fecha.contains("/")) {
+                String[] parts = fecha.split("/");
+                if (parts.length >= 3) {
+                    m = Integer.parseInt(parts[1].trim());
+                    y = Integer.parseInt(parts[2].trim());
+                }
+            }
+            if (m >= 1 && m <= 12) {
+                return y > 0 ? months[m - 1] + " " + y : months[m - 1];
+            }
+        } catch (Exception ignored) {}
+        return fecha;
     }
 }

@@ -96,7 +96,7 @@ public class DescuentoVolumenDAO {
         try (Connection conn = DatabaseConfig.getDataSource().getConnection()) {
             conn.setAutoCommit(false);
             try {
-                // 1. Obtener el máximo co_desc actual para posibles inserciones
+                // 1. Obtener el máximo co_desc actual para inserciones
                 int nextCoDesc = 1;
                 try (Statement stmt = conn.createStatement();
                      ResultSet rs = stmt.executeQuery("SELECT MAX(co_desc) FROM saDescArticulo")) {
@@ -112,57 +112,39 @@ public class DescuentoVolumenDAO {
                     }
                 }
 
-                // 2. Preparar sentencias
-                String sqlCheck = "SELECT COUNT(*) FROM saDescArticulo WHERE co_art = ?";
-                String sqlUpdate = "UPDATE saDescArticulo SET porc1 = ?, fecha_ini = ?, fecha_fin = ?, co_us_mo = ?, fe_us_mo = GETDATE() WHERE co_art = ? AND tip_cli = ?";
+                // 2. Usar DELETE + INSERT para evitar violación de UK (tip_cli, co_art, fecha_ini)
+                String sqlDelete = "DELETE FROM saDescArticulo WHERE co_art = ? AND tip_cli = ?";
                 String sqlInsert = "INSERT INTO saDescArticulo (co_desc, des_des, co_art, tip_cli, hasta1, hasta2, hasta3, hasta4, hasta5, porc1, porc2, porc3, porc4, porc5, porc6, fecha_ini, fecha_fin, co_us_in, fe_us_in, co_us_mo, fe_us_mo, rowguid) " +
                                    "VALUES (?, 'Descuento por Volumen', ?, ?, 99999999.99, 99999999.99, 99999999.99, 0.0, 0.0, ?, 0.0, 0.0, 0.0, 0.0, 0.0, ?, ?, ?, GETDATE(), ?, GETDATE(), ?)";
 
-                try (PreparedStatement psCheck = conn.prepareStatement(sqlCheck);
-                     PreparedStatement psUpdate = conn.prepareStatement(sqlUpdate);
+                try (PreparedStatement psDelete = conn.prepareStatement(sqlDelete);
                      PreparedStatement psInsert = conn.prepareStatement(sqlInsert)) {
 
                     for (String coArt : codigosArticulos) {
                         String cleanCoArt = coArt.trim();
-                        
-                        psCheck.setString(1, cleanCoArt);
-                        boolean exists = false;
-                        try (ResultSet rs = psCheck.executeQuery()) {
-                            if (rs.next() && rs.getInt(1) > 0) {
-                                exists = true;
-                            }
-                        }
 
-                        if (exists) {
-                            for (int i = 1; i <= 7; i++) {
-                                String tipCli = String.format("%06d", i);
-                                psUpdate.setDouble(1, nuevoPorcentaje);
-                                if (fechaIni != null) psUpdate.setDate(2, fechaIni); else psUpdate.setNull(2, Types.DATE);
-                                if (fechaFin != null) psUpdate.setDate(3, fechaFin); else psUpdate.setNull(3, Types.DATE);
-                                psUpdate.setString(4, coUsuario);
-                                psUpdate.setString(5, cleanCoArt);
-                                psUpdate.setString(6, tipCli);
-                                psUpdate.addBatch();
-                            }
-                            psUpdate.executeBatch();
-                        } else {
-                            for (int i = 1; i <= 7; i++) {
-                                String tipCli = String.format("%06d", i);
-                                String coDesc = String.format("%06d", nextCoDesc++);
-                                UUID guid = UUID.randomUUID();
+                        for (int i = 1; i <= 7; i++) {
+                            String tipCli = String.format("%06d", i);
 
-                                psInsert.setString(1, coDesc);
-                                psInsert.setString(2, cleanCoArt);
-                                psInsert.setString(3, tipCli);
-                                psInsert.setDouble(4, nuevoPorcentaje);
-                                if (fechaIni != null) psInsert.setDate(5, fechaIni); else psInsert.setNull(5, Types.DATE);
-                                if (fechaFin != null) psInsert.setDate(6, fechaFin); else psInsert.setNull(6, Types.DATE);
-                                psInsert.setString(7, coUsuario);
-                                psInsert.setString(8, coUsuario);
-                                psInsert.setString(9, guid.toString());
-                                psInsert.addBatch();
-                            }
-                            psInsert.executeBatch();
+                            // Eliminar filas existentes para este par (co_art, tip_cli)
+                            psDelete.setString(1, cleanCoArt);
+                            psDelete.setString(2, tipCli);
+                            psDelete.executeUpdate();
+
+                            // Insertar fila nueva
+                            String coDesc = String.format("%06d", nextCoDesc++);
+                            UUID guid = UUID.randomUUID();
+
+                            psInsert.setString(1, coDesc);
+                            psInsert.setString(2, cleanCoArt);
+                            psInsert.setString(3, tipCli);
+                            psInsert.setDouble(4, nuevoPorcentaje);
+                            if (fechaIni != null) psInsert.setDate(5, fechaIni); else psInsert.setNull(5, Types.DATE);
+                            if (fechaFin != null) psInsert.setDate(6, fechaFin); else psInsert.setNull(6, Types.DATE);
+                            psInsert.setString(7, coUsuario);
+                            psInsert.setString(8, coUsuario);
+                            psInsert.setString(9, guid.toString());
+                            psInsert.executeUpdate();
                         }
                     }
                 }
@@ -206,14 +188,12 @@ public class DescuentoVolumenDAO {
                 }
 
                 String sqlCheckArticulo = "SELECT co_art FROM saArticulo WHERE co_art = ?";
-                String sqlCheck = "SELECT COUNT(*) FROM saDescArticulo WHERE co_art = ?";
-                String sqlUpdate = "UPDATE saDescArticulo SET porc1 = ?, fecha_ini = ?, fecha_fin = ?, co_us_mo = ?, fe_us_mo = GETDATE() WHERE co_art = ? AND tip_cli = ?";
+                String sqlDelete = "DELETE FROM saDescArticulo WHERE co_art = ? AND tip_cli = ?";
                 String sqlInsert = "INSERT INTO saDescArticulo (co_desc, des_des, co_art, tip_cli, hasta1, hasta2, hasta3, hasta4, hasta5, porc1, porc2, porc3, porc4, porc5, porc6, fecha_ini, fecha_fin, co_us_in, fe_us_in, co_us_mo, fe_us_mo, rowguid) " +
                                    "VALUES (?, 'Descuento por Volumen', ?, ?, 99999999.99, 99999999.99, 99999999.99, 0.0, 0.0, ?, 0.0, 0.0, 0.0, 0.0, 0.0, ?, ?, ?, GETDATE(), ?, GETDATE(), ?)";
 
                 try (PreparedStatement psCheckArticulo = conn.prepareStatement(sqlCheckArticulo);
-                     PreparedStatement psCheck = conn.prepareStatement(sqlCheck);
-                     PreparedStatement psUpdate = conn.prepareStatement(sqlUpdate);
+                     PreparedStatement psDelete = conn.prepareStatement(sqlDelete);
                      PreparedStatement psInsert = conn.prepareStatement(sqlInsert)) {
 
                     for (java.util.Map.Entry<String, Double> entry : dctosMap.entrySet()) {
@@ -246,44 +226,28 @@ public class DescuentoVolumenDAO {
                             continue;
                         }
 
-                        psCheck.setString(1, matchedCoArt);
-                        boolean exists = false;
-                        try (ResultSet rs = psCheck.executeQuery()) {
-                            if (rs.next() && rs.getInt(1) > 0) {
-                                exists = true;
-                            }
-                        }
+                        for (int i = 1; i <= 7; i++) {
+                            String tipCli = String.format("%06d", i);
 
-                        if (exists) {
-                            for (int i = 1; i <= 7; i++) {
-                                String tipCli = String.format("%06d", i);
-                                psUpdate.setDouble(1, nuevoPorcentaje);
-                                if (fechaIni != null) psUpdate.setDate(2, fechaIni); else psUpdate.setNull(2, Types.DATE);
-                                if (fechaFin != null) psUpdate.setDate(3, fechaFin); else psUpdate.setNull(3, Types.DATE);
-                                psUpdate.setString(4, coUsuario);
-                                psUpdate.setString(5, matchedCoArt);
-                                psUpdate.setString(6, tipCli);
-                                psUpdate.addBatch();
-                            }
-                            psUpdate.executeBatch();
-                        } else {
-                            for (int i = 1; i <= 7; i++) {
-                                String tipCli = String.format("%06d", i);
-                                String coDesc = String.format("%06d", nextCoDesc++);
-                                UUID guid = UUID.randomUUID();
+                            // Eliminar filas existentes para este par (co_art, tip_cli)
+                            psDelete.setString(1, matchedCoArt);
+                            psDelete.setString(2, tipCli);
+                            psDelete.executeUpdate();
 
-                                psInsert.setString(1, coDesc);
-                                psInsert.setString(2, matchedCoArt);
-                                psInsert.setString(3, tipCli);
-                                psInsert.setDouble(4, nuevoPorcentaje);
-                                if (fechaIni != null) psInsert.setDate(5, fechaIni); else psInsert.setNull(5, Types.DATE);
-                                if (fechaFin != null) psInsert.setDate(6, fechaFin); else psInsert.setNull(6, Types.DATE);
-                                psInsert.setString(7, coUsuario);
-                                psInsert.setString(8, coUsuario);
-                                psInsert.setString(9, guid.toString());
-                                psInsert.addBatch();
-                            }
-                            psInsert.executeBatch();
+                            // Insertar fila nueva
+                            String coDesc = String.format("%06d", nextCoDesc++);
+                            UUID guid = UUID.randomUUID();
+
+                            psInsert.setString(1, coDesc);
+                            psInsert.setString(2, matchedCoArt);
+                            psInsert.setString(3, tipCli);
+                            psInsert.setDouble(4, nuevoPorcentaje);
+                            if (fechaIni != null) psInsert.setDate(5, fechaIni); else psInsert.setNull(5, Types.DATE);
+                            if (fechaFin != null) psInsert.setDate(6, fechaFin); else psInsert.setNull(6, Types.DATE);
+                            psInsert.setString(7, coUsuario);
+                            psInsert.setString(8, coUsuario);
+                            psInsert.setString(9, guid.toString());
+                            psInsert.executeUpdate();
                         }
                     }
                 }
@@ -323,14 +287,12 @@ public class DescuentoVolumenDAO {
                 }
 
                 String sqlCheckArticulo = "SELECT co_art FROM saArticulo WHERE co_art = ?";
-                String sqlCheck = "SELECT COUNT(*) FROM saDescArticulo WHERE co_art = ?";
-                String sqlUpdate = "UPDATE saDescArticulo SET porc1 = ?, fecha_ini = ?, fecha_fin = ?, co_us_mo = ?, fe_us_mo = GETDATE() WHERE co_art = ? AND tip_cli = ?";
+                String sqlDelete = "DELETE FROM saDescArticulo WHERE co_art = ? AND tip_cli = ?";
                 String sqlInsert = "INSERT INTO saDescArticulo (co_desc, des_des, co_art, tip_cli, hasta1, hasta2, hasta3, hasta4, hasta5, porc1, porc2, porc3, porc4, porc5, porc6, fecha_ini, fecha_fin, co_us_in, fe_us_in, co_us_mo, fe_us_mo, rowguid) " +
                                    "VALUES (?, 'Descuento por Volumen', ?, ?, 99999999.99, 99999999.99, 99999999.99, 0.0, 0.0, ?, 0.0, 0.0, 0.0, 0.0, 0.0, ?, ?, ?, GETDATE(), ?, GETDATE(), ?)";
 
                 try (PreparedStatement psCheckArticulo = conn.prepareStatement(sqlCheckArticulo);
-                     PreparedStatement psCheck = conn.prepareStatement(sqlCheck);
-                     PreparedStatement psUpdate = conn.prepareStatement(sqlUpdate);
+                     PreparedStatement psDelete = conn.prepareStatement(sqlDelete);
                      PreparedStatement psInsert = conn.prepareStatement(sqlInsert)) {
 
                     for (com.droai.service.ImportadorService.DescuentoDVImportItem item : items) {
@@ -365,44 +327,28 @@ public class DescuentoVolumenDAO {
                             continue;
                         }
 
-                        psCheck.setString(1, matchedCoArt);
-                        boolean exists = false;
-                        try (ResultSet rs = psCheck.executeQuery()) {
-                            if (rs.next() && rs.getInt(1) > 0) {
-                                exists = true;
-                            }
-                        }
+                        for (int i = 1; i <= 7; i++) {
+                            String tipCli = String.format("%06d", i);
 
-                        if (exists) {
-                            for (int i = 1; i <= 7; i++) {
-                                String tipCli = String.format("%06d", i);
-                                psUpdate.setDouble(1, nuevoPorcentaje);
-                                if (itemIni != null) psUpdate.setDate(2, itemIni); else psUpdate.setNull(2, Types.DATE);
-                                if (itemFin != null) psUpdate.setDate(3, itemFin); else psUpdate.setNull(3, Types.DATE);
-                                psUpdate.setString(4, coUsuario);
-                                psUpdate.setString(5, matchedCoArt);
-                                psUpdate.setString(6, tipCli);
-                                psUpdate.addBatch();
-                            }
-                            psUpdate.executeBatch();
-                        } else {
-                            for (int i = 1; i <= 7; i++) {
-                                String tipCli = String.format("%06d", i);
-                                String coDesc = String.format("%06d", nextCoDesc++);
-                                UUID guid = UUID.randomUUID();
+                            // Eliminar filas existentes para este par (co_art, tip_cli)
+                            psDelete.setString(1, matchedCoArt);
+                            psDelete.setString(2, tipCli);
+                            psDelete.executeUpdate();
 
-                                psInsert.setString(1, coDesc);
-                                psInsert.setString(2, matchedCoArt);
-                                psInsert.setString(3, tipCli);
-                                psInsert.setDouble(4, nuevoPorcentaje);
-                                if (itemIni != null) psInsert.setDate(5, itemIni); else psInsert.setNull(5, Types.DATE);
-                                if (itemFin != null) psInsert.setDate(6, itemFin); else psInsert.setNull(6, Types.DATE);
-                                psInsert.setString(7, coUsuario);
-                                psInsert.setString(8, coUsuario);
-                                psInsert.setString(9, guid.toString());
-                                psInsert.addBatch();
-                            }
-                            psInsert.executeBatch();
+                            // Insertar fila nueva
+                            String coDesc = String.format("%06d", nextCoDesc++);
+                            UUID guid = UUID.randomUUID();
+
+                            psInsert.setString(1, coDesc);
+                            psInsert.setString(2, matchedCoArt);
+                            psInsert.setString(3, tipCli);
+                            psInsert.setDouble(4, nuevoPorcentaje);
+                            if (itemIni != null) psInsert.setDate(5, itemIni); else psInsert.setNull(5, Types.DATE);
+                            if (itemFin != null) psInsert.setDate(6, itemFin); else psInsert.setNull(6, Types.DATE);
+                            psInsert.setString(7, coUsuario);
+                            psInsert.setString(8, coUsuario);
+                            psInsert.setString(9, guid.toString());
+                            psInsert.executeUpdate();
                         }
                     }
                 }

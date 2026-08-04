@@ -83,7 +83,7 @@ public class DatabaseConfig {
                 props.load(in);
                 SERVER = props.getProperty("DB_SERVER", "srvdb0101");
                 PORT = props.getProperty("DB_PORT", "1433");
-                DATABASE = props.getProperty("DB_DATABASE", "DROA_A_DEV");
+                DATABASE = props.getProperty("DB_DATABASE", "DROA_A");
                 USER = props.getProperty("DB_USER", "profit");
                 PASSWORD = props.getProperty("DB_PASSWORD", new String(java.util.Base64.getDecoder().decode("cHJvZml0")));
                 logger.info("Propiedades cargadas correctamente. Servidor: {}", SERVER);
@@ -98,7 +98,7 @@ public class DatabaseConfig {
         // Valores por defecto (apuntando al servidor de producción/desarrollo srvdb0101)
         SERVER = "srvdb0101";
         PORT = "1433";
-        DATABASE = "DROA_A_DEV";
+        DATABASE = "DROA_A";
         USER = "profit";
         PASSWORD = new String(java.util.Base64.getDecoder().decode("cHJvZml0"));
         logger.info("Usando valores por defecto de conexión. Servidor: {}", SERVER);
@@ -130,6 +130,25 @@ public class DatabaseConfig {
             }
         }
         return dataSource;
+    }
+
+    public static java.sql.Connection getConnection() throws java.sql.SQLException {
+        return getConnection(null);
+    }
+
+    public static java.sql.Connection getConnection(String databaseName) throws java.sql.SQLException {
+        java.sql.Connection conn = getDataSource().getConnection();
+        String targetCatalog = (databaseName != null && !databaseName.isBlank()) ? databaseName : DATABASE;
+        if (targetCatalog != null && !targetCatalog.isBlank()) {
+            try {
+                if (!targetCatalog.equalsIgnoreCase(conn.getCatalog())) {
+                    conn.setCatalog(targetCatalog);
+                }
+            } catch (java.sql.SQLException e) {
+                logger.warn("No se pudo cambiar el catálogo/base de datos a {}: {}", targetCatalog, e.getMessage());
+            }
+        }
+        return conn;
     }
 
     /**

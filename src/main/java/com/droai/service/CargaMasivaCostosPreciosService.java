@@ -101,8 +101,8 @@ public class CargaMasivaCostosPreciosService {
     /**
      * Aplica la carga masiva en la base de datos (DROA_A).
      */
-    public int ejecutarCargaMasiva(List<CargaMasivaCostosPreciosRow> filas) throws SQLException {
-        return dao.ejecutarCargaMasiva(filas);
+    public int ejecutarCargaMasiva(List<CargaMasivaCostosPreciosRow> filas, boolean forzar) throws SQLException {
+        return dao.ejecutarCargaMasiva(filas, forzar);
     }
 
     private String getCellValueAsString(Cell cell) {

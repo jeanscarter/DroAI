@@ -5,17 +5,24 @@ import com.droai.model.ArticuloRow;
 import com.droai.model.CargaMasivaCostosPreciosRow;
 import com.droai.model.DescuentoProductoRow;
 import com.droai.model.DescuentoVolumenRow;
+import com.droai.model.MatrizVentasRow;
 import com.droai.model.ProductoReporteRow;
 import com.droai.model.ResumenRow;
 import org.apache.poi.ss.usermodel.*;
+import org.apache.poi.ss.util.CellRangeAddress;
 import org.apache.poi.xssf.streaming.SXSSFWorkbook;
+import org.apache.poi.xssf.usermodel.*;
 
 import java.io.File;
+import java.io.FileInputStream;
 import java.io.FileOutputStream;
 import java.io.IOException;
+import java.io.InputStream;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
+import java.util.ArrayList;
 import java.util.List;
+import java.util.Objects;
 
 public class ExcelExporter {
 
@@ -421,5 +428,293 @@ public class ExcelExporter {
             }
         }
         return file;
+    }
+
+    /**
+     * Exporta la Matriz de Ventas completa con las 40 columnas exactas del reporte de referencia (MatrizVentas_YYYYMMDD_HHmmss.xlsx).
+     */
+    public File exportMatrizVentas(List<MatrizVentasRow> listado, boolean isBs) throws IOException {
+        String timestamp = LocalDateTime.now().format(DateTimeFormatter.ofPattern("yyyyMMdd_HHmmss"));
+        File file = new File(System.getProperty("user.dir"), "MatrizVentas_" + timestamp + ".xlsx");
+
+        try (SXSSFWorkbook wb = new SXSSFWorkbook(100)) {
+            CellStyle headerStyle = createHeaderStyle(wb);
+            CellStyle numberStyle = createNumberStyle(wb);
+            CellStyle currencyStyle = createCurrencyStyle(wb);
+
+            Sheet sheet = wb.createSheet("Matriz");
+            String[] headers = {
+                    "Numero", "Fecha", "CI / RIF", "Nombre o Razon Social", "Cod.Ven.", "Nombre Vendedor",
+                    "Tasa", "Codigo Art.", "Descripcion", "Cantidad", "Precio", "DP", "DA", "DCT", "DC", "DV",
+                    "Total Renglon", "% Desc. Glob.", "Renglon DG", "Monto I.V.A.", "% I.V.A.", "Tot. Renglon IVA",
+                    "Costo Venta", "Total Costo Venta", "Tot. CV DP", "Monto Utilidad", "% Util.",
+                    "Costo Actual", "Stock Actual", "Cod. Linea", "Linea", "Cod. Sub.", "Sub-Linea",
+                    "Cod. Prov.", "Nombre Proveedor", "Zona", "Almacen", "Pedido Web", "Origen", "Usuario Web"
+            };
+
+            Row hr = sheet.createRow(0);
+            for (int i = 0; i < headers.length; i++) {
+                Cell c = hr.createCell(i);
+                c.setCellValue(headers[i]);
+                c.setCellStyle(headerStyle);
+            }
+
+            int rowIdx = 1;
+            for (MatrizVentasRow r : listado) {
+                Row row = sheet.createRow(rowIdx++);
+                double tasa = r.getTasa() > 0 ? r.getTasa() : 1.0;
+                double divFactor = isBs ? 1.0 : tasa;
+
+                row.createCell(0).setCellValue(safeStr(r.getNumero()));
+                row.createCell(1).setCellValue(safeStr(r.getFecha()));
+                row.createCell(2).setCellValue(safeStr(r.getCiRif()));
+                row.createCell(3).setCellValue(safeStr(r.getNombreRazonSocial()));
+                row.createCell(4).setCellValue(safeStr(r.getCoVen()));
+                row.createCell(5).setCellValue(safeStr(r.getNombreVendedor()));
+                setCellNum(row, 6, r.getTasa(), numberStyle);
+                row.createCell(7).setCellValue(safeStr(r.getCodigoArt()));
+                row.createCell(8).setCellValue(safeStr(r.getDescripcion()));
+                setCellNum(row, 9, r.getCantidad(), numberStyle);
+                setCellNum(row, 10, r.getPrecio() / divFactor, currencyStyle);
+                setCellNum(row, 11, r.getDp(), numberStyle);
+                setCellNum(row, 12, r.getDa(), numberStyle);
+                setCellNum(row, 13, r.getDct(), numberStyle);
+                setCellNum(row, 14, r.getDc(), numberStyle); // DC
+                setCellNum(row, 15, r.getDv(), numberStyle);
+                setCellNum(row, 16, (r.getPrecio() * r.getCantidad()) / divFactor, currencyStyle);
+                setCellNum(row, 17, r.getDescPctGlobal(), numberStyle);
+                setCellNum(row, 18, r.getRenglonDg() / divFactor, currencyStyle);
+                setCellNum(row, 19, r.getMontoIva() / divFactor, currencyStyle);
+                setCellNum(row, 20, r.getIvaPct(), numberStyle);
+                setCellNum(row, 21, r.getTotRenglonIva() / divFactor, currencyStyle);
+                setCellNum(row, 22, r.getCostoVenta() / divFactor, currencyStyle);
+                setCellNum(row, 23, r.getTotalCostoVenta() / divFactor, currencyStyle);
+                setCellNum(row, 24, r.getTotCvDp() / divFactor, currencyStyle);
+                setCellNum(row, 25, r.getMontoUtilidad() / divFactor, currencyStyle);
+                setCellNum(row, 26, r.getUtilPct(), numberStyle);
+                setCellNum(row, 27, r.getCostoActual(), currencyStyle);
+                setCellNum(row, 28, r.getStockActual(), numberStyle);
+                row.createCell(29).setCellValue(safeStr(r.getCodLinea()));
+                row.createCell(30).setCellValue(safeStr(r.getLinea()));
+                row.createCell(31).setCellValue(safeStr(r.getCodSub()));
+                row.createCell(32).setCellValue(safeStr(r.getSubLinea()));
+                row.createCell(33).setCellValue(safeStr(r.getCodProveedor()));
+                row.createCell(34).setCellValue(safeStr(r.getNombreProveedor()));
+                row.createCell(35).setCellValue(safeStr(r.getZona()));
+                row.createCell(36).setCellValue(safeStr(r.getAlmacen()));
+                row.createCell(37).setCellValue(safeStr(r.getPedidoWeb()));
+                row.createCell(38).setCellValue(safeStr(r.getOrigen()));
+                row.createCell(39).setCellValue(safeStr(r.getUsuarioWeb()));
+            }
+
+            sheet.createFreezePane(0, 1);
+
+            try (FileOutputStream fos = new FileOutputStream(file)) {
+                wb.write(fos);
+            }
+        }
+        return file;
+    }
+
+    public File exportProductosFacturados(List<MatrizVentasRow> listado) throws IOException {
+        return exportMatrizVentas(listado, true);
+    }
+
+    /**
+     * Exporta el reporte de Unidades y Valores por Proveedor con formato oficial de DroActiva (14 columnas).
+     */
+    public File exportUnidadesValores(List<MatrizVentasRow> listado, boolean isBs) throws IOException {
+        String timestamp = LocalDateTime.now().format(DateTimeFormatter.ofPattern("yyyyMMdd_HHmmss"));
+        File file = new File(System.getProperty("user.dir"), "UnidadesValores_" + timestamp + ".xlsx");
+
+        // Ordenar copia del listado por Fecha asc y Numero asc
+        List<MatrizVentasRow> sorted = new ArrayList<>(listado != null ? listado : List.of());
+        sorted.sort((a, b) -> {
+            int c = safeStr(a.getFecha()).compareTo(safeStr(b.getFecha()));
+            if (c != 0) return c;
+            return safeStr(a.getNumero()).compareTo(safeStr(b.getNumero()));
+        });
+
+        try (XSSFWorkbook wb = new XSSFWorkbook()) {
+            XSSFSheet sheet = wb.createSheet("Unidades y Valores");
+            sheet.setDisplayGridlines(true);
+
+            // Intentar cargar e insertar logo DroActiva en A1:C4 desde C:\Users\jeancarlos\Documents\Proyectos\dro-ai\Logo.png
+            try {
+                byte[] bytes = null;
+                File externalLogo = new File("C:\\Users\\jeancarlos\\Documents\\Proyectos\\dro-ai\\Logo.png");
+                if (!externalLogo.exists()) {
+                    externalLogo = new File(System.getProperty("user.dir"), "Logo.png");
+                }
+                if (externalLogo.exists()) {
+                    try (FileInputStream fis = new FileInputStream(externalLogo)) {
+                        bytes = fis.readAllBytes();
+                    }
+                } else {
+                    try (InputStream is = getClass().getResourceAsStream("/images/logo.png")) {
+                        if (is != null) {
+                            bytes = is.readAllBytes();
+                        }
+                    }
+                }
+
+                if (bytes != null && bytes.length > 0) {
+                    int pictureIdx = wb.addPicture(bytes, Workbook.PICTURE_TYPE_PNG);
+                    CreationHelper helper = wb.getCreationHelper();
+                    Drawing<?> drawing = sheet.createDrawingPatriarch();
+                    ClientAnchor anchor = helper.createClientAnchor();
+                    anchor.setCol1(0);
+                    anchor.setRow1(0);
+                    anchor.setCol2(3);
+                    anchor.setRow2(4);
+                    drawing.createPicture(anchor, pictureIdx);
+                }
+            } catch (Exception e) {
+                // Si ocurre algún inconveniente leyendo el logo, continuar sin interrumpir la exportación
+            }
+
+            // Título de factura en fila 1 (index 1)
+            Row titleRow = sheet.createRow(1);
+            Cell titleCell = titleRow.createCell(5);
+            String mesTitle = "FACTURACION";
+            if (!sorted.isEmpty() && sorted.get(0).getMes() != null && !sorted.get(0).getMes().isBlank()) {
+                mesTitle = "FACTURACION " + sorted.get(0).getMes();
+            }
+            titleCell.setCellValue(mesTitle);
+
+            XSSFFont titleFont = wb.createFont();
+            titleFont.setBold(true);
+            titleFont.setFontHeightInPoints((short) 16);
+            titleFont.setColor(new XSSFColor(new java.awt.Color(0, 51, 102), null));
+            CellStyle titleStyle = wb.createCellStyle();
+            titleStyle.setFont(titleFont);
+            titleStyle.setAlignment(HorizontalAlignment.LEFT);
+            titleStyle.setVerticalAlignment(VerticalAlignment.CENTER);
+            titleCell.setCellStyle(titleStyle);
+
+            // Fila de resumen de totales superiores (Fila 5, index 5)
+            // En la imagen de referencia: total de Cantidad en col 12 y total de Total Renglon en col 13
+            Row totalSummaryRow = sheet.createRow(5);
+            Cell cellSumCant = totalSummaryRow.createCell(12);
+            Cell cellSumVal = totalSummaryRow.createCell(13);
+
+            double totalCant = 0;
+            double totalMonto = 0;
+            for (MatrizVentasRow r : sorted) {
+                double divFactor = isBs ? 1.0 : (r.getTasa() > 0 ? r.getTasa() : 1.0);
+                totalCant += r.getCantidad();
+                totalMonto += r.getRenglonDg() / divFactor;
+            }
+
+            cellSumCant.setCellValue(totalCant);
+            cellSumVal.setCellValue(totalMonto);
+
+            CellStyle sumCantStyle = wb.createCellStyle();
+            Font sumFont = wb.createFont();
+            sumFont.setBold(true);
+            sumFont.setFontHeightInPoints((short) 11);
+            sumCantStyle.setFont(sumFont);
+            sumCantStyle.setDataFormat(wb.createDataFormat().getFormat("#,##0"));
+            sumCantStyle.setAlignment(HorizontalAlignment.RIGHT);
+            cellSumCant.setCellStyle(sumCantStyle);
+
+            CellStyle sumValStyle = wb.createCellStyle();
+            sumValStyle.setFont(sumFont);
+            sumValStyle.setDataFormat(wb.createDataFormat().getFormat("#,##0.00"));
+            sumValStyle.setAlignment(HorizontalAlignment.RIGHT);
+            cellSumVal.setCellStyle(sumValStyle);
+
+            // Fila de Encabezados (Fila 6, index 6)
+            Row hr = sheet.createRow(6);
+            hr.setHeightInPoints(24);
+
+            String[] headers = {
+                    "Numero", "Mes", "Fecha", "Proveedor", "Rif", "Razon Social",
+                    "Nombre Vendedor", "Zona", "Ciudad", "Cod Prov", "Cod Art",
+                    "Descripcion Art", "Cantidad", "Total Renglon"
+            };
+
+            // Estilo Teal (#00A89D) para encabezados
+            CellStyle headerStyle = wb.createCellStyle();
+            XSSFFont headerFont = wb.createFont();
+            headerFont.setBold(true);
+            headerFont.setColor(IndexedColors.WHITE.getIndex());
+            headerFont.setFontHeightInPoints((short) 10);
+            headerStyle.setFont(headerFont);
+            headerStyle.setFillForegroundColor(new XSSFColor(new java.awt.Color(0, 168, 157), null));
+            headerStyle.setFillPattern(FillPatternType.SOLID_FOREGROUND);
+            headerStyle.setAlignment(HorizontalAlignment.CENTER);
+            headerStyle.setVerticalAlignment(VerticalAlignment.CENTER);
+            headerStyle.setBorderBottom(BorderStyle.THIN);
+            headerStyle.setBorderTop(BorderStyle.THIN);
+
+            for (int i = 0; i < headers.length; i++) {
+                Cell c = hr.createCell(i);
+                c.setCellValue(headers[i]);
+                c.setCellStyle(headerStyle);
+            }
+
+            // Estilos para datos
+            CellStyle textStyle = wb.createCellStyle();
+            textStyle.setVerticalAlignment(VerticalAlignment.CENTER);
+
+            CellStyle numStyle = wb.createCellStyle();
+            numStyle.setDataFormat(wb.createDataFormat().getFormat("#,##0"));
+            numStyle.setAlignment(HorizontalAlignment.RIGHT);
+            numStyle.setVerticalAlignment(VerticalAlignment.CENTER);
+
+            CellStyle currencyStyle = wb.createCellStyle();
+            currencyStyle.setDataFormat(wb.createDataFormat().getFormat("#,##0.00"));
+            currencyStyle.setAlignment(HorizontalAlignment.RIGHT);
+            currencyStyle.setVerticalAlignment(VerticalAlignment.CENTER);
+
+            int rowIdx = 7;
+            for (MatrizVentasRow r : sorted) {
+                Row row = sheet.createRow(rowIdx++);
+                row.setHeightInPoints(19);
+
+                double divFactor = isBs ? 1.0 : (r.getTasa() > 0 ? r.getTasa() : 1.0);
+
+                Cell c0 = row.createCell(0); c0.setCellValue(safeStr(r.getNumero())); c0.setCellStyle(textStyle);
+                Cell c1 = row.createCell(1); c1.setCellValue(safeStr(r.getMes())); c1.setCellStyle(textStyle);
+                Cell c2 = row.createCell(2); c2.setCellValue(safeStr(r.getFecha())); c2.setCellStyle(textStyle);
+                Cell c3 = row.createCell(3); c3.setCellValue(safeStr(r.getNombreProveedor())); c3.setCellStyle(textStyle);
+                Cell c4 = row.createCell(4); c4.setCellValue(safeStr(r.getCiRif())); c4.setCellStyle(textStyle);
+                Cell c5 = row.createCell(5); c5.setCellValue(safeStr(r.getNombreRazonSocial())); c5.setCellStyle(textStyle);
+                Cell c6 = row.createCell(6); c6.setCellValue(safeStr(r.getNombreVendedor())); c6.setCellStyle(textStyle);
+                Cell c7 = row.createCell(7); c7.setCellValue(safeStr(r.getZona())); c7.setCellStyle(textStyle);
+                Cell c8 = row.createCell(8); c8.setCellValue(safeStr(r.getCiudad())); c8.setCellStyle(textStyle);
+                Cell c9 = row.createCell(9); c9.setCellValue(safeStr(r.getCodProv())); c9.setCellStyle(textStyle);
+                Cell c10 = row.createCell(10); c10.setCellValue(safeStr(r.getCodigoArt())); c10.setCellStyle(textStyle);
+                Cell c11 = row.createCell(11); c11.setCellValue(safeStr(r.getDescripcion())); c11.setCellStyle(textStyle);
+
+                Cell c12 = row.createCell(12); c12.setCellValue(r.getCantidad()); c12.setCellStyle(numStyle);
+                Cell c13 = row.createCell(13); c13.setCellValue(r.getRenglonDg() / divFactor); c13.setCellStyle(currencyStyle);
+            }
+
+            // Inmovilizar paneles (Encabezado fijo)
+            sheet.createFreezePane(0, 7);
+
+            // Auto-filtro en la fila de encabezados
+            if (rowIdx > 7) {
+                sheet.setAutoFilter(new CellRangeAddress(6, rowIdx - 1, 0, 13));
+            }
+
+            // Ajustar anchos de columnas
+            for (int col = 0; col < headers.length; col++) {
+                sheet.autoSizeColumn(col);
+                int width = sheet.getColumnWidth(col) + 1000;
+                sheet.setColumnWidth(col, Math.min(Math.max(width, 2500), 15000));
+            }
+
+            try (FileOutputStream fos = new FileOutputStream(file)) {
+                wb.write(fos);
+            }
+        }
+        return file;
+    }
+
+    private String safeStr(String str) {
+        return str != null ? str.trim() : "";
     }
 }

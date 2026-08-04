@@ -26,7 +26,8 @@ public class MonitorService {
     /**
      * Resultado completo del procesamiento del monitor situacional.
      *
-     * @param montoTotal     monto total de ventas en el período.
+     * @param montoTotal     monto total de ventas en Bs.
+     * @param montoTotalUsd  monto total de ventas en USD ($) convertido fila por fila usando f.tasa.
      * @param totalDocumentos cantidad de documentos (facturas únicas).
      * @param totalUnidades  volumen total de artículos vendidos.
      * @param agrupaciones   lista de agrupaciones por tipo de impuesto.
@@ -34,6 +35,7 @@ public class MonitorService {
      */
     public record MonitorResult(
             double montoTotal,
+            double montoTotalUsd,
             int totalDocumentos,
             double totalUnidades,
             List<AgrupacionImpuesto> agrupaciones,
@@ -78,6 +80,7 @@ public class MonitorService {
 
         // ── KPIs ──
         double montoTotal = 0;
+        double montoTotalUsd = 0;
         double totalUnidades = 0;
         Set<String> documentosUnicos = new HashSet<>();
 
@@ -86,8 +89,11 @@ public class MonitorService {
         // grupoMap: key = nombre del grupo, value = [unidades, monto]
 
         for (MatrizVentasRow row : rows) {
-            double totalRenglon = row.getPrecio() * row.getCantidad();
+            double totalRenglon = row.getRenglonDg(); // r.reng_neto (Monto Neto del renglón en Bs)
+            double tasa = row.getTasa() > 0 ? row.getTasa() : 1.0;
+
             montoTotal += totalRenglon;
+            montoTotalUsd += (totalRenglon / tasa);
             totalUnidades += row.getCantidad();
 
             if (row.getNumero() != null) {
@@ -122,6 +128,7 @@ public class MonitorService {
 
         return new MonitorResult(
                 montoTotal,
+                montoTotalUsd,
                 documentosUnicos.size(),
                 totalUnidades,
                 agrupaciones,

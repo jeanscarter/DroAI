@@ -61,7 +61,8 @@ public class CargaMasivaCostosPreciosDAO {
         String sqlArticulo = """
                 SELECT a.co_art, ISNULL(a.art_des, '') AS descripcion, a.rowguid,
                        ISNULL(ce.costo, 0) AS costoActual,
-                       ISNULL(p1.monto, 0) AS precio1Actual
+                       ISNULL(p1.monto, 0) AS precio1MontoActual,
+                       ISNULL(p1.precioOm, 0) AS precio1OmActual
                 FROM saArticulo a
                 LEFT JOIN (
                     SELECT cod_articulo_rowguid, costo
@@ -77,10 +78,14 @@ public class CargaMasivaCostosPreciosDAO {
                     WHERE rn = 1
                 ) ce ON a.rowguid = ce.cod_articulo_rowguid
                 LEFT JOIN (
-                    SELECT co_art, MAX(monto) AS monto
-                    FROM saArtPrecio
-                    WHERE co_precio = '01'
-                    GROUP BY co_art
+                    SELECT co_art, monto, CAST(precioOm AS int) AS precioOm
+                    FROM (
+                        SELECT co_art, monto, ISNULL(precioOm, 0) AS precioOm,
+                               ROW_NUMBER() OVER (PARTITION BY co_art ORDER BY desde DESC) AS rn
+                        FROM saArtPrecio
+                        WHERE co_precio = '01'
+                    ) ranked
+                    WHERE rn = 1
                 ) p1 ON a.co_art = p1.co_art
                 WHERE LTRIM(RTRIM(a.co_art)) = ?
                    OR (LEN(?) <= 6 AND ISNUMERIC(?) = 1 AND LTRIM(RTRIM(a.co_art)) = RIGHT('000000' + ?, 6))
@@ -114,7 +119,17 @@ public class CargaMasivaCostosPreciosDAO {
                         row.setDescripcion(rs.getString("descripcion").trim());
 
                         double cUsd = rs.getDouble("costoActual");
-                        double pUsd = rs.getDouble("precio1Actual");
+                        double pMonto = rs.getDouble("precio1MontoActual");
+                        int pOm = rs.getInt("precio1OmActual");
+
+                        double pUsd;
+                        if (pOm == 1 && pMonto > 0 && tasaUsd > 0) {
+                            pUsd = pMonto / tasaUsd;
+                        } else if (pMonto > 0 && tasaUsd > 0) {
+                            pUsd = pMonto > 500 ? (pMonto / tasaUsd) : pMonto;
+                        } else {
+                            pUsd = 0.0;
+                        }
 
                         row.setCostoActualUsd(cUsd);
                         row.setCostoActualBs(cUsd * tasaUsd);
@@ -142,11 +157,11 @@ public class CargaMasivaCostosPreciosDAO {
 
     /**
      * Aplica la carga masiva en lote dentro de una sola transacción SQL.
-     * Actualiza costos en saCostoHistoricoEntrada y precios en saArtPrecio (directamente en USD $).
+     * Actualiza costos en saCostoHistoricoEntrada y precios en saArtPrecio.
      *
      * @return Número de registros procesados con éxito.
      */
-    public int ejecutarCargaMasiva(List<CargaMasivaCostosPreciosRow> filas) throws SQLException {
+    public int ejecutarCargaMasiva(List<CargaMasivaCostosPreciosRow> filas, boolean forzar) throws SQLException {
         if (filas == null || filas.isEmpty()) {
             return 0;
         }
@@ -167,19 +182,25 @@ public class CargaMasivaCostosPreciosDAO {
                 )
                 """;
 
+        String sqlUpdateCostoArticulo = """
+                UPDATE saArticulo
+                SET prec_om = ?, co_us_mo = ?, fe_us_mo = GETDATE()
+                WHERE co_art = ?
+                """;
+
         String sqlUpdatePrecio = """
                 UPDATE saArtPrecio
-                SET monto = ?, fe_us_mo = GETDATE(), co_us_mo = ?
+                SET monto = ?, precioOm = 1, fe_us_mo = GETDATE(), co_us_mo = ?
                 WHERE co_art = ? AND co_precio = '01'
                 """;
 
         String sqlInsertPrecio = """
                 INSERT INTO saArtPrecio (
-                    co_art, co_precio, co_alma_calculado, desde, monto,
+                    co_art, co_precio, desde, monto,
                     precioOm, co_us_in, fe_us_in, co_us_mo, fe_us_mo, Inactivo, rowguid
                 ) VALUES (
-                    ?, '01', ' ', GETDATE(), ?,
-                    0, ?, GETDATE(), ?, GETDATE(), 0, NEWID()
+                    ?, '01', GETDATE(), ?,
+                    1, ?, GETDATE(), ?, GETDATE(), 0, NEWID()
                 )
                 """;
 
@@ -190,6 +211,7 @@ public class CargaMasivaCostosPreciosDAO {
 
             try (PreparedStatement psRowguid = conn.prepareStatement(sqlGetRowguid);
                  PreparedStatement psCosto = conn.prepareStatement(sqlInsertCosto);
+                 PreparedStatement psUpdCostoArt = conn.prepareStatement(sqlUpdateCostoArticulo);
                  PreparedStatement psUpdPrecio = conn.prepareStatement(sqlUpdatePrecio);
                  PreparedStatement psInsPrecio = conn.prepareStatement(sqlInsertPrecio)) {
 
@@ -201,8 +223,8 @@ public class CargaMasivaCostosPreciosDAO {
                     boolean huboActualizacion = false;
                     String coArt = row.getCoArt().trim();
 
-                    // 1. Actualizar Costo (en USD $) si cambió
-                    if (row.getCostoNuevoUsd() > 0 && Math.abs(row.getCostoNuevoUsd() - row.getCostoActualUsd()) > 0.0001) {
+                    // 1. Actualizar Costo (en USD $) si cambió o si se fuerza
+                    if (row.getCostoNuevoUsd() > 0 && (forzar || Math.abs(row.getCostoNuevoUsd() - row.getCostoActualUsd()) > 0.0001)) {
                         psRowguid.setString(1, coArt);
                         try (ResultSet rs = psRowguid.executeQuery()) {
                             if (rs.next()) {
@@ -211,21 +233,29 @@ public class CargaMasivaCostosPreciosDAO {
                                 psCosto.setDouble(2, row.getCostoNuevoUsd());
                                 psCosto.setDouble(3, row.getCostoNuevoUsd());
                                 psCosto.executeUpdate();
-                                huboActualizacion = true;
                             }
                         }
+
+                        psUpdCostoArt.setDouble(1, row.getCostoNuevoUsd());
+                        psUpdCostoArt.setString(2, usuario);
+                        psUpdCostoArt.setString(3, coArt);
+                        psUpdCostoArt.executeUpdate();
+
+                        huboActualizacion = true;
                     }
 
-                    // 2. Actualizar / Insertar Precio 1 (en USD $) si cambió
-                    if (row.getPrecio1NuevoUsd() > 0 && Math.abs(row.getPrecio1NuevoUsd() - row.getPrecio1ActualUsd()) > 0.0001) {
-                        psUpdPrecio.setDouble(1, row.getPrecio1NuevoUsd());
+                    // 2. Actualizar / Insertar Precio 1 (monto en Bs, precioOm = 1) si cambió o si se fuerza
+                    if (row.getPrecio1NuevoUsd() > 0 && (forzar || Math.abs(row.getPrecio1NuevoUsd() - row.getPrecio1ActualUsd()) > 0.0001)) {
+                        // UPDATE: monto (Bs), co_us_mo, co_art
+                        psUpdPrecio.setDouble(1, row.getPrecio1NuevoBs());
                         psUpdPrecio.setString(2, usuario);
                         psUpdPrecio.setString(3, coArt);
                         int rowsUpd = psUpdPrecio.executeUpdate();
 
                         if (rowsUpd == 0) {
+                            // INSERT: co_art, monto (Bs), co_us_in, co_us_mo
                             psInsPrecio.setString(1, coArt);
-                            psInsPrecio.setDouble(2, row.getPrecio1NuevoUsd());
+                            psInsPrecio.setDouble(2, row.getPrecio1NuevoBs());
                             psInsPrecio.setString(3, usuario);
                             psInsPrecio.setString(4, usuario);
                             psInsPrecio.executeUpdate();
