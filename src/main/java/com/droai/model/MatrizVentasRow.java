@@ -51,6 +51,7 @@ public class MatrizVentasRow {
     private double precioCiva;
     private String ciudad;
     private String codProv;
+    private String grupoCliente;
 
     public MatrizVentasRow() {
     }
@@ -450,6 +451,14 @@ public class MatrizVentasRow {
 
     public void setCodProv(String codProv) {
         this.codProv = codProv;
+    }
+
+    public String getGrupoCliente() {
+        return grupoCliente != null ? grupoCliente : "";
+    }
+
+    public void setGrupoCliente(String grupoCliente) {
+        this.grupoCliente = grupoCliente;
     }
 
     public String getMes() {

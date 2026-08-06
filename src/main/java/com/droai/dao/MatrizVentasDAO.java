@@ -16,6 +16,7 @@ public class MatrizVentasDAO {
                 CONVERT(varchar, f.fec_emis, 23) AS fecha,
                 c.rif AS ciRif,
                 c.cli_des AS nombreRazonSocial,
+                ISNULL(sg.seg_des, ISNULL(c.co_seg, '')) AS grupoCliente,
                 v.co_ven AS coVen,
                 v.ven_des AS nombreVendedor,
                 f.tasa AS tasa,
@@ -53,6 +54,7 @@ public class MatrizVentasDAO {
             FROM saFacturaVenta f
             JOIN saFacturaVentaReng r ON f.doc_num = r.doc_num
             LEFT JOIN saCliente c ON f.co_cli = c.co_cli
+            LEFT JOIN saSegmento sg ON c.co_seg = sg.co_seg
             LEFT JOIN saZona z ON c.co_zon = z.co_zon
             LEFT JOIN saVendedor v ON f.co_ven = v.co_ven
             LEFT JOIN saArticulo a ON r.co_art = a.co_art
@@ -122,6 +124,7 @@ public class MatrizVentasDAO {
                     row.setFecha(rs.getString("fecha"));
                     row.setCiRif(rs.getString("ciRif"));
                     row.setNombreRazonSocial(rs.getString("nombreRazonSocial"));
+                    row.setGrupoCliente(rs.getString("grupoCliente"));
                     row.setCoVen(rs.getString("coVen"));
                     row.setNombreVendedor(rs.getString("nombreVendedor"));
                     row.setTasa(getSafeDouble(rs, "tasa", docNum));
@@ -166,16 +169,20 @@ public class MatrizVentasDAO {
 
     /**
     /**
-     * Parses a composite discount string like "3+0+4+10+6" into its components:
-     * When 5 discounts are present:
+     * Parses a composite discount string like "3+0+4+10+6", "5+0+2+15", or "5+10" into its components:
+     * When 5 or more discounts are present:
      *   Index 0: DP (Descuento Producto)
      *   Index 1: DA (Descuento Adicional)
      *   Index 2: DCT (Descuento CT / Web)
      *   Index 3: DC (Descuento Cliente)
      *   Index 4: DV (Descuento Volumen)
      *
-     * When 4 discounts (legacy) are present:
-     *   Index 0: DP, Index 1: DA, Index 2: DCT, Index 3: DV.
+     * When fewer than 5 discounts (1, 2, 3 or 4) are present (legacy / DB DROA2_A):
+     *   Index 0: DP (Descuento Producto)
+     *   Index 1: DV (Descuento Volumen)
+     *   Index 2: DCT (Descuento CT / Web)
+     *   Index 3: DC (Descuento Cliente)
+     *   (DA = 0)
      */
     private void parseCompositeDiscounts(String raw, MatrizVentasRow row) {
         if (raw == null || raw.isBlank()) {
@@ -197,10 +204,10 @@ public class MatrizVentasDAO {
             row.setDv(parsePart(parts, 4));
         } else {
             row.setDp(parsePart(parts, 0));
-            row.setDa(parsePart(parts, 1));
+            row.setDv(parsePart(parts, 1));
             row.setDct(parsePart(parts, 2));
-            row.setDc(0);
-            row.setDv(parsePart(parts, 3));
+            row.setDc(parsePart(parts, 3));
+            row.setDa(0);
         }
 
         row.setDescPct(row.getDp());
