@@ -40,6 +40,11 @@ public class Toast extends JPanel {
 
     public static void setParentFrame(JFrame frame) { parentFrame = frame; }
 
+    public static void showSuccess(String message) { show(message, Type.SUCCESS); }
+    public static void showError(String message) { show(message, Type.ERROR); }
+    public static void showInfo(String message) { show(message, Type.INFO); }
+    public static void showWarning(String message) { show(message, Type.WARNING); }
+
     public static void show(String message, Type type) {
         if (parentFrame == null) return;
         SwingUtilities.invokeLater(() -> {

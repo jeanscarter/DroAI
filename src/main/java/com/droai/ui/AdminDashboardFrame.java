@@ -130,9 +130,9 @@ public class AdminDashboardFrame extends JFrame {
         //  CONTENT — Cards Grid
         // ═══════════════════════════════════════════════════════════
         JPanel content = new JPanel(new MigLayout(
-                "insets 40 60 40 60, gap 28, center, wrap 3",
-                "[grow, 280:320:]" .repeat(3).replaceFirst(",\\s*$", ""),
-                "[grow, 280:320:]"));
+                "insets 30 40 30 40, gap 24, center, wrap 2",
+                "[grow, 280:340:][grow, 280:340:]",
+                "[grow, 240:280:][grow, 240:280:]"));
         content.setOpaque(false);
 
         // ── Tarjeta 1: Gestión de Precios ──
@@ -153,7 +153,16 @@ public class AdminDashboardFrame extends JFrame {
                 this::abrirMonitorSituacional
         ), "grow");
 
-        // ── Tarjeta 3: Auditoría y Usuarios ──
+        // ── Tarjeta 3: Cálculo de Comisiones (Protegido por Clave) ──
+        content.add(createModuleCard(
+                "💰",
+                "Cálculo de Comisiones",
+                "Relación quincenal por vendedor, reglas por días calle,\nbase sin IVA y exportación oficial Excel.",
+                new Color(168, 85, 247), // Color Púrpura / Lila Acento
+                this::abrirCalculoComisiones
+        ), "grow");
+
+        // ── Tarjeta 4: Auditoría y Usuarios ──
         content.add(createModuleCard(
                 "👥",
                 "Auditoría y Usuarios",
@@ -296,4 +305,19 @@ public class AdminDashboardFrame extends JFrame {
             frame.setVisible(true);
         });
     }
+
+    /**
+     * Abre el módulo de Cálculo de Comisiones con protección por clave.
+     */
+    private void abrirCalculoComisiones() {
+        com.droai.ui.dialog.ComisionesPasswordDialog dialog = new com.droai.ui.dialog.ComisionesPasswordDialog(this);
+        dialog.setVisible(true);
+        if (dialog.isAutenticado()) {
+            SwingUtilities.invokeLater(() -> {
+                ComisionesFrame frame = new ComisionesFrame();
+                frame.setVisible(true);
+            });
+        }
+    }
 }
+

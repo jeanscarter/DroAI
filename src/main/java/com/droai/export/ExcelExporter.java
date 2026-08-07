@@ -3,6 +3,7 @@ package com.droai.export;
 import com.droai.model.ArticuloImportRow;
 import com.droai.model.ArticuloRow;
 import com.droai.model.CargaMasivaCostosPreciosRow;
+import com.droai.model.ComisionRow;
 import com.droai.model.DescuentoProductoRow;
 import com.droai.model.DescuentoVolumenRow;
 import com.droai.model.MatrizVentasRow;
@@ -723,4 +724,259 @@ public class ExcelExporter {
     private String safeStr(String str) {
         return str != null ? str.trim() : "";
     }
-}
+
+    /**
+     * Exporta la relación de comisiones quincenal individual para un vendedor siguiendo la plantilla oficial.
+     */
+    public File exportRelacionComisiones(List<ComisionRow> listado, String relacionNum,
+                                          java.time.LocalDate fechaRelacion, String coVen,
+                                          String nombreVendedor, File fileDestino) throws IOException {
+
+        File file = fileDestino != null ? fileDestino : new File(System.getProperty("user.dir"), "COMISIONES_" + coVen + ".xlsx");
+
+        try (XSSFWorkbook wb = new XSSFWorkbook()) {
+            Font fontBold = wb.createFont(); fontBold.setFontName("Calibri"); fontBold.setFontHeightInPoints((short) 11); fontBold.setBold(true);
+            Font fontTitle = wb.createFont(); fontTitle.setFontName("Calibri"); fontTitle.setFontHeightInPoints((short) 14); fontTitle.setBold(true);
+            Font fontRegular = wb.createFont(); fontRegular.setFontName("Calibri"); fontRegular.setFontHeightInPoints((short) 10);
+
+            CellStyle titleStyle = wb.createCellStyle(); titleStyle.setFont(fontTitle);
+
+            CellStyle headerStyle = wb.createCellStyle();
+            headerStyle.setFont(fontBold);
+            headerStyle.setAlignment(HorizontalAlignment.CENTER);
+            headerStyle.setVerticalAlignment(VerticalAlignment.CENTER);
+            headerStyle.setFillForegroundColor(IndexedColors.GREY_25_PERCENT.getIndex());
+            headerStyle.setFillPattern(FillPatternType.SOLID_FOREGROUND);
+            headerStyle.setBorderTop(BorderStyle.THIN);
+            headerStyle.setBorderBottom(BorderStyle.THIN);
+
+            CellStyle textStyle = wb.createCellStyle(); textStyle.setFont(fontRegular);
+            CellStyle centerStyle = wb.createCellStyle(); centerStyle.setFont(fontRegular); centerStyle.setAlignment(HorizontalAlignment.CENTER);
+
+            CellStyle numberStyle = wb.createCellStyle(); numberStyle.setFont(fontRegular);
+            DataFormat df = wb.createDataFormat();
+            numberStyle.setDataFormat(df.getFormat("#,##0.00"));
+
+            CellStyle pctStyle = wb.createCellStyle(); pctStyle.setFont(fontRegular);
+            pctStyle.setDataFormat(df.getFormat("0.00")); pctStyle.setAlignment(HorizontalAlignment.RIGHT);
+
+            CellStyle boldNumStyle = wb.createCellStyle(); boldNumStyle.setFont(fontBold);
+            boldNumStyle.setDataFormat(df.getFormat("#,##0.00"));
+            boldNumStyle.setBorderTop(BorderStyle.DOUBLE); boldNumStyle.setBorderBottom(BorderStyle.DOUBLE);
+
+            writeComisionesSheet(wb, "Hoja1", listado, relacionNum, fechaRelacion, coVen, nombreVendedor,
+                    titleStyle, headerStyle, textStyle, centerStyle, numberStyle, pctStyle, boldNumStyle);
+
+            try (FileOutputStream fos = new FileOutputStream(file)) {
+                wb.write(fos);
+            }
+        }
+        return file;
+    }
+
+    /**
+     * Exporta un archivo ÚNICO maestro de comisiones que contiene:
+     * - Hoja 1: "GENERAL" (Todos los vendedores consolidados en un solo listado)
+     * - Hojas adicionales: Una pestaña por cada vendedor dentro del mismo archivo Excel.
+     */
+    public File exportRelacionComisionesMaestro(List<ComisionRow> listadoCompleto, String relacionNum,
+                                                java.time.LocalDate fechaRelacion, File fileDestino) throws IOException {
+
+        File file = fileDestino != null ? fileDestino : new File(System.getProperty("user.dir"), "RELACION_DE_COMISIONES_GENERAL.xlsx");
+
+        try (XSSFWorkbook wb = new XSSFWorkbook()) {
+            Font fontBold = wb.createFont(); fontBold.setFontName("Calibri"); fontBold.setFontHeightInPoints((short) 11); fontBold.setBold(true);
+            Font fontTitle = wb.createFont(); fontTitle.setFontName("Calibri"); fontTitle.setFontHeightInPoints((short) 14); fontTitle.setBold(true);
+            Font fontRegular = wb.createFont(); fontRegular.setFontName("Calibri"); fontRegular.setFontHeightInPoints((short) 10);
+
+            CellStyle titleStyle = wb.createCellStyle(); titleStyle.setFont(fontTitle);
+
+            CellStyle headerStyle = wb.createCellStyle();
+            headerStyle.setFont(fontBold);
+            headerStyle.setAlignment(HorizontalAlignment.CENTER);
+            headerStyle.setVerticalAlignment(VerticalAlignment.CENTER);
+            headerStyle.setFillForegroundColor(IndexedColors.GREY_25_PERCENT.getIndex());
+            headerStyle.setFillPattern(FillPatternType.SOLID_FOREGROUND);
+            headerStyle.setBorderTop(BorderStyle.THIN);
+            headerStyle.setBorderBottom(BorderStyle.THIN);
+
+            CellStyle textStyle = wb.createCellStyle(); textStyle.setFont(fontRegular);
+            CellStyle centerStyle = wb.createCellStyle(); centerStyle.setFont(fontRegular); centerStyle.setAlignment(HorizontalAlignment.CENTER);
+
+            CellStyle numberStyle = wb.createCellStyle(); numberStyle.setFont(fontRegular);
+            DataFormat df = wb.createDataFormat();
+            numberStyle.setDataFormat(df.getFormat("#,##0.00"));
+
+            CellStyle pctStyle = wb.createCellStyle(); pctStyle.setFont(fontRegular);
+            pctStyle.setDataFormat(df.getFormat("0.00")); pctStyle.setAlignment(HorizontalAlignment.RIGHT);
+
+            CellStyle boldNumStyle = wb.createCellStyle(); boldNumStyle.setFont(fontBold);
+            boldNumStyle.setDataFormat(df.getFormat("#,##0.00"));
+            boldNumStyle.setBorderTop(BorderStyle.DOUBLE); boldNumStyle.setBorderBottom(BorderStyle.DOUBLE);
+
+            // 1. Hoja "GENERAL" (Consolidado)
+            writeComisionesSheet(wb, "GENERAL", listadoCompleto, relacionNum, fechaRelacion, "GENERAL", "GENERAL",
+                    titleStyle, headerStyle, textStyle, centerStyle, numberStyle, pctStyle, boldNumStyle);
+
+            // 2. Pestañas individuales por vendedor en el mismo libro
+            java.util.Map<String, List<ComisionRow>> mapByVen = new java.util.LinkedHashMap<>();
+            for (ComisionRow r : listadoCompleto) {
+                String cv = r.getCodigoVendedor() != null && !r.getCodigoVendedor().isBlank() ? r.getCodigoVendedor().trim() : "VARIOS";
+                mapByVen.computeIfAbsent(cv, k -> new ArrayList<>()).add(r);
+            }
+
+            for (java.util.Map.Entry<String, List<ComisionRow>> entry : mapByVen.entrySet()) {
+                String cv = entry.getKey();
+                List<ComisionRow> listVen = entry.getValue();
+                String nomVen = listVen.get(0).getNombreVendedor();
+                writeComisionesSheet(wb, cv, listVen, relacionNum, fechaRelacion, cv, nomVen,
+                        titleStyle, headerStyle, textStyle, centerStyle, numberStyle, pctStyle, boldNumStyle);
+            }
+
+            try (FileOutputStream fos = new FileOutputStream(file)) {
+                wb.write(fos);
+            }
+        }
+
+        return file;
+    }
+
+    private void writeComisionesSheet(Workbook wb, String sheetName, List<ComisionRow> listado,
+                                       String relacionNum, java.time.LocalDate fechaRelacion,
+                                       String coVen, String nombreVendedor,
+                                       CellStyle titleStyle, CellStyle headerStyle, CellStyle textStyle,
+                                       CellStyle centerStyle, CellStyle numberStyle, CellStyle pctStyle,
+                                       CellStyle boldNumStyle) {
+
+        Sheet sheet = wb.createSheet(sheetName);
+
+        // Fila 7: DROGUERIA ACTIVA, C.A.
+        Row r7 = sheet.createRow(6);
+        Cell c7 = r7.createCell(3);
+        c7.setCellValue("DROGUERIA ACTIVA, C.A.");
+        c7.setCellStyle(titleStyle);
+
+        Cell c7n = r7.createCell(13);
+        c7n.setCellValue("RELACION #");
+        c7n.setCellStyle(titleStyle);
+
+        Cell c7v = r7.createCell(15);
+        c7v.setCellValue(relacionNum != null ? relacionNum : "00000160");
+        c7v.setCellStyle(titleStyle);
+
+        // Fila 8: FECHA
+        Row r8 = sheet.createRow(7);
+        Cell c8l = r8.createCell(14);
+        c8l.setCellValue("FECHA:");
+        c8l.setCellStyle(titleStyle);
+
+        Cell c8v = r8.createCell(15);
+        c8v.setCellValue(fechaRelacion != null ? fechaRelacion.format(DateTimeFormatter.ofPattern("dd/MM/yyyy")) : "");
+        c8v.setCellStyle(titleStyle);
+
+        // Fila 10: RELACION DE COMISIONES
+        Row r10 = sheet.createRow(9);
+        Cell c10 = r10.createCell(3);
+        c10.setCellValue("RELACION DE COMISIONES");
+        c10.setCellStyle(titleStyle);
+
+        // Fila 12: VENDEDOR
+        Row r12 = sheet.createRow(11);
+        Cell c12l = r12.createCell(0);
+        c12l.setCellValue("VENDEDOR:");
+        c12l.setCellStyle(titleStyle);
+
+        Cell c12v = r12.createCell(2);
+        c12v.setCellValue(coVen != null ? coVen : "");
+        c12v.setCellStyle(titleStyle);
+
+        Cell c12m = r12.createCell(11);
+        c12m.setCellValue("MONEDA BS");
+        c12m.setCellStyle(titleStyle);
+
+        // Fila 13: Encabezados de tabla
+        String[] headers = {
+                "#", "TIPO DOC.", "NUMERO DOCUMENTO", "CLASE", "FECHA DE EMISION",
+                "FECHA DE VENCIMIENTO", "FECHA DE COBRO", "NUMERO COBRO", "DIAS  CALLE",
+                "CODIGO CLIENTE", "NOMBRE CLIENTE", "MONTO DOCUMENTO", "% DESC",
+                "MONTO COBRADO", "BASE COMISION", "% COMISION", "MONTO COMISION", "VENDEDOR:"
+        };
+
+        Row headerRow = sheet.createRow(12);
+        headerRow.setHeightInPoints(24);
+        for (int i = 0; i < headers.length; i++) {
+            Cell cell = headerRow.createCell(i);
+            cell.setCellValue(headers[i]);
+            cell.setCellStyle(headerStyle);
+        }
+
+        // Datos
+        DateTimeFormatter dateFmt = DateTimeFormatter.ofPattern("dd/MM/yyyy");
+        int rowIndex = 13;
+        int sec = 1;
+
+        double sumDoc = 0;
+        double sumCob = 0;
+        double sumBase = 0;
+        double sumCom = 0;
+
+        for (ComisionRow r : listado) {
+            Row row = sheet.createRow(rowIndex++);
+            row.setHeightInPoints(18);
+
+            Cell cell0 = row.createCell(0); cell0.setCellValue(sec++); cell0.setCellStyle(centerStyle);
+            Cell cell1 = row.createCell(1); cell1.setCellValue(safeStr(r.getTipoDoc())); cell1.setCellStyle(centerStyle);
+            Cell cell2 = row.createCell(2); cell2.setCellValue(safeStr(r.getNumeroDocumento())); cell2.setCellStyle(centerStyle);
+            Cell cell3 = row.createCell(3); cell3.setCellValue(safeStr(r.getClase())); cell3.setCellStyle(centerStyle);
+            Cell cell4 = row.createCell(4); cell4.setCellValue(r.getFechaEmision() != null ? r.getFechaEmision().format(dateFmt) : ""); cell4.setCellStyle(centerStyle);
+            Cell cell5 = row.createCell(5); cell5.setCellValue(r.getFechaVencimiento() != null ? r.getFechaVencimiento().format(dateFmt) : ""); cell5.setCellStyle(centerStyle);
+            Cell cell6 = row.createCell(6); cell6.setCellValue(r.getFechaCobro() != null ? r.getFechaCobro().format(dateFmt) : ""); cell6.setCellStyle(centerStyle);
+            Cell cell7 = row.createCell(7); cell7.setCellValue(safeStr(r.getNumeroCobro())); cell7.setCellStyle(centerStyle);
+            Cell cell8 = row.createCell(8); cell8.setCellValue(r.getDiasCalle()); cell8.setCellStyle(centerStyle);
+            Cell cell9 = row.createCell(9); cell9.setCellValue(safeStr(r.getCodigoCliente())); cell9.setCellStyle(centerStyle);
+            Cell cell10 = row.createCell(10); cell10.setCellValue(safeStr(r.getNombreCliente())); cell10.setCellStyle(textStyle);
+
+            Cell cell11 = row.createCell(11); cell11.setCellValue(r.getMontoDocumento()); cell11.setCellStyle(numberStyle);
+            Cell cell12 = row.createCell(12); cell12.setCellValue(r.getPorcDesc()); cell12.setCellStyle(pctStyle);
+            Cell cell13 = row.createCell(13); cell13.setCellValue(r.getMontoCobrado()); cell13.setCellStyle(numberStyle);
+            Cell cell14 = row.createCell(14); cell14.setCellValue(r.getBaseComision()); cell14.setCellStyle(numberStyle);
+
+            Cell cell15 = row.createCell(15);
+            if (r.getPorcComision() > 0) {
+                cell15.setCellValue(r.getPorcComision());
+                cell15.setCellStyle(pctStyle);
+            } else {
+                cell15.setCellValue("-");
+                cell15.setCellStyle(centerStyle);
+            }
+
+            Cell cell16 = row.createCell(16); cell16.setCellValue(r.getMontoComision()); cell16.setCellStyle(numberStyle);
+            Cell cell17 = row.createCell(17); cell17.setCellValue(safeStr(r.getNombreVendedor() != null ? r.getNombreVendedor() : nombreVendedor)); cell17.setCellStyle(textStyle);
+
+            sumDoc += r.getMontoDocumento();
+            sumCob += r.getMontoCobrado();
+            sumBase += r.getBaseComision();
+            sumCom += r.getMontoComision();
+        }
+
+        // Fila Totales
+        Row totRow = sheet.createRow(rowIndex);
+        totRow.setHeightInPoints(20);
+        Cell totLbl = totRow.createCell(10);
+        totLbl.setCellValue("TOTALES:");
+        totLbl.setCellStyle(headerStyle);
+
+        Cell cTotDoc = totRow.createCell(11); cTotDoc.setCellValue(sumDoc); cTotDoc.setCellStyle(boldNumStyle);
+        Cell cTotCob = totRow.createCell(13); cTotCob.setCellValue(sumCob); cTotCob.setCellStyle(boldNumStyle);
+        Cell cTotBase = totRow.createCell(14); cTotBase.setCellValue(sumBase); cTotBase.setCellStyle(boldNumStyle);
+        Cell cTotCom = totRow.createCell(16); cTotCom.setCellValue(sumCom); cTotCom.setCellStyle(boldNumStyle);
+
+        // Ajustar anchos de columna
+        for (int col = 0; col < headers.length; col++) {
+            sheet.autoSizeColumn(col);
+            int width = sheet.getColumnWidth(col) + 800;
+            sheet.setColumnWidth(col, Math.min(Math.max(width, 2400), 14000));
+        }
+    }
+}
+
