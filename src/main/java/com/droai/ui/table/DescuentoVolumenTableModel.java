@@ -23,6 +23,13 @@ public class DescuentoVolumenTableModel extends AbstractTableModel {
 
     private String filterText = "";
     private String filterMarca = "";
+    private com.droai.model.FiltrosCriteria filtrosCriteria = null;
+
+    private java.util.function.BiConsumer<String, Double> onCellDiscountEdited;
+
+    public void setOnCellDiscountEdited(java.util.function.BiConsumer<String, Double> cb) {
+        this.onCellDiscountEdited = cb;
+    }
 
     @Override
     public int getRowCount() {
@@ -51,7 +58,7 @@ public class DescuentoVolumenTableModel extends AbstractTableModel {
 
     @Override
     public boolean isCellEditable(int row, int col) {
-        return col == 0; // Solo la columna de selección es editable
+        return col == 0 || col == 6; // Selección y Descuento DV son editables
     }
 
     @Override
@@ -73,16 +80,41 @@ public class DescuentoVolumenTableModel extends AbstractTableModel {
 
     @Override
     public void setValueAt(Object value, int row, int col) {
+        if (row < 0 || row >= filteredData.size()) return;
+        DescuentoVolumenRow r = filteredData.get(row);
+
         if (col == 0 && value instanceof Boolean selected) {
-            DescuentoVolumenRow r = filteredData.get(row);
             selectionMap.put(r.getCodigo(), selected);
             fireTableCellUpdated(row, col);
+        } else if (col == 6) {
+            double nuevoDcto = 0.0;
+            if (value instanceof Number n) {
+                nuevoDcto = n.doubleValue();
+            } else if (value != null) {
+                try {
+                    String str = value.toString().replace(",", ".").trim();
+                    if (!str.isEmpty()) {
+                        nuevoDcto = Double.parseDouble(str);
+                    }
+                } catch (NumberFormatException ignored) {}
+            }
+            if (nuevoDcto < 0) nuevoDcto = 0.0;
+            if (nuevoDcto > 100) nuevoDcto = 100.0;
+
+            r.setDescuentoDV(nuevoDcto);
+            selectionMap.put(r.getCodigo(), true);
+
+            fireTableCellUpdated(row, 0);
+            fireTableCellUpdated(row, 6);
+
+            if (onCellDiscountEdited != null) {
+                onCellDiscountEdited.accept(r.getCodigo(), nuevoDcto);
+            }
         }
     }
 
     public void setData(List<DescuentoVolumenRow> data) {
         this.allData = new ArrayList<>(data);
-        // Limpiar selección previa al recargar
         selectionMap.clear();
         applyFilter();
     }
@@ -105,15 +137,26 @@ public class DescuentoVolumenTableModel extends AbstractTableModel {
         applyFilter();
     }
 
+    public void setFiltrosCriteria(com.droai.model.FiltrosCriteria criteria) {
+        this.filtrosCriteria = criteria;
+        applyFilter();
+    }
+
+    public com.droai.model.FiltrosCriteria getFiltrosCriteria() {
+        return filtrosCriteria;
+    }
+
     private void applyFilter() {
         java.util.stream.Stream<DescuentoVolumenRow> stream = allData.stream();
 
-        // 1. Filtrar por Marca
+        if (filtrosCriteria != null && !filtrosCriteria.isEmpty()) {
+            stream = stream.filter(this::matchesCriteria);
+        }
+
         if (!filterMarca.isEmpty()) {
             stream = stream.filter(r -> r.getMarca() != null && r.getMarca().toLowerCase(Locale.ROOT).contains(filterMarca));
         }
 
-        // 2. Búsqueda de texto libre
         if (!filterText.isEmpty()) {
             stream = stream.filter(r ->
                     matches(r.getCodigo())
@@ -125,6 +168,39 @@ public class DescuentoVolumenTableModel extends AbstractTableModel {
 
         filteredData = stream.collect(Collectors.toList());
         fireTableDataChanged();
+    }
+
+    private boolean matchesCriteria(DescuentoVolumenRow r) {
+        com.droai.model.FiltrosCriteria c = this.filtrosCriteria;
+        boolean anyPos = c.isCualquierPosicion();
+
+        if (!c.getCodigo().isEmpty() && !matchField(r.getCodigo(), c.getCodigo(), anyPos)) return false;
+        if (!c.getDescripcion().isEmpty() && !matchField(r.getDescripcion(), c.getDescripcion(), anyPos)) return false;
+        if (!c.getCodigoBarra().isEmpty() && !matchField(r.getCodigoBarra(), c.getCodigoBarra(), anyPos)) return false;
+        if (!c.getMarca().isEmpty() && !matchField(r.getMarca(), c.getMarca(), anyPos)) return false;
+
+        if (!c.getProveedor().isEmpty()
+                && !matchField(r.getNombreProveedor(), c.getProveedor(), anyPos)
+                && !matchField(r.getCodProveedor(), c.getProveedor(), anyPos)) return false;
+
+        if (!c.getGrupo().isEmpty()
+                && !matchField(r.getLinea(), c.getGrupo(), anyPos)
+                && !matchField(r.getCodLinea(), c.getGrupo(), anyPos)) return false;
+
+        switch (c.getFiltroPrecio()) {
+            case SIN_PRECIO -> { if (r.getPrecio1() > 0) return false; }
+            case CON_PRECIO -> { if (r.getPrecio1() <= 0) return false; }
+            default -> {}
+        }
+
+        return true;
+    }
+
+    private boolean matchField(String value, String filter, boolean anyPosition) {
+        if (value == null) return false;
+        String v = value.toLowerCase(Locale.ROOT);
+        String f = filter.toLowerCase(Locale.ROOT);
+        return anyPosition ? v.contains(f) : v.startsWith(f);
     }
 
     private boolean matches(String val) {

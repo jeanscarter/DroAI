@@ -133,9 +133,12 @@ public class CargaMasivaCostosPreciosDAO {
 
                         row.setCostoActualUsd(cUsd);
                         row.setCostoActualBs(cUsd * tasaUsd);
+                        row.setCostoRawBd(cUsd);
 
                         row.setPrecio1ActualUsd(pUsd);
                         row.setPrecio1ActualBs(pUsd * tasaUsd);
+                        row.setPrecio1MontoRawBd(pMonto);
+                        row.setPrecioOmActual(pOm);
 
                         if (row.tieneCambios()) {
                             row.setValido(true);
@@ -224,7 +227,8 @@ public class CargaMasivaCostosPreciosDAO {
                     String coArt = row.getCoArt().trim();
 
                     // 1. Actualizar Costo (en USD $) si cambió o si se fuerza
-                    if (row.getCostoNuevoUsd() > 0 && (forzar || Math.abs(row.getCostoNuevoUsd() - row.getCostoActualUsd()) > 0.0001)) {
+                    // Comparar contra el costo RAW de BD
+                    if (row.getCostoNuevoUsd() > 0 && (forzar || Math.abs(row.getCostoNuevoUsd() - row.getCostoRawBd()) > 0.0001)) {
                         psRowguid.setString(1, coArt);
                         try (ResultSet rs = psRowguid.executeQuery()) {
                             if (rs.next()) {
@@ -245,7 +249,8 @@ public class CargaMasivaCostosPreciosDAO {
                     }
 
                     // 2. Actualizar / Insertar Precio 1 (monto en Bs, precioOm = 1) si cambió o si se fuerza
-                    if (row.getPrecio1NuevoUsd() > 0 && (forzar || Math.abs(row.getPrecio1NuevoUsd() - row.getPrecio1ActualUsd()) > 0.0001)) {
+                    // Comparar contra el monto RAW de BD para detectar cambios de formato (precioOm 0→1)
+                    if (row.getPrecio1NuevoUsd() > 0 && (forzar || Math.abs(row.getPrecio1NuevoBs() - row.getPrecio1MontoRawBd()) > 0.01)) {
                         // UPDATE: monto (Bs), co_us_mo, co_art
                         psUpdPrecio.setDouble(1, row.getPrecio1NuevoBs());
                         psUpdPrecio.setString(2, usuario);

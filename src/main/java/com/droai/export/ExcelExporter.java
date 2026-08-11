@@ -23,7 +23,6 @@ import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
 import java.util.List;
-import java.util.Objects;
 
 public class ExcelExporter {
 
@@ -600,10 +599,10 @@ public class ExcelExporter {
             titleCell.setCellStyle(titleStyle);
 
             // Fila de resumen de totales superiores (Fila 5, index 5)
-            // En la imagen de referencia: total de Cantidad en col 12 y total de Total Renglon en col 13
+            // total de Cantidad en col 14 y total de Total Renglon en col 15
             Row totalSummaryRow = sheet.createRow(5);
-            Cell cellSumCant = totalSummaryRow.createCell(12);
-            Cell cellSumVal = totalSummaryRow.createCell(13);
+            Cell cellSumCant = totalSummaryRow.createCell(14);
+            Cell cellSumVal = totalSummaryRow.createCell(15);
 
             double totalCant = 0;
             double totalMonto = 0;
@@ -637,7 +636,7 @@ public class ExcelExporter {
 
             String[] headers = {
                     "Numero", "Mes", "Fecha", "Proveedor", "Rif", "Razon Social",
-                    "Nombre Vendedor", "Zona", "Ciudad", "Cod Prov", "Cod Art",
+                    "Grupo", "Origen", "Nombre Vendedor", "Zona", "Ciudad", "Cod Prov", "Cod Art",
                     "Descripcion Art", "Cantidad", "Total Renglon"
             };
 
@@ -688,15 +687,17 @@ public class ExcelExporter {
                 Cell c3 = row.createCell(3); c3.setCellValue(safeStr(r.getNombreProveedor())); c3.setCellStyle(textStyle);
                 Cell c4 = row.createCell(4); c4.setCellValue(safeStr(r.getCiRif())); c4.setCellStyle(textStyle);
                 Cell c5 = row.createCell(5); c5.setCellValue(safeStr(r.getNombreRazonSocial())); c5.setCellStyle(textStyle);
-                Cell c6 = row.createCell(6); c6.setCellValue(safeStr(r.getNombreVendedor())); c6.setCellStyle(textStyle);
-                Cell c7 = row.createCell(7); c7.setCellValue(safeStr(r.getZona())); c7.setCellStyle(textStyle);
-                Cell c8 = row.createCell(8); c8.setCellValue(safeStr(r.getCiudad())); c8.setCellStyle(textStyle);
-                Cell c9 = row.createCell(9); c9.setCellValue(safeStr(r.getCodProv())); c9.setCellStyle(textStyle);
-                Cell c10 = row.createCell(10); c10.setCellValue(safeStr(r.getCodigoArt())); c10.setCellStyle(textStyle);
-                Cell c11 = row.createCell(11); c11.setCellValue(safeStr(r.getDescripcion())); c11.setCellStyle(textStyle);
+                Cell c6 = row.createCell(6); c6.setCellValue(safeStr(r.getGrupoCliente())); c6.setCellStyle(textStyle);
+                Cell c7 = row.createCell(7); c7.setCellValue(safeStr(r.getOrigen())); c7.setCellStyle(textStyle);
+                Cell c8 = row.createCell(8); c8.setCellValue(safeStr(r.getNombreVendedor())); c8.setCellStyle(textStyle);
+                Cell c9 = row.createCell(9); c9.setCellValue(safeStr(r.getZona())); c9.setCellStyle(textStyle);
+                Cell c10 = row.createCell(10); c10.setCellValue(safeStr(r.getCiudad())); c10.setCellStyle(textStyle);
+                Cell c11 = row.createCell(11); c11.setCellValue(safeStr(r.getCodProv())); c11.setCellStyle(textStyle);
+                Cell c12 = row.createCell(12); c12.setCellValue(safeStr(r.getCodigoArt())); c12.setCellStyle(textStyle);
+                Cell c13 = row.createCell(13); c13.setCellValue(safeStr(r.getDescripcion())); c13.setCellStyle(textStyle);
 
-                Cell c12 = row.createCell(12); c12.setCellValue(r.getCantidad()); c12.setCellStyle(numStyle);
-                Cell c13 = row.createCell(13); c13.setCellValue(r.getRenglonDg() / divFactor); c13.setCellStyle(currencyStyle);
+                Cell c14 = row.createCell(14); c14.setCellValue(r.getCantidad()); c14.setCellStyle(numStyle);
+                Cell c15 = row.createCell(15); c15.setCellValue(r.getRenglonDg() / divFactor); c15.setCellStyle(currencyStyle);
             }
 
             // Inmovilizar paneles (Encabezado fijo)
@@ -704,7 +705,7 @@ public class ExcelExporter {
 
             // Auto-filtro en la fila de encabezados
             if (rowIdx > 7) {
-                sheet.setAutoFilter(new CellRangeAddress(6, rowIdx - 1, 0, 13));
+                sheet.setAutoFilter(new CellRangeAddress(6, rowIdx - 1, 0, 15));
             }
 
             // Ajustar anchos de columnas
@@ -899,7 +900,7 @@ public class ExcelExporter {
                 "#", "TIPO DOC.", "NUMERO DOCUMENTO", "CLASE", "FECHA DE EMISION",
                 "FECHA DE VENCIMIENTO", "FECHA DE COBRO", "NUMERO COBRO", "DIAS  CALLE",
                 "CODIGO CLIENTE", "NOMBRE CLIENTE", "MONTO DOCUMENTO", "% DESC",
-                "MONTO COBRADO", "BASE COMISION", "% COMISION", "MONTO COMISION", "VENDEDOR:"
+                "MONTO COBRADO", "BASE COMISION", "% COMISION", "MONTO COMISION", "VENDEDOR:", "PSICO"
         };
 
         Row headerRow = sheet.createRow(12);
@@ -952,6 +953,7 @@ public class ExcelExporter {
 
             Cell cell16 = row.createCell(16); cell16.setCellValue(r.getMontoComision()); cell16.setCellStyle(numberStyle);
             Cell cell17 = row.createCell(17); cell17.setCellValue(safeStr(r.getNombreVendedor() != null ? r.getNombreVendedor() : nombreVendedor)); cell17.setCellStyle(textStyle);
+            Cell cell18 = row.createCell(18); cell18.setCellValue(safeStr(r.getPsico())); cell18.setCellStyle(centerStyle);
 
             sumDoc += r.getMontoDocumento();
             sumCob += r.getMontoCobrado();

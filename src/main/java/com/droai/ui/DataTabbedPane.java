@@ -57,10 +57,12 @@ public class DataTabbedPane extends JTabbedPane {
 
         catalogoModel = new CatalogoTableModel();
         tblCatalogo = createStyledTable(catalogoModel);
+        tblCatalogo.setAutoCreateRowSorter(true);
         addTab("  Catálogo de Productos  ", wrapTable(tblCatalogo));
 
         simuladorModel = new ResumenTableModel();
         tblSimulador = createStyledTable(simuladorModel);
+        tblSimulador.setAutoCreateRowSorter(true);
         addTab("  Descuentos Adicional  ", wrapTable(tblSimulador));
 
         // Pestaña Descuentos x Volumen con panel interactivo

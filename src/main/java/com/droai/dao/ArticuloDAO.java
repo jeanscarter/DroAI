@@ -33,14 +33,14 @@ public class ArticuloDAO {
                 ISNULL(u.co_uni, '')    AS udm,
                 0                       AS costoFabrica,
                 ISNULL(a.porc_arancel, 0) AS arancelPct,
-                ISNULL(ce.costo, 0)       AS costoActual,
+                ISNULL(ce.costo, ISNULL(a.prec_om, 0)) AS costoActual,
                 ISNULL(ce.costo_pro, 0)   AS costoPromedio,
                 ISNULL(a.prec_om, 0)    AS costoOm,
                 ISNULL(p1.monto, 0)     AS precio1,
                 ISNULL(p2.monto, 0)     AS precio2,
                 ISNULL(p3.monto, 0)     AS precio3,
                 ISNULL(p4.monto, 0)     AS precio4,
-                ISNULL(i.porc_tasa, 0)  AS ivaPct,
+                ISNULL(i.porc_tasa, 16.0) AS ivaPct,
                 ISNULL(a.co_lin, '')    AS codLinea,
                 ISNULL(l.lin_des, '')   AS linea,
                 ISNULL(a.co_subl, '')   AS codSub,
@@ -128,50 +128,88 @@ public class ArticuloDAO {
                 ResultSet rs = ps.executeQuery()) {
 
             while (rs.next()) {
-                ArticuloRow row = new ArticuloRow();
-                String codigo = rs.getString("codigo");
-                row.setCodigo(codigo);
-                row.setDescripcion(rs.getString("descripcion"));
-                row.setMarca(rs.getString("marca"));
-                row.setExistencia(getSafeDouble(rs, "existencia", codigo));
-                row.setUdm(rs.getString("udm"));
-                row.setCostoFabrica(getSafeDouble(rs, "costoFabrica", codigo));
-                row.setArancelPct(getSafeDouble(rs, "arancelPct", codigo));
-                row.setCostoActual(getSafeDouble(rs, "costoActual", codigo));
-                row.setCostoPromedio(getSafeDouble(rs, "costoPromedio", codigo));
-                row.setCostoOm(getSafeDouble(rs, "costoOm", codigo));
-                row.setPrecio1(getSafeDouble(rs, "precio1", codigo));
-                row.setPrecio2(getSafeDouble(rs, "precio2", codigo));
-                row.setPrecio3(getSafeDouble(rs, "precio3", codigo));
-                row.setPrecio4(getSafeDouble(rs, "precio4", codigo));
-                row.setIvaPct(getSafeDouble(rs, "ivaPct", codigo));
-                row.setCodLinea(rs.getString("codLinea"));
-                row.setLinea(rs.getString("linea"));
-                row.setCodSub(rs.getString("codSub"));
-                row.setSubLinea(rs.getString("subLinea"));
-                row.setCodProveedor(rs.getString("codProveedor"));
-                row.setNombreProveedor(rs.getString("nombreProveedor"));
-                row.setReferencia(rs.getString("referencia"));
-                row.setModelo(rs.getString("modelo"));
-                row.setProcedencia(rs.getString("procedencia"));
-                row.setPeso(getSafeDouble(rs, "peso", codigo));
-                row.setVolumen(getSafeDouble(rs, "volumen", codigo));
-                row.setCodigoBarra(rs.getString("codigoBarra"));
-                row.setUbicacion(rs.getString("ubicacion"));
-                row.setCampo1(rs.getString("campo1"));
-                row.setCampo2(rs.getString("campo2"));
-                row.setCampo3(rs.getString("campo3"));
-                row.setCampo4(rs.getString("campo4"));
-                row.setCampo5(rs.getString("campo5"));
-                row.setCampo6(rs.getString("campo6"));
-                row.setDestacado(rs.getInt("destacado") == 1);
-                row.setAnulado(rs.getInt("anulado") == 1);
-                row.setMargenMin(getSafeDouble(rs, "margenMin", codigo));
-                row.setMargenMax(getSafeDouble(rs, "margenMax", codigo));
-                rows.add(row);
+                rows.add(mapResultSetToArticuloRow(rs));
             }
         }
         return rows;
+    }
+
+    public List<ArticuloRow> buscarProductos(String query) throws SQLException {
+        if (query == null || query.isBlank()) {
+            return fetchCatalogo();
+        }
+
+        String sqlSearch = SQL_CATALOGO.replaceFirst("SELECT", "SELECT TOP 50")
+                .replace("ORDER BY a.co_art",
+                        "WHERE (a.co_art LIKE ? OR a.art_des LIKE ? OR p.prov_des LIKE ? OR a.ref LIKE ? OR a.modelo LIKE ?) ORDER BY a.co_art");
+
+        List<ArticuloRow> rows = new ArrayList<>();
+        try (Connection conn = DatabaseConfig.getDataSource().getConnection();
+             PreparedStatement ps = conn.prepareStatement(sqlSearch)) {
+
+            String pattern = "%" + query.trim() + "%";
+            ps.setString(1, pattern);
+            ps.setString(2, pattern);
+            ps.setString(3, pattern);
+            ps.setString(4, pattern);
+            ps.setString(5, pattern);
+
+            try (ResultSet rs = ps.executeQuery()) {
+                while (rs.next()) {
+                    rows.add(mapResultSetToArticuloRow(rs));
+                }
+            }
+        }
+        return rows;
+    }
+
+    private ArticuloRow mapResultSetToArticuloRow(ResultSet rs) throws SQLException {
+        ArticuloRow row = new ArticuloRow();
+        String codigo = rs.getString("codigo");
+        row.setCodigo(codigo);
+        row.setDescripcion(rs.getString("descripcion"));
+        row.setMarca(rs.getString("marca"));
+        row.setExistencia(getSafeDouble(rs, "existencia", codigo));
+        row.setUdm(rs.getString("udm"));
+        double cActual = getSafeDouble(rs, "costoActual", codigo);
+        double cFabrica = getSafeDouble(rs, "costoFabrica", codigo);
+        row.setCostoActual(cActual);
+        row.setCostoFabrica(cFabrica > 0 ? cFabrica : cActual);
+        row.setArancelPct(getSafeDouble(rs, "arancelPct", codigo));
+        row.setCostoPromedio(getSafeDouble(rs, "costoPromedio", codigo));
+        row.setCostoOm(getSafeDouble(rs, "costoOm", codigo));
+        row.setPrecio1(getSafeDouble(rs, "precio1", codigo));
+        row.setPrecio2(getSafeDouble(rs, "precio2", codigo));
+        row.setPrecio3(getSafeDouble(rs, "precio3", codigo));
+        row.setPrecio4(getSafeDouble(rs, "precio4", codigo));
+        row.setIvaPct(getSafeDouble(rs, "ivaPct", codigo));
+        double p1 = row.getPrecio1();
+        double iva = row.getIvaPct();
+        row.setPrecioCiva(p1 * (1.0 + (iva / 100.0)));
+        row.setCodLinea(rs.getString("codLinea"));
+        row.setLinea(rs.getString("linea"));
+        row.setCodSub(rs.getString("codSub"));
+        row.setSubLinea(rs.getString("subLinea"));
+        row.setCodProveedor(rs.getString("codProveedor"));
+        row.setNombreProveedor(rs.getString("nombreProveedor"));
+        row.setReferencia(rs.getString("referencia"));
+        row.setModelo(rs.getString("modelo"));
+        row.setProcedencia(rs.getString("procedencia"));
+        row.setPeso(getSafeDouble(rs, "peso", codigo));
+        row.setVolumen(getSafeDouble(rs, "volumen", codigo));
+        row.setCodigoBarra(rs.getString("codigoBarra"));
+        row.setUbicacion(rs.getString("ubicacion"));
+        row.setCampo1(rs.getString("campo1"));
+        row.setCampo2(rs.getString("campo2"));
+        row.setCampo3(rs.getString("campo3"));
+        row.setCampo4(rs.getString("campo4"));
+        row.setCampo5(rs.getString("campo5"));
+        row.setCampo6(rs.getString("campo6"));
+        row.setDestacado(rs.getInt("destacado") == 1);
+        row.setAnulado(rs.getInt("anulado") == 1);
+        row.setMargenMin(getSafeDouble(rs, "margenMin", codigo));
+        row.setMargenMax(getSafeDouble(rs, "margenMax", codigo));
+        return row;
     }
 
     public List<ProductoReporteRow> fetchReporte() throws SQLException {

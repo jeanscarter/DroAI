@@ -355,27 +355,27 @@ public class DetalleMonitorDialog extends JDialog {
 
         panel.add(filterPanel, "growx");
 
-        // Columnas de la tabla de Unidades/Valores (14 columnas solicitadas)
+        // Columnas de la tabla de Unidades/Valores (16 columnas)
         String[] cols = {
                 "Numero", "Mes", "Fecha", "Proveedor", "Rif", "Razon Social",
-                "Nombre Vendedor", "Zona", "Ciudad", "Cod Prov", "Cod Art",
+                "Grupo", "Origen", "Nombre Vendedor", "Zona", "Ciudad", "Cod Prov", "Cod Art",
                 "Descripcion Art", "Cantidad", "Total Renglon"
         };
 
-        DefaultTableModel model = new DefaultTableModel(new Object[0][14], cols) {
+        DefaultTableModel model = new DefaultTableModel(new Object[0][16], cols) {
             @Override
             public boolean isCellEditable(int row, int column) { return false; }
             @Override
             public Class<?> getColumnClass(int col) {
                 return switch (col) {
-                    case 12, 13 -> Double.class;
+                    case 14, 15 -> Double.class;
                     default -> String.class;
                 };
             }
         };
 
         JTable table = createStyledTable(model);
-        int[] widths = {85, 95, 80, 160, 95, 180, 140, 90, 90, 85, 75, 220, 65, 95};
+        int[] widths = {85, 95, 80, 160, 95, 180, 120, 110, 140, 90, 90, 85, 75, 220, 65, 95};
         for (int c = 0; c < widths.length && c < table.getColumnCount(); c++) {
             table.getColumnModel().getColumn(c).setPreferredWidth(widths[c]);
         }
@@ -399,7 +399,6 @@ public class DetalleMonitorDialog extends JDialog {
             currentUnidadesValoresRows.clear();
             double sumCant = 0;
             double sumVal = 0;
-            double sumCosto = 0;
 
             for (MatrizVentasRow r : rawRows) {
                 String rCodProv = r.getCodProveedor() != null ? r.getCodProveedor().trim() : "";
@@ -416,8 +415,11 @@ public class DetalleMonitorDialog extends JDialog {
                     String desc = r.getDescripcion() != null ? r.getDescripcion().toLowerCase() : "";
                     String prov = rNomProv.toLowerCase();
                     String client = r.getNombreRazonSocial() != null ? r.getNombreRazonSocial().toLowerCase() : "";
+                    String grupo = r.getGrupoCliente() != null ? r.getGrupoCliente().toLowerCase() : "";
+                    String origen = r.getOrigen() != null ? r.getOrigen().toLowerCase() : "";
                     if (!num.contains(query) && !art.contains(query) && !desc.contains(query)
-                            && !prov.contains(query) && !client.contains(query)) {
+                            && !prov.contains(query) && !client.contains(query)
+                            && !grupo.contains(query) && !origen.contains(query)) {
                         continue;
                     }
                 }
@@ -426,7 +428,6 @@ public class DetalleMonitorDialog extends JDialog {
                 double divFactor = isBs ? 1.0 : (r.getTasa() > 0 ? r.getTasa() : 1.0);
                 sumCant += r.getCantidad();
                 sumVal += r.getRenglonDg() / divFactor;
-                sumCosto += (r.getCostoVenta() * r.getCantidad()) / divFactor;
             }
 
             // Ordenar los registros por Fecha ascendente y Numero ascendente
@@ -447,6 +448,8 @@ public class DetalleMonitorDialog extends JDialog {
                         r.getNombreProveedor() != null ? r.getNombreProveedor().trim() : "",
                         r.getCiRif() != null ? r.getCiRif().trim() : "",
                         r.getNombreRazonSocial() != null ? r.getNombreRazonSocial().trim() : "",
+                        r.getGrupoCliente() != null ? r.getGrupoCliente().trim() : "",
+                        r.getOrigen() != null ? r.getOrigen().trim() : "",
                         r.getNombreVendedor() != null ? r.getNombreVendedor().trim() : "",
                         r.getZona() != null ? r.getZona().trim() : "",
                         r.getCiudad() != null ? r.getCiudad().trim() : "",

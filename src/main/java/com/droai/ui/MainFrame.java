@@ -83,6 +83,48 @@ public class MainFrame extends JFrame {
         dataTabs.getBtnDPAplicar().addActionListener(e -> aplicarDescuentoDP());
         dataTabs.getBtnDPImportExcel().addActionListener(e -> cargarDescuentoDPDesdeExcel());
 
+        // Listener para actualización directa desde la celda en Descuentos x Volumen
+        dataTabs.getDctoVolumenModel().setOnCellDiscountEdited((codigo, nuevoPorcentaje) -> {
+            new SwingWorker<Void, Void>() {
+                @Override
+                protected Void doInBackground() throws Exception {
+                    service.actualizarDescuentosVolumen(List.of(codigo), nuevoPorcentaje);
+                    return null;
+                }
+                @Override
+                protected void done() {
+                    try {
+                        get();
+                        Toast.show("✔ Descuento DV del producto " + codigo + " actualizado a " + String.format("%.2f", nuevoPorcentaje) + "%", Toast.Type.SUCCESS);
+                    } catch (Exception ex) {
+                        ex.printStackTrace();
+                        Toast.show("✘ Error al actualizar descuento DV del producto " + codigo, Toast.Type.ERROR);
+                    }
+                }
+            }.execute();
+        });
+
+        // Listener para actualización directa desde la celda en Descuento x Producto
+        dataTabs.getDctoProductoModel().setOnCellDiscountEdited((codigo, nuevoPorcentaje) -> {
+            new SwingWorker<Void, Void>() {
+                @Override
+                protected Void doInBackground() throws Exception {
+                    service.actualizarDescuentosProductoDA(List.of(codigo), nuevoPorcentaje);
+                    return null;
+                }
+                @Override
+                protected void done() {
+                    try {
+                        get();
+                        Toast.show("✔ Descuento DP del producto " + codigo + " actualizado a " + String.format("%.2f", nuevoPorcentaje) + "%", Toast.Type.SUCCESS);
+                    } catch (Exception ex) {
+                        ex.printStackTrace();
+                        Toast.show("✘ Error al actualizar descuento DP del producto " + codigo, Toast.Type.ERROR);
+                    }
+                }
+            }.execute();
+        });
+
         dataTabs.getCargaMasivaPanel().setOnCargaExitosa(this::loadData);
 
         footer.setOnColumna3Changed(columna -> {
@@ -164,7 +206,9 @@ public class MainFrame extends JFrame {
 
         if (dialog.isFiltrosEliminados()) {
             dataTabs.getCatalogoModel().setFiltrosCriteria(null);
+            dataTabs.getDctoVolumenModel().setFiltrosCriteria(null);
             dataTabs.getDctoVolumenModel().setFilterMarca(null);
+            dataTabs.getDctoProductoModel().setFiltrosCriteria(null);
             dataTabs.getDctoProductoModel().setFilterMarca(null);
             actualizarFooterConPestanaActiva();
             Toast.show("Filtros eliminados", Toast.Type.INFO);
@@ -172,8 +216,8 @@ public class MainFrame extends JFrame {
             FiltrosCriteria result = dialog.getResultado();
             if (result != null) {
                 dataTabs.getCatalogoModel().setFiltrosCriteria(result);
-                dataTabs.getDctoVolumenModel().setFilterMarca(result.getMarca());
-                dataTabs.getDctoProductoModel().setFilterMarca(result.getMarca());
+                dataTabs.getDctoVolumenModel().setFiltrosCriteria(result);
+                dataTabs.getDctoProductoModel().setFiltrosCriteria(result);
                 actualizarFooterConPestanaActiva();
                 Toast.show("Filtros aplicados", Toast.Type.SUCCESS);
             }
@@ -480,7 +524,24 @@ public class MainFrame extends JFrame {
     }
 
     private void saveData() {
-        Toast.show("El catálogo es de solo lectura", Toast.Type.INFO);
+        int index = dataTabs.getSelectedIndex();
+        if (index == 2) { // Descuentos x Volumen
+            List<String> codigos = dataTabs.getDctoVolumenModel().getSelectedCodigos();
+            if (!codigos.isEmpty()) {
+                aplicarDescuentoDV();
+            } else {
+                Toast.show("✔ Cambios guardados correctamente", Toast.Type.SUCCESS);
+            }
+        } else if (index == 3) { // Descuento x Producto
+            List<String> codigos = dataTabs.getDctoProductoModel().getSelectedCodigos();
+            if (!codigos.isEmpty()) {
+                aplicarDescuentoDP();
+            } else {
+                Toast.show("✔ Cambios guardados correctamente", Toast.Type.SUCCESS);
+            }
+        } else {
+            Toast.show("✔ Cambios guardados correctamente", Toast.Type.SUCCESS);
+        }
     }
 
     private void openFichaProducto() {

@@ -112,9 +112,9 @@ public class CatalogoTableModel extends AbstractTableModel {
             case 1  -> r.getDescripcion();
             case 3  -> r.getExistencia();
             case 4  -> r.getUdm();
-            case 5  -> r.getCostoFabrica();
+            case 5  -> (r.getCostoActual() > 0) ? r.getCostoActual() : ((r.getCostoFabrica() > 0) ? r.getCostoFabrica() : r.getCostoOm());
             case 6  -> r.getArancelPct();
-            case 7  -> r.getCostoOm();
+            case 7  -> (r.getCostoActual() > 0) ? r.getCostoActual() : r.getCostoOm();
             case 8  -> r.getUtilPct();
             case 9  -> r.getPrecio1();
             case 10 -> r.getIvaPct();

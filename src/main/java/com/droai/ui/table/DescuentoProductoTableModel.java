@@ -24,6 +24,16 @@ public class DescuentoProductoTableModel extends AbstractTableModel {
 
     private String filterText = "";
     private String filterMarca = "";
+    private com.droai.model.FiltrosCriteria filtrosCriteria = null;
+
+    public void setFiltrosCriteria(com.droai.model.FiltrosCriteria criteria) {
+        this.filtrosCriteria = criteria;
+        applyFilter();
+    }
+
+    public com.droai.model.FiltrosCriteria getFiltrosCriteria() {
+        return filtrosCriteria;
+    }
 
     @Override
     public int getRowCount() {
@@ -71,9 +81,9 @@ public class DescuentoProductoTableModel extends AbstractTableModel {
             case 3  -> r.getDescripcion();
             case 4  -> r.getPrincipioActivo();
             case 5  -> r.getMarca();
-            case 6  -> r.getCostoFabrica();
+            case 6  -> (r.getCostoActual() > 0) ? r.getCostoActual() : r.getCostoFabrica();
             case 7  -> r.getArancelPct();
-            case 8  -> r.getCostoActual();
+            case 8  -> (r.getCostoActual() > 0) ? r.getCostoActual() : r.getCostoFabrica();
             case 9  -> r.getUtilidadPct();
             case 10 -> r.getPrecio1();
             case 11 -> r.getDctoPct2();
@@ -149,6 +159,10 @@ public class DescuentoProductoTableModel extends AbstractTableModel {
     private void applyFilter() {
         java.util.stream.Stream<DescuentoProductoRow> stream = allData.stream();
 
+        if (filtrosCriteria != null && !filtrosCriteria.isEmpty()) {
+            stream = stream.filter(this::matchesCriteria);
+        }
+
         if (!filterMarca.isEmpty()) {
             stream = stream.filter(r -> r.getMarca() != null && r.getMarca().toLowerCase(Locale.ROOT).contains(filterMarca));
         }
@@ -165,6 +179,50 @@ public class DescuentoProductoTableModel extends AbstractTableModel {
 
         filteredData = stream.collect(Collectors.toList());
         fireTableDataChanged();
+    }
+
+    private boolean matchesCriteria(DescuentoProductoRow r) {
+        com.droai.model.FiltrosCriteria c = this.filtrosCriteria;
+        boolean anyPos = c.isCualquierPosicion();
+
+        if (!c.getCodigo().isEmpty() && !matchField(r.getCodigo(), c.getCodigo(), anyPos)) return false;
+        if (!c.getDescripcion().isEmpty() && !matchField(r.getDescripcion(), c.getDescripcion(), anyPos)) return false;
+        if (!c.getCodigoBarra().isEmpty() && !matchField(r.getCodigoBarra(), c.getCodigoBarra(), anyPos)) return false;
+        if (!c.getMarca().isEmpty() && !matchField(r.getMarca(), c.getMarca(), anyPos)) return false;
+
+        if (!c.getProveedor().isEmpty()
+                && !matchField(r.getNombreProveedor(), c.getProveedor(), anyPos)
+                && !matchField(r.getCodProveedor(), c.getProveedor(), anyPos)) return false;
+
+        if (!c.getGrupo().isEmpty()
+                && !matchField(r.getLinea(), c.getGrupo(), anyPos)
+                && !matchField(r.getCodLinea(), c.getGrupo(), anyPos)) return false;
+
+        double costo = (r.getCostoActual() > 0) ? r.getCostoActual() : r.getCostoFabrica();
+        switch (c.getFiltroCosto()) {
+            case SIN_COSTO -> { if (costo > 0) return false; }
+            case CON_COSTO -> { if (costo <= 0) return false; }
+            default -> {}
+        }
+
+        switch (c.getFiltroPrecio()) {
+            case SIN_PRECIO -> { if (r.getPrecio1() > 0) return false; }
+            case CON_PRECIO -> { if (r.getPrecio1() <= 0) return false; }
+            default -> {}
+        }
+
+        if (c.isSoloPrecioMenorCosto()) {
+            if (r.getPrecio1() > costo) return false;
+        }
+
+        return true;
+    }
+
+    private boolean matchField(String value, String filter, boolean anyPosition) {
+        if (value == null) return false;
+        String v = value.toLowerCase(Locale.ROOT);
+        String f = filter.toLowerCase(Locale.ROOT);
+        return anyPosition ? v.contains(f) : v.startsWith(f);
     }
 
     private boolean matches(String val) {

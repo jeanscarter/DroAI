@@ -11,27 +11,31 @@ import java.awt.event.MouseAdapter;
 import java.awt.event.MouseEvent;
 
 /**
- * Dashboard Administrativo Principal — nuevo punto de entrada tras el login.
+ * Dashboard Administrativo Principal — punto de entrada tras la autenticación.
  *
- * <p>Presenta tarjetas de navegación hacia los módulos del sistema:
+ * <p>
+ * Presenta tarjetas de navegación hacia los módulos del sistema:
  * <ul>
- *   <li>Gestión de Precios y Descuentos ({@link MainFrame})</li>
- *   <li>Monitor Situacional / Reportes de Ventas ({@link MonitorSituacionalFrame})</li>
- *   <li>Auditoría y Usuarios (placeholder para módulos futuros)</li>
+ * <li>Gestión de Precios y Descuentos ({@link MainFrame})</li>
+ * <li>Monitor Situacional / Reportes de Ventas
+ * ({@link MonitorSituacionalFrame})</li>
+ * <li>Auditoría y Usuarios (placeholder para módulos futuros)</li>
  * </ul>
  *
- * <p>Hereda la paleta de colores del sistema FlatLaf Dark configurada en {@code App.java}.
+ * <p>
+ * Hereda la paleta de colores del sistema FlatLaf Dark configurada en
+ * {@code App.java}.
  */
 public class AdminDashboardFrame extends JFrame {
 
     // ── Paleta heredada del sistema ──
-    private static final Color BG_DARK       = new Color(17, 21, 28);
-    private static final Color CARD_BG       = new Color(30, 35, 46);
-    private static final Color CARD_HOVER    = new Color(38, 44, 58);
-    private static final Color ACCENT        = new Color(42, 107, 255);
-    private static final Color GREEN_ACCENT  = new Color(0, 210, 158);
+    private static final Color BG_DARK = new Color(17, 21, 28);
+    private static final Color CARD_BG = new Color(30, 35, 46);
+    private static final Color CARD_HOVER = new Color(38, 44, 58);
+    private static final Color ACCENT = new Color(42, 107, 255);
+    private static final Color GREEN_ACCENT = new Color(0, 210, 158);
     private static final Color ORANGE_ACCENT = new Color(245, 158, 11);
-    private static final Color TEXT_PRIMARY  = new Color(248, 250, 252);
+    private static final Color TEXT_PRIMARY = new Color(248, 250, 252);
     private static final Color TEXT_SECONDARY = new Color(148, 163, 184);
 
     public AdminDashboardFrame() {
@@ -44,7 +48,8 @@ public class AdminDashboardFrame extends JFrame {
         try {
             ImageIcon icon = new ImageIcon(getClass().getResource("/images/logo.png"));
             setIconImage(icon.getImage());
-        } catch (Exception ignored) {}
+        } catch (Exception ignored) {
+        }
 
         Toast.setParentFrame(this);
 
@@ -66,7 +71,7 @@ public class AdminDashboardFrame extends JFrame {
         root.setOpaque(false);
 
         // ═══════════════════════════════════════════════════════════
-        //  HEADER
+        // HEADER
         // ═══════════════════════════════════════════════════════════
         JPanel header = new JPanel(new MigLayout(
                 "insets 20 32 12 32, fillx", "[grow]push[]", "[]4[]"));
@@ -126,13 +131,16 @@ public class AdminDashboardFrame extends JFrame {
 
         root.add(header, BorderLayout.NORTH);
 
+        // ── Paleta y Acentos ──
+        Color TEAL_ACCENT = new Color(0, 168, 157);
+
         // ═══════════════════════════════════════════════════════════
-        //  CONTENT — Cards Grid
+        // CONTENT — Cards Grid
         // ═══════════════════════════════════════════════════════════
         JPanel content = new JPanel(new MigLayout(
-                "insets 30 40 30 40, gap 24, center, wrap 2",
-                "[grow, 280:340:][grow, 280:340:]",
-                "[grow, 240:280:][grow, 240:280:]"));
+                "insets 20 40 20 40, gap 20, center, wrap 3",
+                "[grow, 260:320:][grow, 260:320:][grow, 260:320:]",
+                "[grow, 220:260:][grow, 220:260:]"));
         content.setOpaque(false);
 
         // ── Tarjeta 1: Gestión de Precios ──
@@ -141,8 +149,7 @@ public class AdminDashboardFrame extends JFrame {
                 "Gestión de Precios y Descuentos",
                 "Listado de precios, Descuentos por Volumen (DV),\nDescuento por Producto (DP/DA), Importación masiva.",
                 ACCENT,
-                this::abrirGestionPrecios
-        ), "grow");
+                this::abrirGestionPrecios), "grow");
 
         // ── Tarjeta 2: Monitor Situacional ──
         content.add(createModuleCard(
@@ -150,19 +157,25 @@ public class AdminDashboardFrame extends JFrame {
                 "Monitor Situacional",
                 "Reportes de ventas, indicadores KPI,\nagrupaciones por alícuota y exportación.",
                 GREEN_ACCENT,
-                this::abrirMonitorSituacional
-        ), "grow");
+                this::abrirMonitorSituacional), "grow");
 
-        // ── Tarjeta 3: Cálculo de Comisiones (Protegido por Clave) ──
+        // ── Tarjeta 3: Ajustes de Inventario (NUEVO) ──
+        content.add(createModuleCard(
+                "📦",
+                "Ajustes de Inventario",
+                "Ajustes de Entrada y Salida, stock total por almacén,\ndesglose por lote y fecha de vencimiento.",
+                TEAL_ACCENT,
+                this::abrirAjustesInventario), "grow");
+
+        // ── Tarjeta 4: Cálculo de Comisiones (Protegido por Clave) ──
         content.add(createModuleCard(
                 "💰",
                 "Cálculo de Comisiones",
                 "Relación quincenal por vendedor, reglas por días calle,\nbase sin IVA y exportación oficial Excel.",
                 new Color(168, 85, 247), // Color Púrpura / Lila Acento
-                this::abrirCalculoComisiones
-        ), "grow");
+                this::abrirCalculoComisiones), "grow");
 
-        // ── Tarjeta 4: Auditoría y Usuarios ──
+        // ── Tarjeta 5: Auditoría y Usuarios ──
         content.add(createModuleCard(
                 "👥",
                 "Auditoría y Usuarios",
@@ -174,7 +187,7 @@ public class AdminDashboardFrame extends JFrame {
         root.add(content, BorderLayout.CENTER);
 
         // ═══════════════════════════════════════════════════════════
-        //  FOOTER
+        // FOOTER
         // ═══════════════════════════════════════════════════════════
         JPanel footer = new JPanel(new MigLayout("insets 12 32 12 32, fillx", "[]push[]", "[]"));
         footer.setOpaque(false);
@@ -197,14 +210,14 @@ public class AdminDashboardFrame extends JFrame {
     }
 
     // ═══════════════════════════════════════════════════════════════
-    //  Creación de tarjetas de módulo
+    // Creación de tarjetas de módulo
     // ═══════════════════════════════════════════════════════════════
 
     /**
      * Crea una tarjeta de módulo con icono, título, descripción y acción de clic.
      */
     private JPanel createModuleCard(String icon, String title, String description,
-                                     Color accentColor, Runnable onClickAction) {
+            Color accentColor, Runnable onClickAction) {
         RoundedPanel card = new RoundedPanel(16, true);
         card.setBackground(CARD_BG);
         card.setLayout(new MigLayout("insets 28 24 24 24, wrap, gap 8", "[grow, center]", ""));
@@ -215,8 +228,7 @@ public class AdminDashboardFrame extends JFrame {
         // Borde inferior de color acento
         card.setBorder(BorderFactory.createCompoundBorder(
                 BorderFactory.createMatteBorder(0, 0, 3, 0, accentColor),
-                BorderFactory.createEmptyBorder(0, 0, 0, 0)
-        ));
+                BorderFactory.createEmptyBorder(0, 0, 0, 0)));
 
         // Ícono grande
         JLabel lblIcon = new JLabel(icon);
@@ -244,7 +256,8 @@ public class AdminDashboardFrame extends JFrame {
             btnAcceder.setFont(new Font("Segoe UI", Font.BOLD, 12));
             btnAcceder.setBackground(accentColor);
             btnAcceder.setForeground(accentColor.equals(GREEN_ACCENT) || accentColor.equals(ORANGE_ACCENT)
-                    ? new Color(17, 21, 28) : Color.WHITE);
+                    ? new Color(17, 21, 28)
+                    : Color.WHITE);
             btnAcceder.setFocusPainted(false);
             btnAcceder.setCursor(Cursor.getPredefinedCursor(Cursor.HAND_CURSOR));
             btnAcceder.setBorder(BorderFactory.createEmptyBorder(10, 28, 10, 28));
@@ -283,7 +296,7 @@ public class AdminDashboardFrame extends JFrame {
     }
 
     // ═══════════════════════════════════════════════════════════════
-    //  Acciones de navegación
+    // Acciones de navegación
     // ═══════════════════════════════════════════════════════════════
 
     /**
@@ -319,5 +332,29 @@ public class AdminDashboardFrame extends JFrame {
             });
         }
     }
-}
 
+    /**
+     * Abre el módulo de Ajustes de Inventario (Entrada y Salida) validando los
+     * usuarios autorizados.
+     */
+    private void abrirAjustesInventario() {
+        if (SesionUsuario.isAutenticado()) {
+            String usuario = SesionUsuario.current().getCoUsuario();
+            if (usuario != null) {
+                java.util.Set<String> permitidos = java.util.Set.of("DV", "JG", "OP", "WM", "CN", "JR");
+                if (!permitidos.contains(usuario.trim().toUpperCase())) {
+                    JOptionPane.showMessageDialog(this,
+                            "Acceso Denegado:\nEl usuario '" + usuario.trim()
+                                    + "' no posee permisos para acceder al módulo de Ajustes de Inventario.",
+                            "Acceso Restringido", JOptionPane.WARNING_MESSAGE);
+                    return;
+                }
+            }
+        }
+
+        SwingUtilities.invokeLater(() -> {
+            AjusteInventarioFrame frame = new AjusteInventarioFrame();
+            frame.setVisible(true);
+        });
+    }
+}

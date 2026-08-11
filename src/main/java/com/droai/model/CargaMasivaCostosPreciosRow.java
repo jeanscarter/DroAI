@@ -18,6 +18,10 @@ public class CargaMasivaCostosPreciosRow {
     private double precio1NuevoUsd;
     private double precio1NuevoBs;
 
+    private double precio1MontoRawBd;
+    private double costoRawBd;
+    private int precioOmActual;
+
     private double tasaUsd = 1.0;
 
     private boolean existeEnBd;
@@ -143,6 +147,30 @@ public class CargaMasivaCostosPreciosRow {
         this.precio1NuevoBs = precio1NuevoBs;
     }
 
+    public double getPrecio1MontoRawBd() {
+        return precio1MontoRawBd;
+    }
+
+    public void setPrecio1MontoRawBd(double precio1MontoRawBd) {
+        this.precio1MontoRawBd = precio1MontoRawBd;
+    }
+
+    public double getCostoRawBd() {
+        return costoRawBd;
+    }
+
+    public void setCostoRawBd(double costoRawBd) {
+        this.costoRawBd = costoRawBd;
+    }
+
+    public int getPrecioOmActual() {
+        return precioOmActual;
+    }
+
+    public void setPrecioOmActual(int precioOmActual) {
+        this.precioOmActual = precioOmActual;
+    }
+
     public double getTasaUsd() {
         return tasaUsd;
     }
@@ -176,8 +204,11 @@ public class CargaMasivaCostosPreciosRow {
     }
 
     public boolean tieneCambios() {
-        boolean cambioCosto = Math.abs(costoNuevoBs - costoActualBs) > 0.01 && costoNuevoUsd > 0;
-        boolean cambioPrecio = Math.abs(precio1NuevoBs - precio1ActualBs) > 0.01 && precio1NuevoUsd > 0;
+        // Comparar costo nuevo USD contra el raw de BD
+        boolean cambioCosto = costoNuevoUsd > 0 && Math.abs(costoNuevoUsd - costoRawBd) > 0.0001;
+        // Comparar el monto Bs que se va a escribir contra el raw de BD
+        // Esto detecta cambios incluso cuando precioOm cambia de 0→1
+        boolean cambioPrecio = precio1NuevoUsd > 0 && Math.abs(precio1NuevoBs - precio1MontoRawBd) > 0.01;
         return cambioCosto || cambioPrecio;
     }
 }

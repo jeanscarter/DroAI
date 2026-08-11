@@ -1,6 +1,7 @@
 package com.droai;
 
 import com.droai.model.SesionUsuario;
+import com.droai.ui.AdminDashboardFrame;
 import com.droai.ui.dialog.LoginAuditoriaDialog;
 import com.formdev.flatlaf.FlatDarkLaf;
 import com.formdev.flatlaf.FlatLaf;
@@ -10,6 +11,9 @@ import java.awt.*;
 import java.util.HashMap;
 import java.util.Map;
 
+/**
+ * Punto de entrada principal de la aplicación DroAI.
+ */
 public class App {
     public static void main(String[] args) {
         // ── Paleta DroAI Dark ──
@@ -57,7 +61,7 @@ public class App {
                     + " (" + SesionUsuario.current().getNombreUsuario() + ")"
                     + " — Máquina: " + SesionUsuario.current().getMaquina());
 
-            com.droai.ui.AdminDashboardFrame dashboard = new com.droai.ui.AdminDashboardFrame();
+            AdminDashboardFrame dashboard = new AdminDashboardFrame();
             dashboard.setVisible(true);
         });
     }

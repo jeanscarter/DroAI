@@ -181,14 +181,20 @@ public class ComisionesDAO {
                 RTRIM(c.co_ven) AS co_ven,
                 ISNULL(d.saldo, -1) AS saldo_factura,
                 ISNULL((
-                    SELECT TOP 1 CAST(CAST(RTRIM(r_psico.nro_doc) AS int) AS varchar)
-                    FROM saCobroDocReng r_psico
-                    JOIN saDocumentoVentaReng dr ON dr.nro_doc = r_psico.nro_doc AND dr.co_tipo_doc = r_psico.co_tipo_doc
+                    SELECT TOP 1 CAST(CAST(RTRIM(dr.doc_num) AS int) AS varchar)
+                    FROM saFacturaVentaReng dr
                     JOIN saArticulo a ON dr.co_art = a.co_art
-                    WHERE r_psico.cob_num = c.cob_num
-                      AND RTRIM(r_psico.co_tipo_doc) = 'FACT'
+                    WHERE RTRIM(dr.doc_num) = RTRIM(r.nro_doc)
+                      AND RTRIM(r.co_tipo_doc) = 'FACT'
                       AND RTRIM(a.co_lin) BETWEEN '000007' AND '000010'
-                ), '#N/D') AS psico
+                ), ISNULL((
+                    SELECT TOP 1 CAST(CAST(RTRIM(dr2.doc_num) AS int) AS varchar)
+                    FROM DROA2_A.dbo.saFacturaVentaReng dr2
+                    JOIN DROA2_A.dbo.saArticulo a2 ON dr2.co_art = a2.co_art
+                    WHERE RTRIM(dr2.doc_num) = RTRIM(r.nro_doc)
+                      AND RTRIM(r.co_tipo_doc) = 'FACT'
+                      AND RTRIM(a2.co_lin) BETWEEN '000007' AND '000010'
+                ), '#N/D')) AS psico
             FROM saCobro c
             JOIN saCobroDocReng r ON c.cob_num = r.cob_num
             LEFT JOIN saCobroTPReng t ON c.cob_num = t.cob_num AND t.reng_num = 1

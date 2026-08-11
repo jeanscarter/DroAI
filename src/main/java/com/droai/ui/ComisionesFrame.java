@@ -53,7 +53,6 @@ public class ComisionesFrame extends JFrame {
     private JLabel lblStatRegistros;
 
     private List<ComisionRow> currentData = new ArrayList<>();
-    private static final DateTimeFormatter DATE_FMT = DateTimeFormatter.ofPattern("yyyy-MM-dd");
     private static final DateTimeFormatter DISPLAY_FMT = DateTimeFormatter.ofPattern("dd/MM/yyyy");
     private static final DecimalFormat CURRENCY_FMT = new DecimalFormat("#,##0.00");
 
@@ -392,6 +391,7 @@ public class ComisionesFrame extends JFrame {
             protected void done() {
                 try {
                     currentData = get();
+                    actualizarComboVendedoresDesdeResultados(currentData);
                     actualizarTabla(currentData);
                     ComisionesService.TotalesComisiones tot = service.calcularTotales(currentData);
 
@@ -414,6 +414,36 @@ public class ComisionesFrame extends JFrame {
             }
         };
         worker.execute();
+    }
+
+    private void actualizarComboVendedoresDesdeResultados(List<ComisionRow> rows) {
+        Object currentlySelected = cmbVendedor.getSelectedItem();
+        cmbVendedor.removeAllItems();
+        cmbVendedor.addItem("— Todos los Vendedores —");
+
+        java.util.Map<String, String> uniqueSellers = new java.util.LinkedHashMap<>();
+        if (rows != null) {
+            for (ComisionRow r : rows) {
+                String cod = r.getCodigoVendedor();
+                String nom = r.getNombreVendedor();
+                if (cod != null && !cod.isBlank()) {
+                    uniqueSellers.putIfAbsent(cod.trim(), nom != null && !nom.isBlank() ? nom.trim() : cod.trim());
+                }
+            }
+        }
+
+        VendedorOption toReselect = null;
+        for (java.util.Map.Entry<String, String> entry : uniqueSellers.entrySet()) {
+            VendedorOption vo = new VendedorOption(entry.getKey(), entry.getValue());
+            cmbVendedor.addItem(vo);
+            if (currentlySelected instanceof VendedorOption && ((VendedorOption) currentlySelected).getCodigo().equalsIgnoreCase(entry.getKey())) {
+                toReselect = vo;
+            }
+        }
+
+        if (toReselect != null) {
+            cmbVendedor.setSelectedItem(toReselect);
+        }
     }
 
     private void actualizarTabla(List<ComisionRow> rows) {
@@ -495,7 +525,13 @@ public class ComisionesFrame extends JFrame {
             }
 
             try {
-                File exported = excelExporter.exportRelacionComisiones(currentData, "00000160", LocalDate.now(), coVen, nomVen, fileToSave);
+                List<ComisionRow> vendorData = new ArrayList<>();
+                for (ComisionRow r : currentData) {
+                    if (coVen.equalsIgnoreCase(r.getCodigoVendedor())) {
+                        vendorData.add(r);
+                    }
+                }
+                File exported = excelExporter.exportRelacionComisiones(vendorData, "00000160", LocalDate.now(), coVen, nomVen, fileToSave);
                 Toast.showSuccess("Archivo exportado exitosamente.");
                 JOptionPane.showMessageDialog(this,
                         "El archivo Excel ha sido exportado exitosamente en:\n\n" + exported.getAbsolutePath(),
