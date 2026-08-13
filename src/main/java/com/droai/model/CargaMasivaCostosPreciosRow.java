@@ -21,6 +21,7 @@ public class CargaMasivaCostosPreciosRow {
     private double precio1MontoRawBd;
     private double costoRawBd;
     private int precioOmActual;
+    private boolean precioEnBsDetectado;
 
     private double tasaUsd = 1.0;
 
@@ -171,6 +172,14 @@ public class CargaMasivaCostosPreciosRow {
         this.precioOmActual = precioOmActual;
     }
 
+    public boolean isPrecioEnBsDetectado() {
+        return precioEnBsDetectado;
+    }
+
+    public void setPrecioEnBsDetectado(boolean precioEnBsDetectado) {
+        this.precioEnBsDetectado = precioEnBsDetectado;
+    }
+
     public double getTasaUsd() {
         return tasaUsd;
     }
@@ -204,11 +213,17 @@ public class CargaMasivaCostosPreciosRow {
     }
 
     public boolean tieneCambios() {
-        // Comparar costo nuevo USD contra el raw de BD
+        // Comparar costo nuevo USD contra el raw de BD (costo siempre está en USD en Profit)
         boolean cambioCosto = costoNuevoUsd > 0 && Math.abs(costoNuevoUsd - costoRawBd) > 0.0001;
-        // Comparar el monto Bs que se va a escribir contra el raw de BD
-        // Esto detecta cambios incluso cuando precioOm cambia de 0→1
-        boolean cambioPrecio = precio1NuevoUsd > 0 && Math.abs(precio1NuevoBs - precio1MontoRawBd) > 0.01;
+        // Comparar precio nuevo USD vs precio actual USD (ambos correctamente convertidos)
+        // También detectar si precioOm necesita corrección de 0 (Bs) → 1 (USD)
+        // También comparar el Bs nuevo vs el monto raw de BD para detectar cuando
+        // el monto almacenado está en USD pero debería estar en Bs
+        boolean cambioPrecio = precio1NuevoUsd > 0 && (
+                precioEnBsDetectado
+                || Math.abs(precio1NuevoUsd - precio1ActualUsd) > 0.0001
+                || Math.abs(precio1NuevoBs - precio1MontoRawBd) > 0.01
+        );
         return cambioCosto || cambioPrecio;
     }
 }

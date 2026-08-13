@@ -122,11 +122,17 @@ public class CargaMasivaCostosPreciosDAO {
                         double pMonto = rs.getDouble("precio1MontoActual");
                         int pOm = rs.getInt("precio1OmActual");
 
+                        // Interpretar el precio según precioOm:
+                        // precioOm = 1 → monto está en USD directamente
+                        // precioOm = 0 → monto está en Bs, hay que dividir por tasa para obtener USD
                         double pUsd;
-                        if (pOm == 1 && pMonto > 0 && tasaUsd > 0) {
+                        boolean enBs = (pOm == 0);
+                        if (pOm == 1 && pMonto > 0) {
+                            // precioOm=1: monto ya está en USD
+                            pUsd = pMonto;
+                        } else if (pOm == 0 && pMonto > 0 && tasaUsd > 0) {
+                            // precioOm=0: monto está en Bs → convertir a USD
                             pUsd = pMonto / tasaUsd;
-                        } else if (pMonto > 0 && tasaUsd > 0) {
-                            pUsd = pMonto > 500 ? (pMonto / tasaUsd) : pMonto;
                         } else {
                             pUsd = 0.0;
                         }
@@ -139,13 +145,22 @@ public class CargaMasivaCostosPreciosDAO {
                         row.setPrecio1ActualBs(pUsd * tasaUsd);
                         row.setPrecio1MontoRawBd(pMonto);
                         row.setPrecioOmActual(pOm);
+                        row.setPrecioEnBsDetectado(enBs);
 
                         if (row.tieneCambios()) {
                             row.setValido(true);
-                            row.setEstado("✔ Listo para actualizar");
+                            if (enBs) {
+                                row.setEstado("⚠️ Precio en Bs → se corregirá a USD");
+                            } else {
+                                row.setEstado("✔ Listo para actualizar");
+                            }
                         } else {
                             row.setValido(true);
-                            row.setEstado("⚠️ Sin cambios detectados");
+                            if (enBs) {
+                                row.setEstado("⚠️ Precio en Bs → se corregirá a USD");
+                            } else {
+                                row.setEstado("⚠️ Sin cambios detectados");
+                            }
                         }
                     } else {
                         row.setExisteEnBd(false);
@@ -161,6 +176,10 @@ public class CargaMasivaCostosPreciosDAO {
     /**
      * Aplica la carga masiva en lote dentro de una sola transacción SQL.
      * Actualiza costos en saCostoHistoricoEntrada y precios en saArtPrecio.
+     *
+     * <p><b>Precio en saArtPrecio:</b> Se graba el monto en Bs (= precioUSD × tasa)
+     * con precioOm = 1 (factor indexado). Esto permite que DroActiva lea el monto
+     * como Bs correctamente, y Profit identifique que el precio tiene factor indexado.
      *
      * @return Número de registros procesados con éxito.
      */
@@ -191,6 +210,8 @@ public class CargaMasivaCostosPreciosDAO {
                 WHERE co_art = ?
                 """;
 
+        // Precio: monto en Bs, precioOm = 1 (factor indexado)
+        // DroActiva lee monto como Bs y calcula USD = monto / tasa
         String sqlUpdatePrecio = """
                 UPDATE saArtPrecio
                 SET monto = ?, precioOm = 1, fe_us_mo = GETDATE(), co_us_mo = ?
@@ -227,7 +248,7 @@ public class CargaMasivaCostosPreciosDAO {
                     String coArt = row.getCoArt().trim();
 
                     // 1. Actualizar Costo (en USD $) si cambió o si se fuerza
-                    // Comparar contra el costo RAW de BD
+                    // El costo en saCostoHistoricoEntrada siempre se almacena en USD
                     if (row.getCostoNuevoUsd() > 0 && (forzar || Math.abs(row.getCostoNuevoUsd() - row.getCostoRawBd()) > 0.0001)) {
                         psRowguid.setString(1, coArt);
                         try (ResultSet rs = psRowguid.executeQuery()) {
@@ -248,19 +269,24 @@ public class CargaMasivaCostosPreciosDAO {
                         huboActualizacion = true;
                     }
 
-                    // 2. Actualizar / Insertar Precio 1 (monto en Bs, precioOm = 1) si cambió o si se fuerza
-                    // Comparar contra el monto RAW de BD para detectar cambios de formato (precioOm 0→1)
-                    if (row.getPrecio1NuevoUsd() > 0 && (forzar || Math.abs(row.getPrecio1NuevoBs() - row.getPrecio1MontoRawBd()) > 0.01)) {
-                        // UPDATE: monto (Bs), co_us_mo, co_art
-                        psUpdPrecio.setDouble(1, row.getPrecio1NuevoBs());
+                    // 2. Actualizar / Insertar Precio 1 (monto en Bs, precioOm = 0)
+                    // Se convierte el precio USD del Excel a Bs para almacenar.
+                    // DroActiva lee monto como Bs → calcula USD = monto / tasa.
+                    // Comparar Bs nuevo vs raw BD (ambos en Bs cuando precioOm=0, o detectar cambio de moneda).
+                    double montoBsNuevo = row.getPrecio1NuevoBs(); // = precioUSD * tasa (ya calculado en enriquecerConDatosBd)
+                    if (row.getPrecio1NuevoUsd() > 0 && (forzar
+                            || row.isPrecioEnBsDetectado() // ya estaba en Bs → puede necesitar recalcular
+                            || Math.abs(montoBsNuevo - row.getPrecio1MontoRawBd()) > 0.01)) {
+                        // UPDATE: monto en Bs, precioOm = 0
+                        psUpdPrecio.setDouble(1, montoBsNuevo);
                         psUpdPrecio.setString(2, usuario);
                         psUpdPrecio.setString(3, coArt);
                         int rowsUpd = psUpdPrecio.executeUpdate();
 
                         if (rowsUpd == 0) {
-                            // INSERT: co_art, monto (Bs), co_us_in, co_us_mo
+                            // INSERT: monto en Bs, precioOm = 0
                             psInsPrecio.setString(1, coArt);
-                            psInsPrecio.setDouble(2, row.getPrecio1NuevoBs());
+                            psInsPrecio.setDouble(2, montoBsNuevo);
                             psInsPrecio.setString(3, usuario);
                             psInsPrecio.setString(4, usuario);
                             psInsPrecio.executeUpdate();

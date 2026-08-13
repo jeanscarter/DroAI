@@ -18,6 +18,7 @@ public class DescuentoProductoDAO {
                 ISNULL(a.art_des, '')           AS descripcion,
                 ISNULL(sl.subl_des, '')         AS principioActivo,
                 ISNULL(p.prov_des, '')          AS marca,
+                ISNULL(a.modelo, '')            AS modelo,
                 ISNULL(a.prec_om, 0)            AS costoFabrica,
                 ISNULL(a.porc_arancel, 0)       AS arancelPct,
                 ISNULL(ce.costo, 0)             AS costoActual,
@@ -89,6 +90,7 @@ public class DescuentoProductoDAO {
                 row.setDescripcion(rs.getString("descripcion").trim());
                 row.setPrincipioActivo(rs.getString("principioActivo").trim());
                 row.setMarca(rs.getString("marca").trim());
+                row.setModelo(rs.getString("modelo").trim());
                 row.setCostoFabrica(rs.getDouble("costoFabrica"));
                 row.setArancelPct(rs.getDouble("arancelPct"));
                 row.setCostoActual(rs.getDouble("costoActual"));

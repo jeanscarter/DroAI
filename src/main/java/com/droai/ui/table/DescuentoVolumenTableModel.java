@@ -177,7 +177,7 @@ public class DescuentoVolumenTableModel extends AbstractTableModel {
         if (!c.getCodigo().isEmpty() && !matchField(r.getCodigo(), c.getCodigo(), anyPos)) return false;
         if (!c.getDescripcion().isEmpty() && !matchField(r.getDescripcion(), c.getDescripcion(), anyPos)) return false;
         if (!c.getCodigoBarra().isEmpty() && !matchField(r.getCodigoBarra(), c.getCodigoBarra(), anyPos)) return false;
-        if (!c.getMarca().isEmpty() && !matchField(r.getMarca(), c.getMarca(), anyPos)) return false;
+        if (!c.getMarca().isEmpty() && !matchField(r.getMarca(), c.getMarca(), anyPos) && !matchField(r.getModelo(), c.getMarca(), anyPos)) return false;
 
         if (!c.getProveedor().isEmpty()
                 && !matchField(r.getNombreProveedor(), c.getProveedor(), anyPos)

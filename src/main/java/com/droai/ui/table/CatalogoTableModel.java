@@ -242,7 +242,7 @@ public class CatalogoTableModel extends AbstractTableModel {
         if (!c.getDescripcion().isEmpty() && !matchField(r.getDescripcion(), c.getDescripcion(), anyPos)) return false;
         if (!c.getReferencia().isEmpty() && !matchField(r.getReferencia(), c.getReferencia(), anyPos)) return false;
         if (!c.getCodigoBarra().isEmpty() && !matchField(r.getCodigoBarra(), c.getCodigoBarra(), anyPos)) return false;
-        if (!c.getMarca().isEmpty() && !matchField(r.getMarca(), c.getMarca(), anyPos)) return false;
+        if (!c.getMarca().isEmpty() && !matchField(r.getMarca(), c.getMarca(), anyPos) && !matchField(r.getModelo(), c.getMarca(), anyPos)) return false;
         if (!c.getModelo().isEmpty() && !matchField(r.getModelo(), c.getModelo(), anyPos)) return false;
         if (!c.getUbicacion().isEmpty()) {
             boolean matchUbic = matchField(r.getUbicacion(), c.getUbicacion(), anyPos);

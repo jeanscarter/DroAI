@@ -99,12 +99,32 @@ public class CargaMasivaCostosPreciosPanel extends JPanel {
             }
         };
 
-        for (int c = 2; c <= 9; c++) {
+        for (int c = 3; c <= 10; c++) {
             tablePreview.getColumnModel().getColumn(c).setCellRenderer(numericRenderer);
         }
 
+        // Renderer de Moneda BD con colores
+        tablePreview.getColumnModel().getColumn(2).setCellRenderer(new DefaultTableCellRenderer() {
+            @Override
+            public Component getTableCellRendererComponent(JTable table, Object value, boolean isSelected, boolean hasFocus, int row, int column) {
+                JLabel label = (JLabel) super.getTableCellRendererComponent(table, value, isSelected, hasFocus, row, column);
+                label.setHorizontalAlignment(SwingConstants.CENTER);
+                label.setFont(new Font("Segoe UI", Font.BOLD, 11));
+                String val = value != null ? value.toString() : "";
+                if (val.contains("Bs")) {
+                    label.setForeground(new Color(198, 40, 40));
+                    label.setBackground(isSelected ? table.getSelectionBackground() : new Color(255, 235, 238));
+                } else {
+                    label.setForeground(new Color(46, 125, 50));
+                    label.setBackground(isSelected ? table.getSelectionBackground() : table.getBackground());
+                }
+                label.setOpaque(true);
+                return label;
+            }
+        });
+
         // Renderer de Estado con colores
-        tablePreview.getColumnModel().getColumn(10).setCellRenderer(new DefaultTableCellRenderer() {
+        tablePreview.getColumnModel().getColumn(11).setCellRenderer(new DefaultTableCellRenderer() {
             @Override
             public Component getTableCellRendererComponent(JTable table, Object value, boolean isSelected, boolean hasFocus, int row, int column) {
                 JLabel label = (JLabel) super.getTableCellRendererComponent(table, value, isSelected, hasFocus, row, column);
@@ -116,8 +136,10 @@ public class CargaMasivaCostosPreciosPanel extends JPanel {
                     label.setForeground(new Color(46, 125, 50));
                 } else if (estado.contains("no existe") || estado.contains("Error") || estado.contains("vacío")) {
                     label.setForeground(new Color(198, 40, 40));
-                } else if (estado.contains("Sin cambios")) {
+                } else if (estado.contains("Bs") || estado.contains("corregir")) {
                     label.setForeground(new Color(230, 81, 0));
+                } else if (estado.contains("Sin cambios")) {
+                    label.setForeground(new Color(158, 158, 158));
                 } else {
                     label.setForeground(UIManager.getColor("Label.foreground"));
                 }
@@ -223,6 +245,7 @@ public class CargaMasivaCostosPreciosPanel extends JPanel {
         int validos = 0;
         int conCambios = 0;
         int errores = 0;
+        int conPrecioEnBs = 0;
         boolean forzar = chkForzarActualizacion.isSelected();
 
         for (CargaMasivaCostosPreciosRow row : allRows) {
@@ -230,14 +253,20 @@ public class CargaMasivaCostosPreciosPanel extends JPanel {
                 errores++;
             } else {
                 validos++;
+                if (row.isPrecioEnBsDetectado()) {
+                    conPrecioEnBs++;
+                }
                 if (row.tieneCambios() || forzar) {
                     conCambios++;
                 }
             }
         }
 
-        String statsText = String.format("Total Filas: %d  |  Válidos: %d  |  Con Cambios a Aplicar: %d  |  Errores/No Encontrados: %d",
+        String statsText = String.format("Total: %d  |  Válidos: %d  |  Con Cambios: %d  |  Errores: %d",
                 total, validos, conCambios, errores);
+        if (conPrecioEnBs > 0) {
+            statsText += String.format("  |  ⚠️ Precio en Bs: %d", conPrecioEnBs);
+        }
         if (forzar && conCambios > 0) {
             statsText += "  ⚡ (Forzar activo)";
         }
@@ -308,7 +337,7 @@ public class CargaMasivaCostosPreciosPanel extends JPanel {
 
     private class CargaMasivaTableModel extends AbstractTableModel {
         private final String[] COLUMNS = {
-                "Código", "Descripción del Producto",
+                "Código", "Descripción del Producto", "Moneda BD",
                 "Costo Act. ($)", "Costo Act. (Bs)", "Nuevo Costo ($)", "Nuevo Costo (Bs)",
                 "Precio 1 Act. ($)", "Precio 1 Act. (Bs)", "Nuevo Precio 1 ($)", "Nuevo Precio 1 (Bs)",
                 "Estado"
@@ -337,22 +366,23 @@ public class CargaMasivaCostosPreciosPanel extends JPanel {
             return switch (columnIndex) {
                 case 0 -> row.getCoArt();
                 case 1 -> row.getDescripcion();
-                case 2 -> row.getCostoActualUsd();
-                case 3 -> row.getCostoActualBs();
-                case 4 -> row.getCostoNuevoUsd();
-                case 5 -> row.getCostoNuevoBs();
-                case 6 -> row.getPrecio1ActualUsd();
-                case 7 -> row.getPrecio1ActualBs();
-                case 8 -> row.getPrecio1NuevoUsd();
-                case 9 -> row.getPrecio1NuevoBs();
-                case 10 -> row.getEstado();
+                case 2 -> row.isPrecioEnBsDetectado() ? "Bs ⚠️" : "USD ✔";
+                case 3 -> row.getCostoActualUsd();
+                case 4 -> row.getCostoActualBs();
+                case 5 -> row.getCostoNuevoUsd();
+                case 6 -> row.getCostoNuevoBs();
+                case 7 -> row.getPrecio1ActualUsd();
+                case 8 -> row.getPrecio1ActualBs();
+                case 9 -> row.getPrecio1NuevoUsd();
+                case 10 -> row.getPrecio1NuevoBs();
+                case 11 -> row.getEstado();
                 default -> null;
             };
         }
 
         @Override
         public Class<?> getColumnClass(int columnIndex) {
-            if (columnIndex >= 2 && columnIndex <= 9) {
+            if (columnIndex >= 3 && columnIndex <= 10) {
                 return Double.class;
             }
             return String.class;

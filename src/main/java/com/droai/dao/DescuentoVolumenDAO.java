@@ -16,6 +16,7 @@ public class DescuentoVolumenDAO {
                 a.co_art AS codigo,
                 ISNULL(a.art_des, '') AS descripcion,
                 ISNULL(p.prov_des, '') AS marca,
+                ISNULL(a.modelo, '') AS modelo,
                 ISNULL(a.ref, '') AS codigoBarra,
                 ISNULL(pr.monto, 0) AS precio1,
                 ISNULL(da.porc1, 0) AS descuentoDV,
@@ -62,6 +63,7 @@ public class DescuentoVolumenDAO {
                 row.setCodigo(rs.getString("codigo").trim());
                 row.setDescripcion(rs.getString("descripcion").trim());
                 row.setMarca(rs.getString("marca").trim());
+                row.setModelo(rs.getString("modelo") != null ? rs.getString("modelo").trim() : "");
                 row.setCodigoBarra(rs.getString("codigoBarra").trim());
                 row.setPrecio1(rs.getDouble("precio1"));
                 row.setDescuentoDV(rs.getDouble("descuentoDV"));

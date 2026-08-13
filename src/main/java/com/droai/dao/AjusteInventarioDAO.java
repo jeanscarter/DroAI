@@ -284,7 +284,9 @@ public class AjusteInventarioDAO {
                     }
                 }
 
-                // 6. Actualizar stock por Lote en saLoteEntrada si se especificó Lote
+                // 6. Actualizar stock por Lote en saLoteEntrada
+                String usuarioLote = usuario.length() > 6 ? usuario.substring(0, 6) : usuario;
+
                 if (tieneLote) {
                     String sqlLoteCheck = "SELECT COUNT(*) FROM saLoteEntrada WHERE RTRIM(co_art) = ? AND RTRIM(co_alma) = ? AND RTRIM(numero_lote) = ?";
                     boolean existeLote = false;
@@ -300,7 +302,7 @@ public class AjusteInventarioDAO {
                     }
 
                     if (existeLote) {
-                        StringBuilder sqlLoteUpd = new StringBuilder("UPDATE saLoteEntrada SET stock_actual = stock_actual + ?, fe_us_mo = GETDATE(), co_us_mo = ?");
+                        StringBuilder sqlLoteUpd = new StringBuilder("UPDATE saLoteEntrada SET stock_actual = CASE WHEN stock_actual + ? < 0 THEN 0 ELSE stock_actual + ? END, fe_us_mo = GETDATE(), co_us_mo = ?");
                         if (fechaExpiracion != null) {
                             sqlLoteUpd.append(", fecha_expiracion = ?");
                         }
@@ -308,7 +310,8 @@ public class AjusteInventarioDAO {
                         try (PreparedStatement ps = conn.prepareStatement(sqlLoteUpd.toString())) {
                             int idx = 1;
                             ps.setDouble(idx++, deltaStock);
-                            ps.setString(idx++, usuario);
+                            ps.setDouble(idx++, deltaStock);
+                            ps.setString(idx++, usuarioLote);
                             if (fechaExpiracion != null) {
                                 ps.setTimestamp(idx++, new java.sql.Timestamp(fechaExpiracion.getTime()));
                             }
@@ -343,9 +346,49 @@ public class AjusteInventarioDAO {
                                 cal.add(java.util.Calendar.YEAR, 2);
                                 ps.setTimestamp(7, new java.sql.Timestamp(cal.getTimeInMillis()));
                             }
-                            ps.setString(8, usuario);
-                            ps.setString(9, usuario);
+                            ps.setString(8, usuarioLote);
+                            ps.setString(9, usuarioLote);
                             ps.executeUpdate();
+                        }
+                    }
+                } else if (tipoTrans.equalsIgnoreCase("SA")) {
+                    // Si es una Salida (SA) sin lote explícito, aplicar algoritmo FEFO para descontar de saLoteEntrada
+                    String sqlFefo = """
+                        SELECT numero_lote, stock_actual
+                        FROM saLoteEntrada
+                        WHERE RTRIM(co_art) = ? AND RTRIM(co_alma) = ? AND stock_actual > 0
+                        ORDER BY fecha_expiracion ASC, numero_lote ASC
+                        """;
+                    List<Object[]> lotesFefo = new ArrayList<>();
+                    try (PreparedStatement psFefo = conn.prepareStatement(sqlFefo)) {
+                        psFefo.setString(1, coArt);
+                        psFefo.setString(2, coAlma);
+                        try (ResultSet rsFefo = psFefo.executeQuery()) {
+                            while (rsFefo.next()) {
+                                lotesFefo.add(new Object[]{ rsFefo.getString("numero_lote").trim(), rsFefo.getDouble("stock_actual") });
+                            }
+                        }
+                    }
+
+                    if (!lotesFefo.isEmpty()) {
+                        double pendienteDescuento = cantidad;
+                        String sqlUpdFefo = "UPDATE saLoteEntrada SET stock_actual = stock_actual - ?, fe_us_mo = GETDATE(), co_us_mo = ? WHERE RTRIM(co_art) = ? AND RTRIM(co_alma) = ? AND RTRIM(numero_lote) = ?";
+                        try (PreparedStatement psUpdFefo = conn.prepareStatement(sqlUpdFefo)) {
+                            for (Object[] loteInfo : lotesFefo) {
+                                if (pendienteDescuento <= 0) break;
+                                String lNum = (String) loteInfo[0];
+                                double stLote = (Double) loteInfo[1];
+                                double aDescontar = Math.min(pendienteDescuento, stLote);
+
+                                psUpdFefo.setDouble(1, aDescontar);
+                                psUpdFefo.setString(2, usuarioLote);
+                                psUpdFefo.setString(3, coArt);
+                                psUpdFefo.setString(4, coAlma);
+                                psUpdFefo.setString(5, lNum);
+                                psUpdFefo.executeUpdate();
+
+                                pendienteDescuento -= aDescontar;
+                            }
                         }
                     }
                 }

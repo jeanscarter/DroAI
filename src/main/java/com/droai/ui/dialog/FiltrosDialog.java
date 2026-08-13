@@ -70,15 +70,15 @@ public class FiltrosDialog extends JDialog {
 
     public FiltrosDialog(Frame owner, FiltrosCriteria criteriaAnterior) {
         super(owner, "Filtros", true);
-        setSize(780, 560);
+        setSize(860, 580);
         setLocationRelativeTo(owner);
         setResizable(false);
 
         // ── Root panel ──
         JPanel root = new JPanel(new MigLayout(
-            "insets 16 20 16 20, gap 6",
-            "[grow]10[right]",
-            "[]"
+            "insets 16 20 16 20, gap 12",
+            "[grow]12[110!]",
+            "[grow]"
         ));
         root.setBackground(BG_DIALOG);
 
@@ -313,7 +313,7 @@ public class FiltrosDialog extends JDialog {
         buttonsPanel.add(btnQuitar);
 
         root.add(formPanel, "grow");
-        root.add(buttonsPanel, "top, w 100!");
+        root.add(buttonsPanel, "top, w 110!");
 
         setContentPane(root);
 
@@ -630,8 +630,8 @@ public class FiltrosDialog extends JDialog {
         btn.setForeground(TEXT_VALUE);
         btn.setFocusPainted(false);
         btn.setCursor(Cursor.getPredefinedCursor(Cursor.HAND_CURSOR));
-        btn.setBorder(BorderFactory.createEmptyBorder(12, 16, 12, 16));
-        btn.setPreferredSize(new Dimension(90, 80));
+        btn.setBorder(BorderFactory.createEmptyBorder(10, 8, 10, 8));
+        btn.setPreferredSize(new Dimension(105, 80));
 
         return btn;
     }

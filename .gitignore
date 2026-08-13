@@ -38,3 +38,5 @@ Logo.png
 src/main/resources/images/logo.png
 src/main/resources/images/logo.png
 src/test/java/com/droai/dao/MatrizVentasDAOTest.java
+.agents/skills/diagnostico-descuentos/SKILL.md
+src/main/java/com/droai/NotaEntregaDescuentoInvestigator.java
