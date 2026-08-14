@@ -2,29 +2,19 @@ package com.droai;
 
 import com.droai.model.SesionUsuario;
 import com.droai.ui.AdminDashboardFrame;
+import com.droai.ui.ThemeManager;
 import com.droai.ui.dialog.LoginAuditoriaDialog;
-import com.formdev.flatlaf.FlatDarkLaf;
-import com.formdev.flatlaf.FlatLaf;
 
 import javax.swing.*;
 import java.awt.*;
-import java.util.HashMap;
-import java.util.Map;
 
 /**
  * Punto de entrada principal de la aplicación DroAI.
  */
 public class App {
     public static void main(String[] args) {
-        // ── Paleta DroAI Dark ──
-        Map<String, String> darkPalette = new HashMap<>();
-        darkPalette.put("@background", "#11151C");
-        darkPalette.put("@control", "#1E232E");
-        darkPalette.put("@accentColor", "#2A6BFF");
-        darkPalette.put("Button.default.background", "#00D29E");
-        darkPalette.put("@foreground", "#F8FAFC");
-        FlatLaf.setGlobalExtraDefaults(darkPalette);
-        FlatDarkLaf.setup();
+        // ── Inicializar tema DroAI (Dark por defecto) ──
+        ThemeManager.get().initialize();
 
         UIManager.put("Component.arc", 12);
         UIManager.put("Button.arc", 14);

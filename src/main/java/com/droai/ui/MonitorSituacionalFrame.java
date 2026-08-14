@@ -34,18 +34,8 @@ import java.util.Locale;
  */
 public class MonitorSituacionalFrame extends JFrame {
 
-    // ── Paleta heredada del sistema ──
-    private static final Color BG_DARK       = new Color(17, 21, 28);
-    private static final Color CARD_BG       = new Color(30, 35, 46);
-    private static final Color ACCENT        = new Color(42, 107, 255);
-    private static final Color GREEN_ACCENT  = new Color(0, 210, 158);
-    private static final Color ORANGE_ACCENT = new Color(245, 158, 11);
-    private static final Color TEXT_PRIMARY  = new Color(248, 250, 252);
-    private static final Color TEXT_SECONDARY = new Color(148, 163, 184);
-    private static final Color BORDER        = new Color(55, 62, 80);
-    private static final Color TABLE_BG      = new Color(24, 28, 38);
-    private static final Color TABLE_ALT     = new Color(28, 33, 44);
-    private static final Color TABLE_HEADER  = new Color(34, 40, 54);
+    // ── Colores dinámicos vía ThemeManager ──
+    private final ThemeManager tm = ThemeManager.get();
 
     // ── Componentes ──
     private final DatePicker dateDesde;
@@ -74,6 +64,18 @@ public class MonitorSituacionalFrame extends JFrame {
 
         Toast.setParentFrame(this);
         monitorService = new MonitorService();
+
+        // ── Listener de tema ──
+        Runnable themeListener = () -> {
+            SwingUtilities.updateComponentTreeUI(this);
+            repaint();
+        };
+        tm.addThemeChangeListener(themeListener);
+        addWindowListener(new java.awt.event.WindowAdapter() {
+            @Override public void windowClosed(java.awt.event.WindowEvent e) {
+                tm.removeThemeChangeListener(themeListener);
+            }
+        });
         tableModel = new MonitorSituacionalTableModel();
 
         // ── Root con gradiente ──
@@ -85,10 +87,10 @@ public class MonitorSituacionalFrame extends JFrame {
             @Override
             protected void paintComponent(Graphics g) {
                 Graphics2D g2 = (Graphics2D) g.create();
-                g2.setColor(BG_DARK);
+                g2.setColor(tm.background());
                 g2.fillRect(0, 0, getWidth(), getHeight());
-                g2.setPaint(new GradientPaint(0, 0, new Color(42, 107, 255, 18),
-                        0, 160, new Color(42, 107, 255, 0)));
+                g2.setPaint(new GradientPaint(0, 0, tm.gradientTop(),
+                        0, 160, tm.gradientBottom()));
                 g2.fillRect(0, 0, getWidth(), 160);
                 g2.dispose();
             }
@@ -147,22 +149,36 @@ public class MonitorSituacionalFrame extends JFrame {
         titleGroup.setOpaque(false);
         JLabel lblTitle = new JLabel("Monitor Situacional");
         lblTitle.setFont(new Font("Segoe UI", Font.BOLD, 20));
-        lblTitle.setForeground(TEXT_PRIMARY);
+        lblTitle.setForeground(tm.textPrimary());
         titleGroup.add(lblTitle);
         JLabel lblSub = new JLabel("Reportes de Ventas — Indicadores y Análisis");
         lblSub.setFont(new Font("Segoe UI", Font.PLAIN, 11));
-        lblSub.setForeground(TEXT_SECONDARY);
+        lblSub.setForeground(tm.textSecondary());
         titleGroup.add(lblSub);
         header.add(titleGroup);
 
-        // Botón volver al Dashboard
+        // Panel derecho: Botón Tema + Botón Volver
+        JPanel rightPanel = new JPanel(new MigLayout("insets 0, gap 8", "[][]", "[]"));
+        rightPanel.setOpaque(false);
+
+        JButton btnTema = new JButton(tm.isDark() ? "☀" : "🌙");
+        btnTema.setFont(new Font("Segoe UI Emoji", Font.PLAIN, 14));
+        btnTema.setFocusPainted(false);
+        btnTema.setCursor(Cursor.getPredefinedCursor(Cursor.HAND_CURSOR));
+        btnTema.setBorder(BorderFactory.createEmptyBorder(6, 10, 6, 10));
+        btnTema.setToolTipText("Cambiar tema claro/oscuro");
+        btnTema.addActionListener(e -> tm.toggleTheme());
+        rightPanel.add(btnTema);
+
         JButton btnVolver = new JButton("← Dashboard");
         btnVolver.setFont(new Font("Segoe UI", Font.PLAIN, 11));
         btnVolver.setFocusPainted(false);
         btnVolver.setCursor(Cursor.getPredefinedCursor(Cursor.HAND_CURSOR));
         btnVolver.setBorder(BorderFactory.createEmptyBorder(6, 14, 6, 14));
         btnVolver.addActionListener(e -> dispose());
-        header.add(btnVolver);
+        rightPanel.add(btnVolver);
+
+        header.add(rightPanel);
 
         return header;
     }
@@ -173,7 +189,7 @@ public class MonitorSituacionalFrame extends JFrame {
 
     private JPanel buildFiltros() {
         RoundedPanel filtros = new RoundedPanel(12, true);
-        filtros.setBackground(CARD_BG);
+        filtros.setBackground(tm.cardBg());
         filtros.setLayout(new MigLayout(
                 "insets 14 20 14 20, gap 12",
                 "[]8[]12[]8[]24[]4[]push[]",
@@ -181,18 +197,18 @@ public class MonitorSituacionalFrame extends JFrame {
 
         JLabel lblPeriodo = new JLabel("Periodo a Analizar");
         lblPeriodo.setFont(new Font("Segoe UI", Font.BOLD, 12));
-        lblPeriodo.setForeground(TEXT_PRIMARY);
+        lblPeriodo.setForeground(tm.textPrimary());
         filtros.add(lblPeriodo);
 
         JLabel lblDesde = new JLabel("Desde:");
         lblDesde.setFont(new Font("Segoe UI", Font.PLAIN, 11));
-        lblDesde.setForeground(TEXT_SECONDARY);
+        lblDesde.setForeground(tm.textSecondary());
         filtros.add(lblDesde);
         filtros.add(dateDesde);
 
         JLabel lblHasta = new JLabel("Hasta:");
         lblHasta.setFont(new Font("Segoe UI", Font.PLAIN, 11));
-        lblHasta.setForeground(TEXT_SECONDARY);
+        lblHasta.setForeground(tm.textSecondary());
         filtros.add(lblHasta);
         filtros.add(dateHasta);
 
@@ -222,7 +238,7 @@ public class MonitorSituacionalFrame extends JFrame {
         // Botón Procesar
         JButton btnProcesar = new JButton("🔄  Procesar");
         btnProcesar.setFont(new Font("Segoe UI Emoji", Font.BOLD, 13));
-        btnProcesar.setBackground(ACCENT);
+        btnProcesar.setBackground(tm.accent());
         btnProcesar.setForeground(Color.WHITE);
         btnProcesar.setFocusPainted(false);
         btnProcesar.setCursor(Cursor.getPredefinedCursor(Cursor.HAND_CURSOR));
@@ -244,13 +260,13 @@ public class MonitorSituacionalFrame extends JFrame {
                 "[]"));
         kpiRow.setOpaque(false);
 
-        kpiRow.add(createKpiCard("💰", "Monto Total", lblMontoTotal, ACCENT), "grow");
-        kpiRow.add(createKpiCard("📄", "Documentos", lblDocumentos, GREEN_ACCENT), "grow");
-        kpiRow.add(createKpiCard("📦", "Unidades", lblUnidades, ORANGE_ACCENT), "grow");
+        kpiRow.add(createKpiCard("💰", "Monto Total", lblMontoTotal, tm.accent()), "grow");
+        kpiRow.add(createKpiCard("📄", "Documentos", lblDocumentos, tm.greenAccent()), "grow");
+        kpiRow.add(createKpiCard("📦", "Unidades", lblUnidades, tm.orangeAccent()), "grow");
 
         // Botón Imprimir
         RoundedPanel printCard = new RoundedPanel(12, true);
-        printCard.setBackground(CARD_BG);
+        printCard.setBackground(tm.cardBg());
         printCard.setLayout(new MigLayout("insets 16, center, wrap", "[center]", "[]8[]"));
 
         JLabel lblPrint = new JLabel("🖨️");
@@ -278,7 +294,7 @@ public class MonitorSituacionalFrame extends JFrame {
     private RoundedPanel createKpiCard(String icon, String title, JLabel valueLabel,
                                         Color accentColor) {
         RoundedPanel card = new RoundedPanel(12, true);
-        card.setBackground(CARD_BG);
+        card.setBackground(tm.cardBg());
         card.setLayout(new MigLayout("insets 16 20 16 20, gap 8", "[]12[grow]push[]", "[]4[]"));
 
         // Ícono con fondo circular
@@ -289,7 +305,7 @@ public class MonitorSituacionalFrame extends JFrame {
         // Título
         JLabel lblTitle = new JLabel(title);
         lblTitle.setFont(new Font("Segoe UI", Font.PLAIN, 11));
-        lblTitle.setForeground(TEXT_SECONDARY);
+        lblTitle.setForeground(tm.textSecondary());
         card.add(lblTitle, "wrap");
 
         // Valor
@@ -300,7 +316,7 @@ public class MonitorSituacionalFrame extends JFrame {
         // Botón Ver Más
         JButton btnVerMas = new JButton("Ver Más");
         btnVerMas.setFont(new Font("Segoe UI", Font.PLAIN, 10));
-        btnVerMas.setForeground(TEXT_SECONDARY);
+        btnVerMas.setForeground(tm.textSecondary());
         btnVerMas.setContentAreaFilled(false);
         btnVerMas.setBorderPainted(false);
         btnVerMas.setFocusPainted(false);
@@ -336,12 +352,12 @@ public class MonitorSituacionalFrame extends JFrame {
 
         // ── Panel Izquierdo: Gráficos (placeholder) ──
         RoundedPanel graphPanel = new RoundedPanel(12, true);
-        graphPanel.setBackground(CARD_BG);
+        graphPanel.setBackground(tm.cardBg());
         graphPanel.setLayout(new MigLayout("insets 16, fill, center", "[center]", "[]push[center]push[]"));
 
         JLabel lblGraphTitle = new JLabel("Distribución por Alícuota");
         lblGraphTitle.setFont(new Font("Segoe UI", Font.BOLD, 13));
-        lblGraphTitle.setForeground(TEXT_PRIMARY);
+        lblGraphTitle.setForeground(tm.textPrimary());
         graphPanel.add(lblGraphTitle, "wrap");
 
         JLabel lblGraphPlaceholder = new JLabel("<html><center>" +
@@ -350,30 +366,30 @@ public class MonitorSituacionalFrame extends JFrame {
                 "<span style='color:#94A3B8; font-size:9px'>(Próxima Implementación)</span>" +
                 "</center></html>");
         lblGraphPlaceholder.setFont(new Font("Segoe UI", Font.PLAIN, 13));
-        lblGraphPlaceholder.setForeground(TEXT_SECONDARY);
+        lblGraphPlaceholder.setForeground(tm.textSecondary());
         lblGraphPlaceholder.setHorizontalAlignment(SwingConstants.CENTER);
         graphPanel.add(lblGraphPlaceholder, "center");
 
         JLabel lblGraphNote = new JLabel("Integración con JFreeChart disponible");
         lblGraphNote.setFont(new Font("Segoe UI", Font.ITALIC, 9));
-        lblGraphNote.setForeground(new Color(80, 90, 110));
+        lblGraphNote.setForeground(tm.textLabel());
         graphPanel.add(lblGraphNote, "center");
 
         central.add(graphPanel, "grow");
 
         // ── Panel Derecho: Tabla de Datos ──
         RoundedPanel tablePanel = new RoundedPanel(12, true);
-        tablePanel.setBackground(CARD_BG);
+        tablePanel.setBackground(tm.cardBg());
         tablePanel.setLayout(new MigLayout("insets 12, fill", "[grow]", "[]8[grow]"));
 
         JLabel lblTableTitle = new JLabel("Agrupación por Tipo de Impuesto");
         lblTableTitle.setFont(new Font("Segoe UI", Font.BOLD, 13));
-        lblTableTitle.setForeground(TEXT_PRIMARY);
+        lblTableTitle.setForeground(tm.textPrimary());
         tablePanel.add(lblTableTitle, "wrap");
 
         JScrollPane scrollPane = new JScrollPane(table);
-        scrollPane.setBorder(BorderFactory.createLineBorder(BORDER, 1));
-        scrollPane.getViewport().setBackground(TABLE_BG);
+        scrollPane.setBorder(BorderFactory.createLineBorder(tm.border(), 1));
+        scrollPane.getViewport().setBackground(tm.tableBg());
         tablePanel.add(scrollPane, "grow");
 
         central.add(tablePanel, "grow");
@@ -464,15 +480,15 @@ public class MonitorSituacionalFrame extends JFrame {
         settings.setFirstDayOfWeek(DayOfWeek.MONDAY);
 
         // Colores para integrarse con el tema oscuro
-        settings.setColor(DatePickerSettings.DateArea.TextFieldBackgroundValidDate, new Color(38, 44, 58));
-        settings.setColor(DatePickerSettings.DateArea.DatePickerTextValidDate, TEXT_PRIMARY);
-        settings.setColor(DatePickerSettings.DateArea.CalendarBackgroundNormalDates, CARD_BG);
-        settings.setColor(DatePickerSettings.DateArea.CalendarTextNormalDates, TEXT_PRIMARY);
-        settings.setColor(DatePickerSettings.DateArea.BackgroundOverallCalendarPanel, CARD_BG);
-        settings.setColor(DatePickerSettings.DateArea.BackgroundMonthAndYearMenuLabels, CARD_BG);
-        settings.setColor(DatePickerSettings.DateArea.BackgroundTodayLabel, CARD_BG);
-        settings.setColor(DatePickerSettings.DateArea.BackgroundClearLabel, CARD_BG);
-        settings.setColor(DatePickerSettings.DateArea.CalendarBackgroundSelectedDate, ACCENT);
+        settings.setColor(DatePickerSettings.DateArea.TextFieldBackgroundValidDate, tm.bgField());
+        settings.setColor(DatePickerSettings.DateArea.DatePickerTextValidDate, tm.textPrimary());
+        settings.setColor(DatePickerSettings.DateArea.CalendarBackgroundNormalDates, tm.cardBg());
+        settings.setColor(DatePickerSettings.DateArea.CalendarTextNormalDates, tm.textPrimary());
+        settings.setColor(DatePickerSettings.DateArea.BackgroundOverallCalendarPanel, tm.cardBg());
+        settings.setColor(DatePickerSettings.DateArea.BackgroundMonthAndYearMenuLabels, tm.cardBg());
+        settings.setColor(DatePickerSettings.DateArea.BackgroundTodayLabel, tm.cardBg());
+        settings.setColor(DatePickerSettings.DateArea.BackgroundClearLabel, tm.cardBg());
+        settings.setColor(DatePickerSettings.DateArea.CalendarBackgroundSelectedDate, tm.accent());
 
         settings.setFontValidDate(new Font("Segoe UI", Font.PLAIN, 12));
 
@@ -501,10 +517,10 @@ public class MonitorSituacionalFrame extends JFrame {
         JTable t = new JTable(tableModel);
         t.setFont(new Font("Segoe UI", Font.PLAIN, 12));
         t.setRowHeight(32);
-        t.setGridColor(BORDER);
-        t.setBackground(TABLE_BG);
-        t.setForeground(TEXT_PRIMARY);
-        t.setSelectionBackground(ACCENT.darker());
+        t.setGridColor(tm.border());
+        t.setBackground(tm.tableBg());
+        t.setForeground(tm.textPrimary());
+        t.setSelectionBackground(tm.accent().darker());
         t.setSelectionForeground(Color.WHITE);
         t.setShowHorizontalLines(true);
         t.setShowVerticalLines(false);
@@ -513,10 +529,10 @@ public class MonitorSituacionalFrame extends JFrame {
 
         // Header personalizado
         JTableHeader header = t.getTableHeader();
-        header.setBackground(TABLE_HEADER);
-        header.setForeground(TEXT_PRIMARY);
+        header.setBackground(tm.tableHeader());
+        header.setForeground(tm.textPrimary());
         header.setFont(new Font("Segoe UI", Font.BOLD, 11));
-        header.setBorder(BorderFactory.createMatteBorder(0, 0, 2, 0, ACCENT));
+        header.setBorder(BorderFactory.createMatteBorder(0, 0, 2, 0, tm.accent()));
         header.setReorderingAllowed(false);
 
         DefaultTableCellRenderer rightRenderer = new DefaultTableCellRenderer() {
@@ -535,7 +551,7 @@ public class MonitorSituacionalFrame extends JFrame {
                 Component c = super.getTableCellRendererComponent(table, value, isSelected, hasFocus, row, column);
                 setHorizontalAlignment(SwingConstants.RIGHT);
                 if (!isSelected) {
-                    c.setBackground(row % 2 == 0 ? TABLE_BG : TABLE_ALT);
+                    c.setBackground(row % 2 == 0 ? tm.tableBg() : tm.tableAlt());
                 }
                 return c;
             }
@@ -548,7 +564,7 @@ public class MonitorSituacionalFrame extends JFrame {
                                                            boolean isSelected, boolean hasFocus, int row, int column) {
                 Component c = super.getTableCellRendererComponent(table, value, isSelected, hasFocus, row, column);
                 if (!isSelected) {
-                    c.setBackground(row % 2 == 0 ? TABLE_BG : TABLE_ALT);
+                    c.setBackground(row % 2 == 0 ? tm.tableBg() : tm.tableAlt());
                 }
                 return c;
             }

@@ -12,18 +12,14 @@ import com.droai.export.ExcelExporter;
 import com.droai.ui.components.Toast;
 import com.droai.ui.dialog.FichaProductoDialog;
 import com.droai.ui.dialog.FiltrosDialog;
-import com.formdev.flatlaf.FlatDarkLaf;
-import com.formdev.flatlaf.FlatLaf;
-import com.formdev.flatlaf.FlatLightLaf;
+
 import net.miginfocom.swing.MigLayout;
 
 import javax.swing.*;
 import javax.swing.filechooser.FileNameExtensionFilter;
 import java.awt.*;
 import java.io.File;
-import java.util.HashMap;
 import java.util.List;
-import java.util.Map;
 import com.droai.service.ImportadorService;
 
 public class MainFrame extends JFrame {
@@ -32,7 +28,7 @@ public class MainFrame extends JFrame {
     private final DataTabbedPane dataTabs;
     private final FooterPanel footer;
     private final CatalogoService service;
-    private boolean isDarkTheme = true;
+
 
     public MainFrame() {
         setTitle("DroAI — Catálogo de Productos");
@@ -626,28 +622,9 @@ public class MainFrame extends JFrame {
     }
 
     private void toggleTheme() {
-        isDarkTheme = !isDarkTheme;
         try {
-            Map<String, String> palette = new HashMap<>();
-            if (isDarkTheme) {
-                palette.put("@background", "#11151C");
-                palette.put("@control", "#1E232E");
-                palette.put("@accentColor", "#2A6BFF");
-                palette.put("Button.default.background", "#00D29E");
-                palette.put("@foreground", "#F8FAFC");
-                FlatLaf.setGlobalExtraDefaults(palette);
-                FlatDarkLaf.setup();
-            } else {
-                palette.put("@background", "#F1F5F9");
-                palette.put("@control", "#FFFFFF");
-                palette.put("@accentColor", "#1D4ED8");
-                palette.put("Button.default.background", "#059669");
-                palette.put("@foreground", "#0F172A");
-                FlatLaf.setGlobalExtraDefaults(palette);
-                FlatLightLaf.setup();
-            }
-            FlatLaf.updateUI();
-            dataTabs.updateDatePickerThemes(isDarkTheme);
+            ThemeManager.get().toggleTheme();
+            dataTabs.updateDatePickerThemes(ThemeManager.get().isDark());
         } catch (Exception ex) {
             ex.printStackTrace();
         }

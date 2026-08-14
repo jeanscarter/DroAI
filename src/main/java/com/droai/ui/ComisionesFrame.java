@@ -29,13 +29,7 @@ import java.util.Locale;
  */
 public class ComisionesFrame extends JFrame {
 
-    private static final Color BG_DARK        = new Color(17, 21, 28);
-    private static final Color CARD_BG        = new Color(30, 35, 46);
-    private static final Color ACCENT         = new Color(42, 107, 255);
-    private static final Color GREEN_ACCENT   = new Color(0, 210, 158);
-    private static final Color ORANGE_ACCENT  = new Color(245, 158, 11);
-    private static final Color TEXT_PRIMARY   = new Color(248, 250, 252);
-    private static final Color TEXT_SECONDARY = new Color(148, 163, 184);
+    private final ThemeManager tm = ThemeManager.get();
 
     private final ComisionesService service;
     private final ExcelExporter excelExporter;
@@ -75,6 +69,18 @@ public class ComisionesFrame extends JFrame {
 
         Toast.setParentFrame(this);
 
+        // ── Listener de tema ──
+        Runnable themeListener = () -> {
+            SwingUtilities.updateComponentTreeUI(this);
+            repaint();
+        };
+        tm.addThemeChangeListener(themeListener);
+        addWindowListener(new java.awt.event.WindowAdapter() {
+            @Override public void windowClosed(java.awt.event.WindowEvent e) {
+                tm.removeThemeChangeListener(themeListener);
+            }
+        });
+
         initUI();
         cargarVendedores();
         setDefaultDates();
@@ -82,14 +88,14 @@ public class ComisionesFrame extends JFrame {
 
     private void initUI() {
         JPanel root = new JPanel(new BorderLayout());
-        root.setBackground(BG_DARK);
+        root.setBackground(tm.background());
 
         // ═══════════════════════════════════════════════════════════
         //  HEADER & FILTERS
         // ═══════════════════════════════════════════════════════════
         JPanel headerPanel = new JPanel(new MigLayout("insets 16 24 12 24, fillx, wrap 2", "[grow][]", "[]8[]"));
-        headerPanel.setBackground(CARD_BG);
-        headerPanel.setBorder(BorderFactory.createMatteBorder(0, 0, 1, 0, new Color(45, 52, 68)));
+        headerPanel.setBackground(tm.cardBg());
+        headerPanel.setBorder(BorderFactory.createMatteBorder(0, 0, 1, 0, tm.border()));
 
         // Título + Subtítulo
         JPanel titleBox = new JPanel(new MigLayout("insets 0, wrap", "[]", "[]2[]"));
@@ -97,12 +103,12 @@ public class ComisionesFrame extends JFrame {
 
         JLabel lblTitle = new JLabel("💰 Cálculo y Relación de Comisiones");
         lblTitle.setFont(new Font("Segoe UI", Font.BOLD, 20));
-        lblTitle.setForeground(TEXT_PRIMARY);
+        lblTitle.setForeground(tm.textPrimary());
         titleBox.add(lblTitle);
 
         lblSub = new JLabel("Base de Datos: (seleccione fechas) | Reglas por Días Calle y Base sin IVA");
         lblSub.setFont(new Font("Segoe UI", Font.PLAIN, 12));
-        lblSub.setForeground(TEXT_SECONDARY);
+        lblSub.setForeground(tm.textSecondary());
         titleBox.add(lblSub);
 
         headerPanel.add(titleBox, "growx");
@@ -113,8 +119,8 @@ public class ComisionesFrame extends JFrame {
 
         JButton btnExportSel = new JButton("📥 Exportar Vendedor Seleccionado");
         btnExportSel.setFont(new Font("Segoe UI", Font.BOLD, 12));
-        btnExportSel.setBackground(GREEN_ACCENT);
-        btnExportSel.setForeground(new Color(17, 21, 28));
+        btnExportSel.setBackground(tm.greenAccent());
+        btnExportSel.setForeground(tm.btnForegroundFor(tm.greenAccent()));
         btnExportSel.setFocusPainted(false);
         btnExportSel.setCursor(Cursor.getPredefinedCursor(Cursor.HAND_CURSOR));
         btnExportSel.addActionListener(e -> exportarSeleccionado());
@@ -122,7 +128,7 @@ public class ComisionesFrame extends JFrame {
 
         JButton btnExportAll = new JButton("📦 Exportar Todos los Vendedores");
         btnExportAll.setFont(new Font("Segoe UI", Font.BOLD, 12));
-        btnExportAll.setBackground(ACCENT);
+        btnExportAll.setBackground(tm.accent());
         btnExportAll.setForeground(Color.WHITE);
         btnExportAll.setFocusPainted(false);
         btnExportAll.setCursor(Cursor.getPredefinedCursor(Cursor.HAND_CURSOR));
@@ -131,20 +137,30 @@ public class ComisionesFrame extends JFrame {
 
         headerPanel.add(exportBox, "alignx right");
 
+        // Botón de tema
+        JButton btnTema = new JButton(tm.isDark() ? "☀" : "🌙");
+        btnTema.setFont(new Font("Segoe UI Emoji", Font.PLAIN, 14));
+        btnTema.setFocusPainted(false);
+        btnTema.setCursor(Cursor.getPredefinedCursor(Cursor.HAND_CURSOR));
+        btnTema.setBorder(BorderFactory.createEmptyBorder(6, 10, 6, 10));
+        btnTema.setToolTipText("Cambiar tema claro/oscuro");
+        btnTema.addActionListener(e -> tm.toggleTheme());
+        headerPanel.add(btnTema, "alignx right, wrap");
+
         // Barra de filtros (Fechas + Vendedor)
         JPanel filterBar = new JPanel(new MigLayout("insets 12 24 12 24, fillx, gap 12", "[][][][][][][grow][]", "[]"));
-        filterBar.setBackground(BG_DARK);
-        filterBar.setBorder(BorderFactory.createMatteBorder(0, 0, 1, 0, new Color(35, 42, 56)));
+        filterBar.setBackground(tm.background());
+        filterBar.setBorder(BorderFactory.createMatteBorder(0, 0, 1, 0, tm.border()));
 
         JLabel lblDesde = new JLabel("Desde:");
-        lblDesde.setForeground(TEXT_PRIMARY);
+        lblDesde.setForeground(tm.textPrimary());
         filterBar.add(lblDesde);
 
         dpFechaDesde = createStyledDatePicker();
         filterBar.add(dpFechaDesde);
 
         JLabel lblHasta = new JLabel("Hasta:");
-        lblHasta.setForeground(TEXT_PRIMARY);
+        lblHasta.setForeground(tm.textPrimary());
         filterBar.add(lblHasta);
 
         dpFechaHasta = createStyledDatePicker();
@@ -161,7 +177,7 @@ public class ComisionesFrame extends JFrame {
         filterBar.add(btn2QCNA);
 
         JLabel lblVen = new JLabel("Vendedor:");
-        lblVen.setForeground(TEXT_PRIMARY);
+        lblVen.setForeground(tm.textPrimary());
         filterBar.add(lblVen);
 
         cmbVendedor = new JComboBox<>();
@@ -170,7 +186,7 @@ public class ComisionesFrame extends JFrame {
 
         JButton btnProcesar = new JButton("🔍 Procesar");
         btnProcesar.setFont(new Font("Segoe UI", Font.BOLD, 13));
-        btnProcesar.setBackground(ACCENT);
+        btnProcesar.setBackground(tm.accent());
         btnProcesar.setForeground(Color.WHITE);
         btnProcesar.setFocusPainted(false);
         btnProcesar.setCursor(Cursor.getPredefinedCursor(Cursor.HAND_CURSOR));
@@ -233,9 +249,9 @@ public class ComisionesFrame extends JFrame {
                 if (value != null) {
                     String val = value.toString();
                     if (val.contains("Cerrada")) {
-                        if (!isSelected) c.setForeground(GREEN_ACCENT);
+                        if (!isSelected) c.setForeground(tm.greenAccent());
                     } else {
-                        if (!isSelected) c.setForeground(ORANGE_ACCENT);
+                        if (!isSelected) c.setForeground(tm.orangeAccent());
                     }
                 }
                 return c;
@@ -253,14 +269,14 @@ public class ComisionesFrame extends JFrame {
         //  FOOTER / SUMMARY KPIs
         // ═══════════════════════════════════════════════════════════
         JPanel kpiPanel = new JPanel(new MigLayout("insets 12 24 12 24, fillx, gap 24", "[grow][grow][grow][grow][grow]", "[]"));
-        kpiPanel.setBackground(CARD_BG);
-        kpiPanel.setBorder(BorderFactory.createMatteBorder(1, 0, 0, 0, new Color(45, 52, 68)));
+        kpiPanel.setBackground(tm.cardBg());
+        kpiPanel.setBorder(BorderFactory.createMatteBorder(1, 0, 0, 0, tm.border()));
 
-        lblStatRegistros = createKpiCard(kpiPanel, "Registros", "0", TEXT_SECONDARY);
-        lblStatDoc = createKpiCard(kpiPanel, "Monto Documentos", "0,00 Bs.", TEXT_PRIMARY);
-        lblStatCobrado = createKpiCard(kpiPanel, "Monto Cobrado", "0,00 Bs.", TEXT_PRIMARY);
-        lblStatBase = createKpiCard(kpiPanel, "Base Comisión", "0,00 Bs.", ORANGE_ACCENT);
-        lblStatComision = createKpiCard(kpiPanel, "Comisión Ganada", "0,00 Bs.", GREEN_ACCENT);
+        lblStatRegistros = createKpiCard(kpiPanel, "Registros", "0", tm.textSecondary());
+        lblStatDoc = createKpiCard(kpiPanel, "Monto Documentos", "0,00 Bs.", tm.textPrimary());
+        lblStatCobrado = createKpiCard(kpiPanel, "Monto Cobrado", "0,00 Bs.", tm.textPrimary());
+        lblStatBase = createKpiCard(kpiPanel, "Base Comisión", "0,00 Bs.", tm.orangeAccent());
+        lblStatComision = createKpiCard(kpiPanel, "Comisión Ganada", "0,00 Bs.", tm.greenAccent());
 
         root.add(kpiPanel, BorderLayout.SOUTH);
 
@@ -273,15 +289,15 @@ public class ComisionesFrame extends JFrame {
         settings.setAllowEmptyDates(false);
         settings.setFirstDayOfWeek(DayOfWeek.MONDAY);
 
-        settings.setColor(DatePickerSettings.DateArea.TextFieldBackgroundValidDate, new Color(38, 44, 58));
-        settings.setColor(DatePickerSettings.DateArea.DatePickerTextValidDate, TEXT_PRIMARY);
-        settings.setColor(DatePickerSettings.DateArea.CalendarBackgroundNormalDates, CARD_BG);
-        settings.setColor(DatePickerSettings.DateArea.CalendarTextNormalDates, TEXT_PRIMARY);
-        settings.setColor(DatePickerSettings.DateArea.BackgroundOverallCalendarPanel, CARD_BG);
-        settings.setColor(DatePickerSettings.DateArea.BackgroundMonthAndYearMenuLabels, CARD_BG);
-        settings.setColor(DatePickerSettings.DateArea.BackgroundTodayLabel, CARD_BG);
-        settings.setColor(DatePickerSettings.DateArea.BackgroundClearLabel, CARD_BG);
-        settings.setColor(DatePickerSettings.DateArea.CalendarBackgroundSelectedDate, ACCENT);
+        settings.setColor(DatePickerSettings.DateArea.TextFieldBackgroundValidDate, tm.bgField());
+        settings.setColor(DatePickerSettings.DateArea.DatePickerTextValidDate, tm.textPrimary());
+        settings.setColor(DatePickerSettings.DateArea.CalendarBackgroundNormalDates, tm.cardBg());
+        settings.setColor(DatePickerSettings.DateArea.CalendarTextNormalDates, tm.textPrimary());
+        settings.setColor(DatePickerSettings.DateArea.BackgroundOverallCalendarPanel, tm.cardBg());
+        settings.setColor(DatePickerSettings.DateArea.BackgroundMonthAndYearMenuLabels, tm.cardBg());
+        settings.setColor(DatePickerSettings.DateArea.BackgroundTodayLabel, tm.cardBg());
+        settings.setColor(DatePickerSettings.DateArea.BackgroundClearLabel, tm.cardBg());
+        settings.setColor(DatePickerSettings.DateArea.CalendarBackgroundSelectedDate, tm.accent());
 
         settings.setFontValidDate(new Font("Segoe UI", Font.PLAIN, 12));
 
@@ -292,12 +308,12 @@ public class ComisionesFrame extends JFrame {
 
     private JLabel createKpiCard(JPanel parent, String title, String initialVal, Color valColor) {
         JPanel card = new JPanel(new MigLayout("insets 8 12 8 12, wrap", "[]", "[]2[]"));
-        card.setBackground(new Color(24, 28, 38));
-        card.setBorder(BorderFactory.createLineBorder(new Color(45, 52, 68), 1));
+        card.setBackground(tm.bgPanel());
+        card.setBorder(BorderFactory.createLineBorder(tm.border(), 1));
 
         JLabel lblTitle = new JLabel(title);
         lblTitle.setFont(new Font("Segoe UI", Font.PLAIN, 11));
-        lblTitle.setForeground(TEXT_SECONDARY);
+        lblTitle.setForeground(tm.textSecondary());
         card.add(lblTitle);
 
         JLabel lblValue = new JLabel(initialVal);

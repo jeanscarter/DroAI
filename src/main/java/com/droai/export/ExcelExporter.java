@@ -3,6 +3,7 @@ package com.droai.export;
 import com.droai.model.ArticuloImportRow;
 import com.droai.model.ArticuloRow;
 import com.droai.model.CargaMasivaCostosPreciosRow;
+import com.droai.model.ClienteMaestroRow;
 import com.droai.model.ComisionRow;
 import com.droai.model.DescuentoProductoRow;
 import com.droai.model.DescuentoVolumenRow;
@@ -979,6 +980,84 @@ public class ExcelExporter {
             int width = sheet.getColumnWidth(col) + 800;
             sheet.setColumnWidth(col, Math.min(Math.max(width, 2400), 14000));
         }
+    }
+
+    /**
+     * Exporta el Maestro General de Clientes con todos sus campos comerciales, fiscales y logísticos.
+     */
+    public File exportMaestroClientes(List<ClienteMaestroRow> listado) throws IOException {
+        String timestamp = LocalDateTime.now().format(DateTimeFormatter.ofPattern("yyyyMMdd_HHmmss"));
+        File file = new File(System.getProperty("user.dir"), "Maestro_Clientes_" + timestamp + ".xlsx");
+
+        try (XSSFWorkbook wb = new XSSFWorkbook()) {
+            CellStyle headerStyle = createHeaderStyle(wb);
+            CellStyle currencyStyle = createCurrencyStyle(wb);
+
+            Sheet sheet = wb.createSheet("Maestro Clientes");
+            String[] headers = {
+                "Código", "R.I.F", "Nombres / Razón Social", "NIT", "Fecha Registro",
+                "Contribuyente", "Tipo", "País", "Zona", "Ciudad",
+                "Segmento", "Inactivo", "Vendedor", "Cod. Postal", "Cond. de Pago",
+                "Email", "Crédito", "Teléfono", "Límite Crédito ($)", "Ruta",
+                "Tipo de Persona", "Contacto", "Dirección"
+            };
+
+            Row hr = sheet.createRow(0);
+            hr.setHeightInPoints(24);
+            for (int i = 0; i < headers.length; i++) {
+                Cell c = hr.createCell(i);
+                c.setCellValue(headers[i]);
+                c.setCellStyle(headerStyle);
+            }
+
+            int rowIdx = 1;
+            for (ClienteMaestroRow r : listado) {
+                Row row = sheet.createRow(rowIdx++);
+                row.setHeightInPoints(18);
+
+                row.createCell(0).setCellValue(safeStr(r.getCodigo()));
+                row.createCell(1).setCellValue(safeStr(r.getRif()));
+                row.createCell(2).setCellValue(safeStr(r.getNombre()));
+                row.createCell(3).setCellValue(safeStr(r.getNit()));
+                row.createCell(4).setCellValue(safeStr(r.getFechaRegistro()));
+                row.createCell(5).setCellValue(safeStr(r.getContribuyente()));
+                row.createCell(6).setCellValue(safeStr(r.getTipoCliente()));
+                row.createCell(7).setCellValue(safeStr(r.getPais()));
+                row.createCell(8).setCellValue(safeStr(r.getZona()));
+                row.createCell(9).setCellValue(safeStr(r.getCiudad()));
+                row.createCell(10).setCellValue(safeStr(r.getSegmento()));
+                row.createCell(11).setCellValue(safeStr(r.getInactivo()));
+                row.createCell(12).setCellValue(safeStr(r.getVendedor()));
+                row.createCell(13).setCellValue(safeStr(r.getCodPostal()));
+                row.createCell(14).setCellValue(safeStr(r.getCondPago()));
+                row.createCell(15).setCellValue(safeStr(r.getEmail()));
+                row.createCell(16).setCellValue(safeStr(r.getCredito()));
+                row.createCell(17).setCellValue(safeStr(r.getTelefono()));
+
+                Cell cLim = row.createCell(18);
+                cLim.setCellValue(r.getLimiteCredito());
+                cLim.setCellStyle(currencyStyle);
+
+                row.createCell(19).setCellValue(safeStr(r.getRuta()));
+                row.createCell(20).setCellValue(safeStr(r.getTipoPersona()));
+                row.createCell(21).setCellValue(safeStr(r.getContacto()));
+                row.createCell(22).setCellValue(safeStr(r.getDireccion()));
+            }
+
+            sheet.createFreezePane(0, 1);
+
+            // Anchos automáticos
+            for (int col = 0; col < headers.length; col++) {
+                sheet.autoSizeColumn(col);
+                int width = sheet.getColumnWidth(col) + 600;
+                sheet.setColumnWidth(col, Math.min(Math.max(width, 2400), 12000));
+            }
+
+            try (FileOutputStream fos = new FileOutputStream(file)) {
+                wb.write(fos);
+            }
+        }
+        return file;
     }
 }
 

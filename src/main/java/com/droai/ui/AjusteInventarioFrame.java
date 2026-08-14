@@ -62,17 +62,10 @@ public class AjusteInventarioFrame extends JFrame {
     private JTextField txtMotivo;
     private JButton btnProcesar;
 
-    // ── Paleta de colores DroAI Dark System ──
-    private static final Color BG_DARK        = new Color(17, 21, 28);   // #11151C
-    private static final Color BG_PANEL       = new Color(24, 28, 38);   // #181C26
-    private static final Color BG_SECTION     = new Color(30, 35, 46);   // #1E232E
-    private static final Color BG_FIELD       = new Color(38, 44, 58);   // #262C3A
-    private static final Color BORDER_COLOR   = new Color(55, 62, 80);   // #373E50
-    private static final Color ACCENT_BLUE    = new Color(42, 107, 255); // #2A6BFF
-    private static final Color ACCENT_GREEN   = new Color(0, 210, 158);  // #00D29E
-    private static final Color ACCENT_CYAN    = new Color(56, 189, 248); // #38BDF8
-    private static final Color TEXT_PRIMARY   = new Color(248, 250, 252);// #F8FAFC
-    private static final Color TEXT_SECONDARY = new Color(148, 163, 184);// #94A3B8
+    // ── Colores dinámicos vía ThemeManager ──
+    private final ThemeManager tm = ThemeManager.get();
+    // Acento cyan específico de este módulo
+    private Color accentCyan() { return tm.isDark() ? new Color(56, 189, 248) : new Color(14, 165, 233); }
 
     private static final java.util.Set<String> USUARIOS_PERMITIDOS = java.util.Set.of("DV", "JG", "OP", "WM", "CN", "JR");
 
@@ -94,13 +87,25 @@ public class AjusteInventarioFrame extends JFrame {
         setLocationRelativeTo(null);
         setDefaultCloseOperation(JFrame.DISPOSE_ON_CLOSE);
 
+        // ── Listener de tema ──
+        Runnable themeListener = () -> {
+            SwingUtilities.updateComponentTreeUI(this);
+            repaint();
+        };
+        tm.addThemeChangeListener(themeListener);
+        addWindowListener(new java.awt.event.WindowAdapter() {
+            @Override public void windowClosed(java.awt.event.WindowEvent e) {
+                tm.removeThemeChangeListener(themeListener);
+            }
+        });
+
         initUI();
         cargarAlmacenes();
     }
 
     private void initUI() {
         JPanel root = new JPanel(new MigLayout("insets 16, fill, wrap 1", "[grow]", "[]12[]12[grow]"));
-        root.setBackground(BG_DARK);
+        root.setBackground(tm.background());
 
         // 1. Header Bar
         root.add(buildHeaderBar(), "growx");
@@ -113,7 +118,7 @@ public class AjusteInventarioFrame extends JFrame {
         splitPane.setResizeWeight(0.65);
         splitPane.setDividerLocation(750);
         splitPane.setBorder(null);
-        splitPane.setBackground(BG_DARK);
+        splitPane.setBackground(tm.background());
         root.add(splitPane, "grow");
 
         setContentPane(root);
@@ -121,17 +126,17 @@ public class AjusteInventarioFrame extends JFrame {
 
     private JPanel buildHeaderBar() {
         JPanel bar = new JPanel(new MigLayout("insets 10 16, fillx", "[grow][]", "[]"));
-        bar.setBackground(BG_PANEL);
+        bar.setBackground(tm.bgPanel());
         bar.putClientProperty(FlatClientProperties.STYLE, "arc: 12");
 
         JLabel title = new JLabel("Ajustes de Inventario (Entrada / Salida)");
         title.setFont(new Font("Segoe UI", Font.BOLD, 18));
-        title.setForeground(TEXT_PRIMARY);
+        title.setForeground(tm.textPrimary());
 
         JButton btnVolver = new JButton("← Menú Principal");
         btnVolver.setFont(new Font("Segoe UI", Font.BOLD, 12));
-        btnVolver.setBackground(BG_FIELD);
-        btnVolver.setForeground(TEXT_PRIMARY);
+        btnVolver.setBackground(tm.bgField());
+        btnVolver.setForeground(tm.textPrimary());
         btnVolver.setFocusable(false);
         btnVolver.setCursor(Cursor.getPredefinedCursor(Cursor.HAND_CURSOR));
         btnVolver.addActionListener(e -> {
@@ -140,26 +145,37 @@ public class AjusteInventarioFrame extends JFrame {
         });
 
         bar.add(title);
+
+        // Botón de tema
+        JButton btnTema = new JButton(tm.isDark() ? "☀" : "🌙");
+        btnTema.setFont(new Font("Segoe UI Emoji", Font.PLAIN, 14));
+        btnTema.setFocusPainted(false);
+        btnTema.setCursor(Cursor.getPredefinedCursor(Cursor.HAND_CURSOR));
+        btnTema.setBorder(BorderFactory.createEmptyBorder(6, 10, 6, 10));
+        btnTema.setToolTipText("Cambiar tema claro/oscuro");
+        btnTema.addActionListener(e -> tm.toggleTheme());
+        bar.add(btnTema);
+
         bar.add(btnVolver);
         return bar;
     }
 
     private JPanel buildSearchPanel() {
         JPanel panel = new JPanel(new MigLayout("insets 14, fillx, wrap 2", "[grow][]", "[]8[]"));
-        panel.setBackground(BG_SECTION);
+        panel.setBackground(tm.bgSection());
         panel.putClientProperty(FlatClientProperties.STYLE, "arc: 12");
 
         txtBusqueda = new JTextField();
         txtBusqueda.putClientProperty(FlatClientProperties.PLACEHOLDER_TEXT, "🔍 Buscar por Código, Descripción, Marca o Código de Barras...");
         txtBusqueda.setFont(new Font("Segoe UI", Font.PLAIN, 14));
-        txtBusqueda.setBackground(BG_FIELD);
-        txtBusqueda.setForeground(TEXT_PRIMARY);
-        txtBusqueda.setCaretColor(TEXT_PRIMARY);
+        txtBusqueda.setBackground(tm.bgField());
+        txtBusqueda.setForeground(tm.textPrimary());
+        txtBusqueda.setCaretColor(tm.textPrimary());
         txtBusqueda.addActionListener(e -> buscarProductos());
 
         JButton btnBuscar = new JButton("Buscar");
         btnBuscar.setFont(new Font("Segoe UI", Font.BOLD, 13));
-        btnBuscar.setBackground(ACCENT_BLUE);
+        btnBuscar.setBackground(tm.accent());
         btnBuscar.setForeground(Color.WHITE);
         btnBuscar.setCursor(Cursor.getPredefinedCursor(Cursor.HAND_CURSOR));
         btnBuscar.addActionListener(e -> buscarProductos());
@@ -187,8 +203,8 @@ public class AjusteInventarioFrame extends JFrame {
 
         JScrollPane scrollBusqueda = new JScrollPane(tblBusqueda);
         scrollBusqueda.setPreferredSize(new Dimension(0, 110));
-        scrollBusqueda.getViewport().setBackground(BG_PANEL);
-        scrollBusqueda.setBorder(BorderFactory.createLineBorder(BORDER_COLOR, 1));
+        scrollBusqueda.getViewport().setBackground(tm.bgPanel());
+        scrollBusqueda.setBorder(BorderFactory.createLineBorder(tm.border(), 1));
         panel.add(scrollBusqueda, "span 2, growx");
 
         return panel;
@@ -204,8 +220,8 @@ public class AjusteInventarioFrame extends JFrame {
         // Pestañas Desglose (Almacén vs Lote)
         tabbedPaneDesglose = new JTabbedPane();
         tabbedPaneDesglose.setFont(new Font("Segoe UI", Font.BOLD, 13));
-        tabbedPaneDesglose.setBackground(BG_SECTION);
-        tabbedPaneDesglose.setForeground(TEXT_PRIMARY);
+        tabbedPaneDesglose.setBackground(tm.bgSection());
+        tabbedPaneDesglose.setForeground(tm.textPrimary());
 
         // Tab 1: Stock por Almacén
         String[] colsAlma = {"Cód. Almacén", "Nombre Almacén", "Stock Actual"};
@@ -224,8 +240,8 @@ public class AjusteInventarioFrame extends JFrame {
             }
         });
         JScrollPane scrollAlma = new JScrollPane(tblStockAlmacen);
-        scrollAlma.getViewport().setBackground(BG_PANEL);
-        scrollAlma.setBorder(BorderFactory.createLineBorder(BORDER_COLOR, 1));
+        scrollAlma.getViewport().setBackground(tm.bgPanel());
+        scrollAlma.setBorder(BorderFactory.createLineBorder(tm.border(), 1));
         tabbedPaneDesglose.addTab("  Stock por Almacén  ", scrollAlma);
 
         // Tab 2: Stock por Lote y Vencimiento
@@ -254,8 +270,8 @@ public class AjusteInventarioFrame extends JFrame {
             }
         });
         JScrollPane scrollLote = new JScrollPane(tblStockLote);
-        scrollLote.getViewport().setBackground(BG_PANEL);
-        scrollLote.setBorder(BorderFactory.createLineBorder(BORDER_COLOR, 1));
+        scrollLote.getViewport().setBackground(tm.bgPanel());
+        scrollLote.setBorder(BorderFactory.createLineBorder(tm.border(), 1));
         tabbedPaneDesglose.addTab("  Stock por Lote y Vencimiento  ", scrollLote);
 
         left.add(tabbedPaneDesglose, "grow");
@@ -264,7 +280,7 @@ public class AjusteInventarioFrame extends JFrame {
 
     private JPanel buildSummaryCards() {
         JPanel panel = new JPanel(new MigLayout("insets 14, fillx", "[grow 1.5][grow 1][grow 1][grow 1.2]", "[]"));
-        panel.setBackground(BG_SECTION);
+        panel.setBackground(tm.bgSection());
         panel.putClientProperty(FlatClientProperties.STYLE, "arc: 12");
 
         // Info Producto
@@ -272,27 +288,27 @@ public class AjusteInventarioFrame extends JFrame {
         pnlProd.setOpaque(false);
         lblHeaderCodigo = new JLabel("SELECCIONE UN PRODUCTO");
         lblHeaderCodigo.setFont(new Font("Segoe UI", Font.BOLD, 14));
-        lblHeaderCodigo.setForeground(ACCENT_CYAN);
+        lblHeaderCodigo.setForeground(accentCyan());
         lblHeaderDescripcion = new JLabel("Utilice el buscador para cargar existencias");
         lblHeaderDescripcion.setFont(new Font("Segoe UI", Font.PLAIN, 12));
-        lblHeaderDescripcion.setForeground(TEXT_PRIMARY);
+        lblHeaderDescripcion.setForeground(tm.textPrimary());
         lblHeaderMarca = new JLabel("");
         lblHeaderMarca.setFont(new Font("Segoe UI", Font.ITALIC, 11));
-        lblHeaderMarca.setForeground(TEXT_SECONDARY);
+        lblHeaderMarca.setForeground(tm.textSecondary());
         pnlProd.add(lblHeaderCodigo);
         pnlProd.add(lblHeaderDescripcion);
         pnlProd.add(lblHeaderMarca);
 
         // Card Stock Total
-        JPanel cardStock = createMetricCard("Stock Total", "0", ACCENT_GREEN);
+        JPanel cardStock = createMetricCard("Stock Total", "0", tm.greenAccent());
         lblValStockTotal = (JLabel) cardStock.getComponent(1);
 
         // Card Costo Actual
-        JPanel cardCosto = createMetricCard("Costo Actual ($)", "$ 0.00", TEXT_PRIMARY);
+        JPanel cardCosto = createMetricCard("Costo Actual ($)", "$ 0.00", tm.textPrimary());
         lblValCosto = (JLabel) cardCosto.getComponent(1);
 
         // Card Precio Venta
-        JPanel cardPrecio = createMetricCard("Precio Venta (S/IVA | C/IVA)", "$ 0.00 | $ 0.00", ACCENT_CYAN);
+        JPanel cardPrecio = createMetricCard("Precio Venta (S/IVA | C/IVA)", "$ 0.00 | $ 0.00", accentCyan());
         lblValPrecio = (JLabel) cardPrecio.getComponent(1);
         lblValPrecio.setFont(new Font("Segoe UI", Font.BOLD, 13));
 
@@ -306,12 +322,12 @@ public class AjusteInventarioFrame extends JFrame {
 
     private JPanel createMetricCard(String title, String val, Color color) {
         JPanel card = new JPanel(new MigLayout("insets 10, wrap 1", "[grow]", "[]4[]"));
-        card.setBackground(BG_FIELD);
+        card.setBackground(tm.bgField());
         card.putClientProperty(FlatClientProperties.STYLE, "arc: 8");
 
         JLabel lblTitle = new JLabel(title);
         lblTitle.setFont(new Font("Segoe UI", Font.BOLD, 11));
-        lblTitle.setForeground(TEXT_SECONDARY);
+        lblTitle.setForeground(tm.textSecondary());
 
         JLabel lblVal = new JLabel(val);
         lblVal.setFont(new Font("Segoe UI", Font.BOLD, 17));
@@ -324,12 +340,12 @@ public class AjusteInventarioFrame extends JFrame {
 
     private JPanel buildRightPanel() {
         JPanel panel = new JPanel(new MigLayout("insets 18, fillx, wrap 2", "[130!][grow]", "[]14[]14[]14[]14[]14[]22[]"));
-        panel.setBackground(BG_SECTION);
+        panel.setBackground(tm.bgSection());
         panel.putClientProperty(FlatClientProperties.STYLE, "arc: 12");
 
         JLabel title = new JLabel("Procesar Ajuste");
         title.setFont(new Font("Segoe UI", Font.BOLD, 16));
-        title.setForeground(TEXT_PRIMARY);
+        title.setForeground(tm.textPrimary());
         panel.add(title, "span 2, wrap");
 
         // Tipo de Movimiento
@@ -338,8 +354,8 @@ public class AjusteInventarioFrame extends JFrame {
         rbSalida = new JRadioButton("Salida por Ajuste (SA)", false);
         rbEntrada.setOpaque(false);
         rbSalida.setOpaque(false);
-        rbEntrada.setForeground(TEXT_PRIMARY);
-        rbSalida.setForeground(TEXT_PRIMARY);
+        rbEntrada.setForeground(tm.textPrimary());
+        rbSalida.setForeground(tm.textPrimary());
         rbEntrada.setFont(new Font("Segoe UI", Font.PLAIN, 13));
         rbSalida.setFont(new Font("Segoe UI", Font.PLAIN, 13));
 
@@ -357,8 +373,8 @@ public class AjusteInventarioFrame extends JFrame {
         panel.add(createFormLabel("Almacén:"));
         cmbAlmacen = new JComboBox<>();
         cmbAlmacen.setFont(new Font("Segoe UI", Font.PLAIN, 13));
-        cmbAlmacen.setBackground(BG_FIELD);
-        cmbAlmacen.setForeground(TEXT_PRIMARY);
+        cmbAlmacen.setBackground(tm.bgField());
+        cmbAlmacen.setForeground(tm.textPrimary());
         cmbAlmacen.setRenderer(new DefaultListCellRenderer() {
             @Override
             public Component getListCellRendererComponent(JList<?> list, Object value, int index, boolean isSelected, boolean cellHasFocus) {
@@ -366,8 +382,8 @@ public class AjusteInventarioFrame extends JFrame {
                 if (value instanceof StockAlmacenRow row) {
                     setText(row.getCoAlma() + " - " + row.getDesAlma());
                 }
-                setBackground(isSelected ? ACCENT_BLUE : BG_FIELD);
-                setForeground(isSelected ? Color.WHITE : TEXT_PRIMARY);
+                setBackground(isSelected ? tm.accent() : tm.bgField());
+                setForeground(isSelected ? Color.WHITE : tm.textPrimary());
                 return this;
             }
         });
@@ -378,9 +394,9 @@ public class AjusteInventarioFrame extends JFrame {
         txtLote = new JTextField();
         txtLote.putClientProperty(FlatClientProperties.PLACEHOLDER_TEXT, "Seleccione en la tabla o escriba el lote...");
         txtLote.setFont(new Font("Segoe UI", Font.PLAIN, 13));
-        txtLote.setBackground(BG_FIELD);
-        txtLote.setForeground(TEXT_PRIMARY);
-        txtLote.setCaretColor(TEXT_PRIMARY);
+        txtLote.setBackground(tm.bgField());
+        txtLote.setForeground(tm.textPrimary());
+        txtLote.setCaretColor(tm.textPrimary());
         panel.add(txtLote, "growx, h 34!");
 
         // F. Vencimiento
@@ -388,18 +404,18 @@ public class AjusteInventarioFrame extends JFrame {
         txtFechaVencimiento = new JTextField();
         txtFechaVencimiento.putClientProperty(FlatClientProperties.PLACEHOLDER_TEXT, "dd/mm/yyyy (ej: 31/12/2026)");
         txtFechaVencimiento.setFont(new Font("Segoe UI", Font.PLAIN, 13));
-        txtFechaVencimiento.setBackground(BG_FIELD);
-        txtFechaVencimiento.setForeground(TEXT_PRIMARY);
-        txtFechaVencimiento.setCaretColor(TEXT_PRIMARY);
+        txtFechaVencimiento.setBackground(tm.bgField());
+        txtFechaVencimiento.setForeground(tm.textPrimary());
+        txtFechaVencimiento.setCaretColor(tm.textPrimary());
         panel.add(txtFechaVencimiento, "growx, h 34!");
 
         // Cantidad
         panel.add(createFormLabel("Cantidad:"));
         txtCantidad = new JTextField("1.0");
         txtCantidad.setFont(new Font("Segoe UI", Font.BOLD, 14));
-        txtCantidad.setBackground(BG_FIELD);
-        txtCantidad.setForeground(TEXT_PRIMARY);
-        txtCantidad.setCaretColor(TEXT_PRIMARY);
+        txtCantidad.setBackground(tm.bgField());
+        txtCantidad.setForeground(tm.textPrimary());
+        txtCantidad.setCaretColor(tm.textPrimary());
         panel.add(txtCantidad, "growx, h 34!");
 
         // Costo Unitario
@@ -408,13 +424,13 @@ public class AjusteInventarioFrame extends JFrame {
         pnlCosto.setOpaque(false);
         txtCosto = new JTextField("0.00");
         txtCosto.setFont(new Font("Segoe UI", Font.BOLD, 13));
-        txtCosto.setBackground(BG_FIELD);
-        txtCosto.setForeground(TEXT_PRIMARY);
-        txtCosto.setCaretColor(TEXT_PRIMARY);
+        txtCosto.setBackground(tm.bgField());
+        txtCosto.setForeground(tm.textPrimary());
+        txtCosto.setCaretColor(tm.textPrimary());
 
         lblInfoPrecioVta = new JLabel("Ref. Precio S/IVA: $ 0.00 | C/IVA: $ 0.00");
         lblInfoPrecioVta.setFont(new Font("Segoe UI", Font.PLAIN, 11));
-        lblInfoPrecioVta.setForeground(ACCENT_CYAN);
+        lblInfoPrecioVta.setForeground(accentCyan());
 
         pnlCosto.add(txtCosto, "growx, h 34!");
         pnlCosto.add(lblInfoPrecioVta, "growx");
@@ -425,16 +441,16 @@ public class AjusteInventarioFrame extends JFrame {
         txtMotivo = new JTextField();
         txtMotivo.putClientProperty(FlatClientProperties.PLACEHOLDER_TEXT, "Justificación del ajuste...");
         txtMotivo.setFont(new Font("Segoe UI", Font.PLAIN, 13));
-        txtMotivo.setBackground(BG_FIELD);
-        txtMotivo.setForeground(TEXT_PRIMARY);
-        txtMotivo.setCaretColor(TEXT_PRIMARY);
+        txtMotivo.setBackground(tm.bgField());
+        txtMotivo.setForeground(tm.textPrimary());
+        txtMotivo.setCaretColor(tm.textPrimary());
         panel.add(txtMotivo, "growx, h 34!");
 
         // Botón Procesar
         btnProcesar = new JButton("✔ Procesar Ajuste");
         btnProcesar.setFont(new Font("Segoe UI", Font.BOLD, 14));
-        btnProcesar.setBackground(ACCENT_GREEN);
-        btnProcesar.setForeground(new Color(15, 23, 42)); // Texto oscuro contrastado sobre fondo verde esmeralda
+        btnProcesar.setBackground(tm.greenAccent());
+        btnProcesar.setForeground(tm.btnForegroundFor(tm.greenAccent()));
         btnProcesar.setCursor(Cursor.getPredefinedCursor(Cursor.HAND_CURSOR));
         btnProcesar.addActionListener(e -> procesarAjuste());
 
@@ -446,7 +462,7 @@ public class AjusteInventarioFrame extends JFrame {
     private JLabel createFormLabel(String text) {
         JLabel lbl = new JLabel(text);
         lbl.setFont(new Font("Segoe UI", Font.BOLD, 12));
-        lbl.setForeground(TEXT_SECONDARY);
+        lbl.setForeground(tm.textSecondary());
         return lbl;
     }
 
@@ -454,15 +470,15 @@ public class AjusteInventarioFrame extends JFrame {
         JTable table = new JTable(model);
         table.setRowHeight(28);
         table.setFont(new Font("Segoe UI", Font.PLAIN, 12));
-        table.setBackground(BG_PANEL);
-        table.setForeground(TEXT_PRIMARY);
-        table.setSelectionBackground(ACCENT_BLUE);
+        table.setBackground(tm.bgPanel());
+        table.setForeground(tm.textPrimary());
+        table.setSelectionBackground(tm.accent());
         table.setSelectionForeground(Color.WHITE);
-        table.setGridColor(BORDER_COLOR);
+        table.setGridColor(tm.border());
 
         table.getTableHeader().setFont(new Font("Segoe UI", Font.BOLD, 12));
-        table.getTableHeader().setBackground(BG_FIELD);
-        table.getTableHeader().setForeground(TEXT_PRIMARY);
+        table.getTableHeader().setBackground(tm.bgField());
+        table.getTableHeader().setForeground(tm.textPrimary());
         table.setAutoCreateRowSorter(true);
 
         DefaultTableCellRenderer rightRenderer = new DefaultTableCellRenderer();

@@ -9,6 +9,8 @@ import javax.swing.*;
 import java.awt.*;
 import java.awt.event.MouseAdapter;
 import java.awt.event.MouseEvent;
+import java.awt.event.WindowAdapter;
+import java.awt.event.WindowEvent;
 
 /**
  * Dashboard Administrativo Principal — punto de entrada tras la autenticación.
@@ -23,20 +25,15 @@ import java.awt.event.MouseEvent;
  * </ul>
  *
  * <p>
- * Hereda la paleta de colores del sistema FlatLaf Dark configurada en
- * {@code App.java}.
+ * Colores gestionados dinámicamente por {@link ThemeManager} para soportar
+ * tema claro/oscuro.
  */
 public class AdminDashboardFrame extends JFrame {
 
-    // ── Paleta heredada del sistema ──
-    private static final Color BG_DARK = new Color(17, 21, 28);
-    private static final Color CARD_BG = new Color(30, 35, 46);
-    private static final Color CARD_HOVER = new Color(38, 44, 58);
-    private static final Color ACCENT = new Color(42, 107, 255);
-    private static final Color GREEN_ACCENT = new Color(0, 210, 158);
-    private static final Color ORANGE_ACCENT = new Color(245, 158, 11);
-    private static final Color TEXT_PRIMARY = new Color(248, 250, 252);
-    private static final Color TEXT_SECONDARY = new Color(148, 163, 184);
+    private final ThemeManager tm = ThemeManager.get();
+
+    // ── Listener para repintar al cambiar tema ──
+    private final Runnable themeListener;
 
     public AdminDashboardFrame() {
         setTitle("DroAI — Menú Principal Administrativo");
@@ -53,17 +50,38 @@ public class AdminDashboardFrame extends JFrame {
 
         Toast.setParentFrame(this);
 
+        buildUI();
+
+        // Registrar listener de tema
+        themeListener = this::rebuildUI;
+        tm.addThemeChangeListener(themeListener);
+
+        addWindowListener(new WindowAdapter() {
+            @Override
+            public void windowClosed(WindowEvent e) {
+                tm.removeThemeChangeListener(themeListener);
+            }
+        });
+    }
+
+    private void rebuildUI() {
+        buildUI();
+        revalidate();
+        repaint();
+    }
+
+    private void buildUI() {
         // ── Root panel con gradiente ──
         JPanel root = new JPanel(new BorderLayout()) {
             @Override
             protected void paintComponent(Graphics g) {
                 Graphics2D g2 = (Graphics2D) g.create();
                 g2.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
-                g2.setColor(BG_DARK);
+                g2.setColor(tm.background());
                 g2.fillRect(0, 0, getWidth(), getHeight());
                 // Gradiente superior sutil
-                g2.setPaint(new GradientPaint(0, 0, new Color(42, 107, 255, 25),
-                        0, 220, new Color(42, 107, 255, 0)));
+                g2.setPaint(new GradientPaint(0, 0, tm.gradientTop(),
+                        0, 220, tm.gradientBottom()));
                 g2.fillRect(0, 0, getWidth(), 220);
                 g2.dispose();
             }
@@ -96,43 +114,58 @@ public class AdminDashboardFrame extends JFrame {
         titleTexts.setOpaque(false);
         JLabel lblTitle = new JLabel("Menú Principal Administrativo");
         lblTitle.setFont(new Font("Segoe UI", Font.BOLD, 22));
-        lblTitle.setForeground(TEXT_PRIMARY);
+        lblTitle.setForeground(tm.textPrimary());
         titleTexts.add(lblTitle);
 
         JLabel lblSubtitle = new JLabel("DroAI — Sistema de Gestión Integral");
         lblSubtitle.setFont(new Font("Segoe UI", Font.PLAIN, 12));
-        lblSubtitle.setForeground(TEXT_SECONDARY);
+        lblSubtitle.setForeground(tm.textSecondary());
         titleTexts.add(lblSubtitle);
 
         titleGroup.add(titleTexts);
         header.add(titleGroup);
 
-        // Info de sesión
+        // Info de sesión + Botón de tema
+        JPanel rightPanel = new JPanel(new MigLayout("insets 0, wrap, gap 0, alignx right", "[right]", "[]8[]"));
+        rightPanel.setOpaque(false);
+
+        // Botón de cambio de tema
+        JButton btnTema = new JButton(tm.isDark() ? "☀ Claro" : "🌙 Oscuro");
+        btnTema.setFont(new Font("Segoe UI Emoji", Font.BOLD, 11));
+        btnTema.setFocusPainted(false);
+        btnTema.setCursor(Cursor.getPredefinedCursor(Cursor.HAND_CURSOR));
+        btnTema.setBackground(tm.cardBg());
+        btnTema.setForeground(tm.textPrimary());
+        btnTema.setBorder(BorderFactory.createCompoundBorder(
+                BorderFactory.createLineBorder(tm.border(), 1),
+                BorderFactory.createEmptyBorder(6, 14, 6, 14)));
+        btnTema.addActionListener(e -> tm.toggleTheme());
+        rightPanel.add(btnTema);
+
         JPanel sessionInfo = new JPanel(new MigLayout("insets 0, wrap, gap 0, alignx right", "[right]", "[]2[]2[]"));
         sessionInfo.setOpaque(false);
         if (SesionUsuario.isAutenticado()) {
             SesionUsuario s = SesionUsuario.current();
             JLabel lblUser = new JLabel("👤 " + s.getNombreUsuario() + " (" + s.getCoUsuario() + ")");
             lblUser.setFont(new Font("Segoe UI Emoji", Font.BOLD, 12));
-            lblUser.setForeground(TEXT_PRIMARY);
+            lblUser.setForeground(tm.textPrimary());
             sessionInfo.add(lblUser);
 
             JLabel lblNivel = new JLabel(s.getNivelDescripcion());
             lblNivel.setFont(new Font("Segoe UI", Font.PLAIN, 11));
-            lblNivel.setForeground(GREEN_ACCENT);
+            lblNivel.setForeground(tm.greenAccent());
             sessionInfo.add(lblNivel);
 
             JLabel lblMaquina = new JLabel("🖥 " + s.getMaquina());
             lblMaquina.setFont(new Font("Segoe UI Emoji", Font.PLAIN, 10));
-            lblMaquina.setForeground(TEXT_SECONDARY);
+            lblMaquina.setForeground(tm.textSecondary());
             sessionInfo.add(lblMaquina);
         }
-        header.add(sessionInfo);
+        rightPanel.add(sessionInfo);
+
+        header.add(rightPanel);
 
         root.add(header, BorderLayout.NORTH);
-
-        // ── Paleta y Acentos ──
-        Color TEAL_ACCENT = new Color(0, 168, 157);
 
         // ═══════════════════════════════════════════════════════════
         // CONTENT — Cards Grid
@@ -148,39 +181,47 @@ public class AdminDashboardFrame extends JFrame {
                 "📊",
                 "Gestión de Precios y Descuentos",
                 "Listado de precios, Descuentos por Volumen (DV),\nDescuento por Producto (DP/DA), Importación masiva.",
-                ACCENT,
+                tm.accent(),
                 this::abrirGestionPrecios), "grow");
 
-        // ── Tarjeta 2: Monitor Situacional ──
+        // ── Tarjeta 2: Gestión Comercial ──
+        content.add(createModuleCard(
+                "💼",
+                "Gestión Comercial",
+                "Análisis de ventas por valores y unidades,\nfiltros por Mes, Vendedor, Zona, Proveedor y Cliente.",
+                tm.tealAccent(),
+                this::abrirGestionComercial), "grow");
+
+        // ── Tarjeta 3: Monitor Situacional ──
         content.add(createModuleCard(
                 "📈",
                 "Monitor Situacional",
                 "Reportes de ventas, indicadores KPI,\nagrupaciones por alícuota y exportación.",
-                GREEN_ACCENT,
+                tm.greenAccent(),
                 this::abrirMonitorSituacional), "grow");
 
-        // ── Tarjeta 3: Ajustes de Inventario (NUEVO) ──
+        // ── Tarjeta 4: Ajustes de Inventario ──
         content.add(createModuleCard(
                 "📦",
                 "Ajustes de Inventario",
                 "Ajustes de Entrada y Salida, stock total por almacén,\ndesglose por lote y fecha de vencimiento.",
-                TEAL_ACCENT,
+                tm.tealAccent(),
                 this::abrirAjustesInventario), "grow");
 
-        // ── Tarjeta 4: Cálculo de Comisiones (Protegido por Clave) ──
+        // ── Tarjeta 5: Cálculo de Comisiones ──
         content.add(createModuleCard(
                 "💰",
                 "Cálculo de Comisiones",
                 "Relación quincenal por vendedor, reglas por días calle,\nbase sin IVA y exportación oficial Excel.",
-                new Color(168, 85, 247), // Color Púrpura / Lila Acento
+                tm.purpleAccent(),
                 this::abrirCalculoComisiones), "grow");
 
-        // ── Tarjeta 5: Auditoría y Usuarios ──
+        // ── Tarjeta 6: Auditoría y Usuarios ──
         content.add(createModuleCard(
                 "👥",
                 "Auditoría y Usuarios",
                 "Gestión de usuarios, control de acceso,\nhistorial de operaciones. (Próximamente)",
-                ORANGE_ACCENT,
+                tm.orangeAccent(),
                 null // Placeholder — módulo futuro
         ), "grow");
 
@@ -194,13 +235,13 @@ public class AdminDashboardFrame extends JFrame {
 
         JLabel lblVersion = new JLabel("DroAI v1.0 — Sistema Administrativo");
         lblVersion.setFont(new Font("Segoe UI", Font.PLAIN, 10));
-        lblVersion.setForeground(TEXT_SECONDARY);
+        lblVersion.setForeground(tm.textSecondary());
         footer.add(lblVersion);
 
         if (SesionUsuario.isAutenticado()) {
             JLabel lblFooterMachine = new JLabel("Estación: " + SesionUsuario.current().getMaquina());
             lblFooterMachine.setFont(new Font("Segoe UI", Font.PLAIN, 10));
-            lblFooterMachine.setForeground(TEXT_SECONDARY);
+            lblFooterMachine.setForeground(tm.textSecondary());
             footer.add(lblFooterMachine);
         }
 
@@ -219,7 +260,7 @@ public class AdminDashboardFrame extends JFrame {
     private JPanel createModuleCard(String icon, String title, String description,
             Color accentColor, Runnable onClickAction) {
         RoundedPanel card = new RoundedPanel(16, true);
-        card.setBackground(CARD_BG);
+        card.setBackground(tm.cardBg());
         card.setLayout(new MigLayout("insets 28 24 24 24, wrap, gap 8", "[grow, center]", ""));
         card.setCursor(onClickAction != null
                 ? Cursor.getPredefinedCursor(Cursor.HAND_CURSOR)
@@ -239,14 +280,14 @@ public class AdminDashboardFrame extends JFrame {
         // Título
         JLabel lblTitle = new JLabel("<html><center>" + title + "</center></html>");
         lblTitle.setFont(new Font("Segoe UI", Font.BOLD, 16));
-        lblTitle.setForeground(TEXT_PRIMARY);
+        lblTitle.setForeground(tm.textPrimary());
         lblTitle.setHorizontalAlignment(SwingConstants.CENTER);
         card.add(lblTitle, "center, gapbottom 4");
 
         // Descripción
         JLabel lblDesc = new JLabel("<html><center>" + description.replace("\n", "<br>") + "</center></html>");
         lblDesc.setFont(new Font("Segoe UI", Font.PLAIN, 11));
-        lblDesc.setForeground(TEXT_SECONDARY);
+        lblDesc.setForeground(tm.textSecondary());
         lblDesc.setHorizontalAlignment(SwingConstants.CENTER);
         card.add(lblDesc, "center, gapbottom 16");
 
@@ -255,9 +296,7 @@ public class AdminDashboardFrame extends JFrame {
             JButton btnAcceder = new JButton("Acceder →");
             btnAcceder.setFont(new Font("Segoe UI", Font.BOLD, 12));
             btnAcceder.setBackground(accentColor);
-            btnAcceder.setForeground(accentColor.equals(GREEN_ACCENT) || accentColor.equals(ORANGE_ACCENT)
-                    ? new Color(17, 21, 28)
-                    : Color.WHITE);
+            btnAcceder.setForeground(tm.btnForegroundFor(accentColor));
             btnAcceder.setFocusPainted(false);
             btnAcceder.setCursor(Cursor.getPredefinedCursor(Cursor.HAND_CURSOR));
             btnAcceder.setBorder(BorderFactory.createEmptyBorder(10, 28, 10, 28));
@@ -266,7 +305,7 @@ public class AdminDashboardFrame extends JFrame {
         } else {
             JLabel lblProximamente = new JLabel("Próximamente");
             lblProximamente.setFont(new Font("Segoe UI", Font.ITALIC, 11));
-            lblProximamente.setForeground(new Color(100, 110, 130));
+            lblProximamente.setForeground(tm.textLabel());
             card.add(lblProximamente, "center");
         }
 
@@ -275,13 +314,13 @@ public class AdminDashboardFrame extends JFrame {
             card.addMouseListener(new MouseAdapter() {
                 @Override
                 public void mouseEntered(MouseEvent e) {
-                    card.setBackground(CARD_HOVER);
+                    card.setBackground(tm.cardHover());
                     card.repaint();
                 }
 
                 @Override
                 public void mouseExited(MouseEvent e) {
-                    card.setBackground(CARD_BG);
+                    card.setBackground(tm.cardBg());
                     card.repaint();
                 }
 
@@ -354,6 +393,16 @@ public class AdminDashboardFrame extends JFrame {
 
         SwingUtilities.invokeLater(() -> {
             AjusteInventarioFrame frame = new AjusteInventarioFrame();
+            frame.setVisible(true);
+        });
+    }
+
+    /**
+     * Abre el módulo de Gestión Comercial.
+     */
+    private void abrirGestionComercial() {
+        SwingUtilities.invokeLater(() -> {
+            GestionComercialFrame frame = new GestionComercialFrame();
             frame.setVisible(true);
         });
     }
