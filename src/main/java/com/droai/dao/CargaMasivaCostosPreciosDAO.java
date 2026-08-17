@@ -60,9 +60,11 @@ public class CargaMasivaCostosPreciosDAO {
 
         String sqlArticulo = """
                 SELECT a.co_art, ISNULL(a.art_des, '') AS descripcion, a.rowguid,
+                       ISNULL(a.prec_om, 0) AS precOmArticulo,
                        ISNULL(ce.costo, 0) AS costoActual,
                        ISNULL(p1.monto, 0) AS precio1MontoActual,
-                       ISNULL(p1.precioOm, 0) AS precio1OmActual
+                       ISNULL(p1.precioOm, 0) AS precio1OmActual,
+                       ISNULL(p1.co_mone, '') AS coMoneActual
                 FROM saArticulo a
                 LEFT JOIN (
                     SELECT cod_articulo_rowguid, costo
@@ -78,9 +80,9 @@ public class CargaMasivaCostosPreciosDAO {
                     WHERE rn = 1
                 ) ce ON a.rowguid = ce.cod_articulo_rowguid
                 LEFT JOIN (
-                    SELECT co_art, monto, CAST(precioOm AS int) AS precioOm
+                    SELECT co_art, monto, CAST(precioOm AS int) AS precioOm, RTRIM(ISNULL(co_mone, '')) AS co_mone
                     FROM (
-                        SELECT co_art, monto, ISNULL(precioOm, 0) AS precioOm,
+                        SELECT co_art, monto, ISNULL(precioOm, 0) AS precioOm, co_mone,
                                ROW_NUMBER() OVER (PARTITION BY co_art ORDER BY desde DESC) AS rn
                         FROM saArtPrecio
                         WHERE co_precio = '01'
@@ -121,20 +123,27 @@ public class CargaMasivaCostosPreciosDAO {
                         double cUsd = rs.getDouble("costoActual");
                         double pMonto = rs.getDouble("precio1MontoActual");
                         int pOm = rs.getInt("precio1OmActual");
+                        int precOmArt = rs.getInt("precOmArticulo");
+                        String coMone = rs.getString("coMoneActual") != null ? rs.getString("coMoneActual").trim() : "";
 
-                        // Interpretar el precio según precioOm:
-                        // precioOm = 1 → monto está en USD directamente
-                        // precioOm = 0 → monto está en Bs, hay que dividir por tasa para obtener USD
+                        // Evaluación completa de Factor Indexado y Moneda:
+                        // 1) Si co_mone es 'USD' o contiene '$', o precioOm=1, o prec_om=1 en saArticulo -> es Factor Indexado (USD)
+                        // 2) De lo contrario -> es en Bolívares (Bs)
+                        boolean isIndexado = coMone.equalsIgnoreCase("USD") || coMone.contains("$") || pOm == 1 || precOmArt == 1;
+
                         double pUsd;
-                        boolean enBs = (pOm == 0);
-                        if (pOm == 1 && pMonto > 0) {
-                            // precioOm=1: monto ya está en USD
+                        double pBs;
+                        if (isIndexado && pMonto > 0) {
+                            // Con Factor Indexado (USD): monto en BD es en USD directamente
                             pUsd = pMonto;
-                        } else if (pOm == 0 && pMonto > 0 && tasaUsd > 0) {
-                            // precioOm=0: monto está en Bs → convertir a USD
+                            pBs = pMonto * tasaUsd;
+                        } else if (!isIndexado && pMonto > 0 && tasaUsd > 0) {
+                            // Sin Factor Indexado (Bs): monto en BD es en Bolívares
+                            pBs = pMonto;
                             pUsd = pMonto / tasaUsd;
                         } else {
                             pUsd = 0.0;
+                            pBs = 0.0;
                         }
 
                         row.setCostoActualUsd(cUsd);
@@ -142,21 +151,23 @@ public class CargaMasivaCostosPreciosDAO {
                         row.setCostoRawBd(cUsd);
 
                         row.setPrecio1ActualUsd(pUsd);
-                        row.setPrecio1ActualBs(pUsd * tasaUsd);
+                        row.setPrecio1ActualBs(pBs);
                         row.setPrecio1MontoRawBd(pMonto);
                         row.setPrecioOmActual(pOm);
-                        row.setPrecioEnBsDetectado(enBs);
+                        row.setCoMoneActual(coMone.isBlank() ? (isIndexado ? "USD" : "BS") : coMone);
+                        row.setFactorIndexadoActual(isIndexado);
+                        row.setPrecioEnBsDetectado(!isIndexado);
 
                         if (row.tieneCambios()) {
                             row.setValido(true);
-                            if (enBs) {
+                            if (!isIndexado) {
                                 row.setEstado("⚠️ Precio en Bs → se corregirá a USD");
                             } else {
                                 row.setEstado("✔ Listo para actualizar");
                             }
                         } else {
                             row.setValido(true);
-                            if (enBs) {
+                            if (!isIndexado) {
                                 row.setEstado("⚠️ Precio en Bs → se corregirá a USD");
                             } else {
                                 row.setEstado("⚠️ Sin cambios detectados");
@@ -206,25 +217,26 @@ public class CargaMasivaCostosPreciosDAO {
 
         String sqlUpdateCostoArticulo = """
                 UPDATE saArticulo
-                SET prec_om = ?, co_us_mo = ?, fe_us_mo = GETDATE()
+                SET prec_om = 1, co_us_mo = ?, fe_us_mo = GETDATE()
                 WHERE co_art = ?
                 """;
 
-        // Precio: monto en Bs, precioOm = 1 (factor indexado)
-        // DroActiva lee monto como Bs y calcula USD = monto / tasa
+        // Precio: monto en USD, precioOm = 1, co_mone = 'USD' (factor indexado)
+        // Con precioOm=1 y co_mone='USD', Profit y el catálogo web interpretan el monto directamente en USD
+        // y calculan el equivalente en Bs multiplicando por la tasa cambiaria.
         String sqlUpdatePrecio = """
                 UPDATE saArtPrecio
-                SET monto = ?, precioOm = 1, fe_us_mo = GETDATE(), co_us_mo = ?
+                SET monto = ?, precioOm = 1, co_mone = 'USD', fe_us_mo = GETDATE(), co_us_mo = ?
                 WHERE co_art = ? AND co_precio = '01'
                 """;
 
         String sqlInsertPrecio = """
                 INSERT INTO saArtPrecio (
                     co_art, co_precio, desde, monto,
-                    precioOm, co_us_in, fe_us_in, co_us_mo, fe_us_mo, Inactivo, rowguid
+                    precioOm, co_us_in, fe_us_in, co_us_mo, fe_us_mo, Inactivo, rowguid, co_mone
                 ) VALUES (
                     ?, '01', GETDATE(), ?,
-                    1, ?, GETDATE(), ?, GETDATE(), 0, NEWID()
+                    1, ?, GETDATE(), ?, GETDATE(), 0, NEWID(), 'USD'
                 )
                 """;
 
@@ -261,36 +273,41 @@ public class CargaMasivaCostosPreciosDAO {
                             }
                         }
 
-                        psUpdCostoArt.setDouble(1, row.getCostoNuevoUsd());
-                        psUpdCostoArt.setString(2, usuario);
-                        psUpdCostoArt.setString(3, coArt);
+                        psUpdCostoArt.setString(1, usuario);
+                        psUpdCostoArt.setString(2, coArt);
                         psUpdCostoArt.executeUpdate();
 
                         huboActualizacion = true;
                     }
 
-                    // 2. Actualizar / Insertar Precio 1 (monto en Bs, precioOm = 0)
-                    // Se convierte el precio USD del Excel a Bs para almacenar.
-                    // DroActiva lee monto como Bs → calcula USD = monto / tasa.
-                    // Comparar Bs nuevo vs raw BD (ambos en Bs cuando precioOm=0, o detectar cambio de moneda).
-                    double montoBsNuevo = row.getPrecio1NuevoBs(); // = precioUSD * tasa (ya calculado en enriquecerConDatosBd)
-                    if (row.getPrecio1NuevoUsd() > 0 && (forzar
-                            || row.isPrecioEnBsDetectado() // ya estaba en Bs → puede necesitar recalcular
-                            || Math.abs(montoBsNuevo - row.getPrecio1MontoRawBd()) > 0.01)) {
-                        // UPDATE: monto en Bs, precioOm = 0
-                        psUpdPrecio.setDouble(1, montoBsNuevo);
+                    // 2. Actualizar / Insertar Precio 1 (monto en USD, precioOm = 1)
+                    // El precio del Excel se almacena directamente en USD.
+                    // Con precioOm=1, Profit/DroActiva interpreta monto como USD
+                    // y calcula Bs = monto × tasa para la visualización.
+                    double montoUsdNuevo = row.getPrecio1NuevoUsd();
+                    if (montoUsdNuevo > 0 && (forzar
+                            || row.isPrecioEnBsDetectado() // precioOm era 0 → se corregirá a 1 (factor indexado)
+                            || Math.abs(montoUsdNuevo - row.getPrecio1MontoRawBd()) > 0.0001)) {
+                        // UPDATE: monto en USD, precioOm = 1 (factor indexado)
+                        psUpdPrecio.setDouble(1, montoUsdNuevo);
                         psUpdPrecio.setString(2, usuario);
                         psUpdPrecio.setString(3, coArt);
                         int rowsUpd = psUpdPrecio.executeUpdate();
 
                         if (rowsUpd == 0) {
-                            // INSERT: monto en Bs, precioOm = 0
+                            // INSERT: monto en USD, precioOm = 1 (factor indexado)
                             psInsPrecio.setString(1, coArt);
-                            psInsPrecio.setDouble(2, montoBsNuevo);
+                            psInsPrecio.setDouble(2, montoUsdNuevo);
                             psInsPrecio.setString(3, usuario);
                             psInsPrecio.setString(4, usuario);
                             psInsPrecio.executeUpdate();
                         }
+
+                        // Asegurar prec_om = 1 en saArticulo para activar factor indexado
+                        psUpdCostoArt.setString(1, usuario);
+                        psUpdCostoArt.setString(2, coArt);
+                        psUpdCostoArt.executeUpdate();
+
                         huboActualizacion = true;
                     }
 

@@ -67,20 +67,9 @@ public class AjusteInventarioFrame extends JFrame {
     // Acento cyan específico de este módulo
     private Color accentCyan() { return tm.isDark() ? new Color(56, 189, 248) : new Color(14, 165, 233); }
 
-    private static final java.util.Set<String> USUARIOS_PERMITIDOS = java.util.Set.of("DV", "JG", "OP", "WM", "CN", "JR");
+    private static final java.util.Set<String> USUARIOS_AJUSTE_PERMITIDOS = java.util.Set.of("JG", "OP", "JR", "ND");
 
     public AjusteInventarioFrame() {
-        if (SesionUsuario.isAutenticado()) {
-            String u = SesionUsuario.current().getCoUsuario();
-            if (u != null && !USUARIOS_PERMITIDOS.contains(u.trim().toUpperCase())) {
-                JOptionPane.showMessageDialog(null,
-                        "Acceso Denegado:\nEl usuario '" + u.trim() + "' no posee permisos para acceder al módulo de Ajustes de Inventario.\n\nUsuarios autorizados: DV, JG, OP, WM, CN, JR.",
-                        "Acceso Restringido", JOptionPane.WARNING_MESSAGE);
-                SwingUtilities.invokeLater(this::dispose);
-                return;
-            }
-        }
-
         setTitle("DroAI — Ajustes de Inventario (Entrada y Salida)");
         setSize(1280, 820);
         setMinimumSize(new Dimension(1024, 720));
@@ -611,7 +600,20 @@ public class AjusteInventarioFrame extends JFrame {
         }
     }
 
+    private boolean tienePermisoParaAjustar() {
+        if (!SesionUsuario.isAutenticado()) {
+            return false;
+        }
+        String u = SesionUsuario.current().getCoUsuario();
+        return u != null && USUARIOS_AJUSTE_PERMITIDOS.contains(u.trim().toUpperCase());
+    }
+
     private void procesarAjuste() {
+        if (!tienePermisoParaAjustar()) {
+            Toast.show("No posee permisos para realizar ajustes de inventario.", Toast.Type.WARNING);
+            return;
+        }
+
         if (productoSeleccionado == null) {
             Toast.show("Seleccione primero un producto para realizar el ajuste", Toast.Type.WARNING);
             return;

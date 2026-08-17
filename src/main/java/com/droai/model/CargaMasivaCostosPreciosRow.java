@@ -22,6 +22,8 @@ public class CargaMasivaCostosPreciosRow {
     private double costoRawBd;
     private int precioOmActual;
     private boolean precioEnBsDetectado;
+    private String coMoneActual = "USD";
+    private boolean factorIndexadoActual = true;
 
     private double tasaUsd = 1.0;
 
@@ -180,6 +182,22 @@ public class CargaMasivaCostosPreciosRow {
         this.precioEnBsDetectado = precioEnBsDetectado;
     }
 
+    public String getCoMoneActual() {
+        return coMoneActual;
+    }
+
+    public void setCoMoneActual(String coMoneActual) {
+        this.coMoneActual = coMoneActual;
+    }
+
+    public boolean isFactorIndexadoActual() {
+        return factorIndexadoActual;
+    }
+
+    public void setFactorIndexadoActual(boolean factorIndexadoActual) {
+        this.factorIndexadoActual = factorIndexadoActual;
+    }
+
     public double getTasaUsd() {
         return tasaUsd;
     }
@@ -215,14 +233,12 @@ public class CargaMasivaCostosPreciosRow {
     public boolean tieneCambios() {
         // Comparar costo nuevo USD contra el raw de BD (costo siempre está en USD en Profit)
         boolean cambioCosto = costoNuevoUsd > 0 && Math.abs(costoNuevoUsd - costoRawBd) > 0.0001;
-        // Comparar precio nuevo USD vs precio actual USD (ambos correctamente convertidos)
-        // También detectar si precioOm necesita corrección de 0 (Bs) → 1 (USD)
-        // También comparar el Bs nuevo vs el monto raw de BD para detectar cuando
-        // el monto almacenado está en USD pero debería estar en Bs
+        // Comparar precio nuevo USD vs precio actual USD
+        // precioOm=1 (factor indexado): monto en BD está en USD → comparar directo
+        // precioOm=0 (Bs sin indexar): precioEnBsDetectado=true → siempre actualizar para corregir a precioOm=1
         boolean cambioPrecio = precio1NuevoUsd > 0 && (
                 precioEnBsDetectado
                 || Math.abs(precio1NuevoUsd - precio1ActualUsd) > 0.0001
-                || Math.abs(precio1NuevoBs - precio1MontoRawBd) > 0.01
         );
         return cambioCosto || cambioPrecio;
     }

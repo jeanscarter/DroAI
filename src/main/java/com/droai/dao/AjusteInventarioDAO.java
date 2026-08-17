@@ -177,6 +177,8 @@ public class AjusteInventarioDAO {
         return procesarAjuste(coArt, coAlma, tipoTrans, cantidad, costoUnitario, motivo, numeroLote, null);
     }
 
+    private static final java.util.Set<String> USUARIOS_AJUSTE_PERMITIDOS = java.util.Set.of("JG", "OP", "JR", "ND");
+
     /**
      * Procesa un Ajuste de Inventario (Entrada o Salida) con soporte para Lote y Fecha de Vencimiento.
      */
@@ -185,10 +187,15 @@ public class AjusteInventarioDAO {
             throw new IllegalArgumentException("Parámetros de ajuste no válidos");
         }
 
-        double deltaStock = tipoTrans.equalsIgnoreCase("SA") ? -cantidad : cantidad;
         String usuario = (SesionUsuario.isAutenticado() && SesionUsuario.current().getCoUsuario() != null)
                 ? SesionUsuario.current().getCoUsuario().trim()
-                : "DROAI";
+                : "";
+
+        if (!USUARIOS_AJUSTE_PERMITIDOS.contains(usuario.toUpperCase())) {
+            throw new SecurityException("No posee permisos para realizar ajustes de inventario.");
+        }
+
+        double deltaStock = tipoTrans.equalsIgnoreCase("SA") ? -cantidad : cantidad;
 
         boolean tieneLote = (numeroLote != null && !numeroLote.isBlank());
         String loteClean = tieneLote ? numeroLote.trim() : "";

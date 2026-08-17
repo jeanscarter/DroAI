@@ -373,24 +373,9 @@ public class AdminDashboardFrame extends JFrame {
     }
 
     /**
-     * Abre el módulo de Ajustes de Inventario (Entrada y Salida) validando los
-     * usuarios autorizados.
+     * Abre el módulo de Ajustes de Inventario (Entrada y Salida).
      */
     private void abrirAjustesInventario() {
-        if (SesionUsuario.isAutenticado()) {
-            String usuario = SesionUsuario.current().getCoUsuario();
-            if (usuario != null) {
-                java.util.Set<String> permitidos = java.util.Set.of("DV", "JG", "OP", "WM", "CN", "JR");
-                if (!permitidos.contains(usuario.trim().toUpperCase())) {
-                    JOptionPane.showMessageDialog(this,
-                            "Acceso Denegado:\nEl usuario '" + usuario.trim()
-                                    + "' no posee permisos para acceder al módulo de Ajustes de Inventario.",
-                            "Acceso Restringido", JOptionPane.WARNING_MESSAGE);
-                    return;
-                }
-            }
-        }
-
         SwingUtilities.invokeLater(() -> {
             AjusteInventarioFrame frame = new AjusteInventarioFrame();
             frame.setVisible(true);
