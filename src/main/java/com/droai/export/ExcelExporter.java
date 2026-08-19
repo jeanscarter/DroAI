@@ -5,6 +5,7 @@ import com.droai.model.ArticuloRow;
 import com.droai.model.CargaMasivaCostosPreciosRow;
 import com.droai.model.ClienteMaestroRow;
 import com.droai.model.ComisionRow;
+import com.droai.model.CxCDocumentoRow;
 import com.droai.model.DescuentoProductoRow;
 import com.droai.model.DescuentoVolumenRow;
 import com.droai.model.MatrizVentasRow;
@@ -1047,6 +1048,161 @@ public class ExcelExporter {
             sheet.createFreezePane(0, 1);
 
             // Anchos automáticos
+            for (int col = 0; col < headers.length; col++) {
+                sheet.autoSizeColumn(col);
+                int width = sheet.getColumnWidth(col) + 600;
+                sheet.setColumnWidth(col, Math.min(Math.max(width, 2400), 12000));
+            }
+
+            try (FileOutputStream fos = new FileOutputStream(file)) {
+                wb.write(fos);
+            }
+        }
+        return file;
+    }
+
+    /**
+     * Exporta el reporte de Estado de Cuentas por Cobrar (CxC) con pestaña de detalle y resúmenes.
+     */
+    public File exportCxCDocumentos(List<CxCDocumentoRow> listado, File fileToSave) throws IOException {
+        return exportCxCDocumentos(listado, fileToSave, false);
+    }
+
+    public File exportCxCDocumentos(List<CxCDocumentoRow> listado, File fileToSave, boolean isBs) throws IOException {
+        File file = (fileToSave != null) ? fileToSave
+                : new File(System.getProperty("user.dir"), "EDC_Maestro_" + LocalDateTime.now().format(DateTimeFormatter.ofPattern("yyyyMMdd_HHmmss")) + ".xlsx");
+
+        try (XSSFWorkbook wb = new XSSFWorkbook()) {
+            CellStyle headerStyle = wb.createCellStyle();
+            Font hFont = wb.createFont();
+            hFont.setBold(true);
+            hFont.setColor(IndexedColors.WHITE.getIndex());
+            headerStyle.setFont(hFont);
+            headerStyle.setFillForegroundColor(IndexedColors.ROYAL_BLUE.getIndex());
+            headerStyle.setFillPattern(FillPatternType.SOLID_FOREGROUND);
+            headerStyle.setAlignment(HorizontalAlignment.CENTER);
+            headerStyle.setVerticalAlignment(VerticalAlignment.CENTER);
+
+            CellStyle currencyStyle = wb.createCellStyle();
+            DataFormat df = wb.createDataFormat();
+            currencyStyle.setDataFormat(df.getFormat("#,##0.00"));
+
+            CellStyle tasaStyle = wb.createCellStyle();
+            tasaStyle.setDataFormat(df.getFormat("#,##0.0000"));
+
+            CellStyle centerStyle = wb.createCellStyle();
+            centerStyle.setAlignment(HorizontalAlignment.CENTER);
+
+            CellStyle boldCurrencyStyle = wb.createCellStyle();
+            Font bFont = wb.createFont();
+            bFont.setBold(true);
+            boldCurrencyStyle.setFont(bFont);
+            boldCurrencyStyle.setDataFormat(df.getFormat("#,##0.00"));
+
+            // ── HOJA 1: Detalle de Facturas ──
+            Sheet sheet = wb.createSheet("Detalle Facturas");
+            String[] headers = {
+                    "CODIGO CLIENTE", "GRUPO CLIENTE", "CLIENTE", "FACT", "F-I", "VENCIM", "DIAS DE VENC",
+                    isBs ? "NETO (Bs)" : "NETO ($)",
+                    isBs ? "IVA (Bs)" : "IVA ($)",
+                    isBs ? "SALDO (Bs)" : "SALDO ($)",
+                    "TASA",
+                    isBs ? "TOTAL ($)" : "TOTAL Bs.",
+                    isBs ? "POR VENCER (Bs)" : "POR VENCER ($)",
+                    isBs ? "1-30 (Bs)" : "1-30 ($)",
+                    isBs ? "31-60 (Bs)" : "31-60 ($)",
+                    isBs ? "61-90 (Bs)" : "61-90 ($)",
+                    isBs ? ">=91 (Bs)" : ">=91 ($)",
+                    "cod. Vnd", "VEND.", "ANALISTA", "PEDIDO"
+            };
+
+            Row hr = sheet.createRow(0);
+            hr.setHeightInPoints(24);
+            for (int i = 0; i < headers.length; i++) {
+                Cell c = hr.createCell(i);
+                c.setCellValue(headers[i]);
+                c.setCellStyle(headerStyle);
+            }
+
+            DateTimeFormatter dateFmt = DateTimeFormatter.ofPattern("dd/MM/yyyy");
+            int rowIdx = 1;
+            for (CxCDocumentoRow r : listado) {
+                Row row = sheet.createRow(rowIdx++);
+                row.setHeightInPoints(18);
+
+                double factor = isBs ? (r.getTasa() > 0 ? r.getTasa() : 1.0) : 1.0;
+
+                row.createCell(0).setCellValue(safeStr(r.getCodigoCliente()));
+                row.createCell(1).setCellValue(safeStr(r.getGrupoCliente()));
+                row.createCell(2).setCellValue(safeStr(r.getCliente()));
+                row.createCell(3).setCellValue(safeStr(r.getFactura()));
+                
+                Cell cFi = row.createCell(4);
+                cFi.setCellValue(safeStr(r.getFacturaImpaga()));
+                cFi.setCellStyle(centerStyle);
+
+                Cell cVenc = row.createCell(5);
+                cVenc.setCellValue(r.getFechaVencimiento() != null ? r.getFechaVencimiento().format(dateFmt) : "");
+                cVenc.setCellStyle(centerStyle);
+
+                Cell cDias = row.createCell(6);
+                cDias.setCellValue(r.getDiasVencimiento());
+                cDias.setCellStyle(centerStyle);
+
+                Cell cNeto = row.createCell(7);
+                cNeto.setCellValue(r.getNeto() * factor);
+                cNeto.setCellStyle(currencyStyle);
+
+                Cell cIva = row.createCell(8);
+                cIva.setCellValue(r.getIva() * factor);
+                cIva.setCellStyle(currencyStyle);
+
+                Cell cSaldo = row.createCell(9);
+                cSaldo.setCellValue(isBs ? r.getTotalBs() : r.getSaldo());
+                cSaldo.setCellStyle(currencyStyle);
+
+                Cell cTasa = row.createCell(10);
+                cTasa.setCellValue(r.getTasa());
+                cTasa.setCellStyle(tasaStyle);
+
+                Cell cAlt = row.createCell(11);
+                cAlt.setCellValue(isBs ? r.getSaldo() : r.getTotalBs());
+                cAlt.setCellStyle(currencyStyle);
+
+                Cell cPv = row.createCell(12);
+                cPv.setCellValue(r.getPorVencer() * factor);
+                cPv.setCellStyle(currencyStyle);
+
+                Cell c1a30 = row.createCell(13);
+                c1a30.setCellValue(r.getVencido1a30() * factor);
+                c1a30.setCellStyle(currencyStyle);
+
+                Cell c31a60 = row.createCell(14);
+                c31a60.setCellValue(r.getVencido31a60() * factor);
+                c31a60.setCellStyle(currencyStyle);
+
+                Cell c61a90 = row.createCell(15);
+                c61a90.setCellValue(r.getVencido61a90() * factor);
+                c61a90.setCellStyle(currencyStyle);
+
+                Cell cMas91 = row.createCell(16);
+                cMas91.setCellValue(r.getVencidoMas91() * factor);
+                cMas91.setCellStyle(currencyStyle);
+
+                Cell cCodV = row.createCell(17);
+                cCodV.setCellValue(safeStr(r.getCodVendedor()));
+                cCodV.setCellStyle(centerStyle);
+
+                row.createCell(18).setCellValue(safeStr(r.getNombreVendedor()));
+                
+                Cell cAna = row.createCell(19);
+                cAna.setCellValue(safeStr(r.getAnalista()));
+                cAna.setCellStyle(centerStyle);
+
+                row.createCell(20).setCellValue(safeStr(r.getPedido()));
+            }
+
+            sheet.createFreezePane(0, 1);
             for (int col = 0; col < headers.length; col++) {
                 sheet.autoSizeColumn(col);
                 int width = sheet.getColumnWidth(col) + 600;

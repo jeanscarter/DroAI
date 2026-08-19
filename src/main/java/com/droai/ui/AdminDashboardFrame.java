@@ -216,14 +216,13 @@ public class AdminDashboardFrame extends JFrame {
                 tm.purpleAccent(),
                 this::abrirCalculoComisiones), "grow");
 
-        // ── Tarjeta 6: Auditoría y Usuarios ──
+        // ── Tarjeta 6: Cuentas por Cobrar (CxC) ──
         content.add(createModuleCard(
-                "👥",
-                "Auditoría y Usuarios",
-                "Gestión de usuarios, control de acceso,\nhistorial de operaciones. (Próximamente)",
+                "📋",
+                "Cuentas por Cobrar (CxC)",
+                "Estado de cuentas y antigüedad de saldos,\nreporte multimoneda USD, analistas y exportación.",
                 tm.orangeAccent(),
-                null // Placeholder — módulo futuro
-        ), "grow");
+                this::abrirCuentasPorCobrar), "grow");
 
         root.add(content, BorderLayout.CENTER);
 
@@ -388,6 +387,16 @@ public class AdminDashboardFrame extends JFrame {
     private void abrirGestionComercial() {
         SwingUtilities.invokeLater(() -> {
             GestionComercialFrame frame = new GestionComercialFrame();
+            frame.setVisible(true);
+        });
+    }
+
+    /**
+     * Abre el módulo de Estado de Cuentas por Cobrar (CxC).
+     */
+    private void abrirCuentasPorCobrar() {
+        SwingUtilities.invokeLater(() -> {
+            CxCDocumentoFrame frame = new CxCDocumentoFrame();
             frame.setVisible(true);
         });
     }
