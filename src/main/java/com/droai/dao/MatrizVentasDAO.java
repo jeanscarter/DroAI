@@ -14,9 +14,11 @@ public class MatrizVentasDAO {
             SELECT
                 f.doc_num AS numero,
                 CONVERT(varchar, f.fec_emis, 23) AS fecha,
+                ISNULL(RTRIM(c.co_cli), ISNULL(RTRIM(f.co_cli), '')) AS codCliente,
                 c.rif AS ciRif,
                 c.cli_des AS nombreRazonSocial,
                 ISNULL(sg.seg_des, ISNULL(c.co_seg, '')) AS grupoCliente,
+                ISNULL(RTRIM(cp.cond_des), ISNULL(RTRIM(f.co_cond), '')) AS condicionPago,
                 v.co_ven AS coVen,
                 v.ven_des AS nombreVendedor,
                 f.tasa AS tasa,
@@ -55,6 +57,7 @@ public class MatrizVentasDAO {
             JOIN saFacturaVentaReng r ON f.doc_num = r.doc_num
             LEFT JOIN saCliente c ON f.co_cli = c.co_cli
             LEFT JOIN saSegmento sg ON c.co_seg = sg.co_seg
+            LEFT JOIN saCondicionPago cp ON f.co_cond = cp.co_cond
             LEFT JOIN saZona z ON c.co_zon = z.co_zon
             LEFT JOIN saVendedor v ON f.co_ven = v.co_ven
             LEFT JOIN saArticulo a ON r.co_art = a.co_art
@@ -122,9 +125,11 @@ public class MatrizVentasDAO {
                     String docNum = rs.getString("numero");
                     row.setNumero(docNum);
                     row.setFecha(rs.getString("fecha"));
+                    row.setCodCliente(rs.getString("codCliente"));
                     row.setCiRif(rs.getString("ciRif"));
                     row.setNombreRazonSocial(rs.getString("nombreRazonSocial"));
                     row.setGrupoCliente(rs.getString("grupoCliente"));
+                    row.setCondicionPago(rs.getString("condicionPago"));
                     row.setCoVen(rs.getString("coVen"));
                     row.setNombreVendedor(rs.getString("nombreVendedor"));
                     row.setTasa(getSafeDouble(rs, "tasa", docNum));

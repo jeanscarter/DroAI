@@ -52,6 +52,8 @@ public class MatrizVentasRow {
     private String ciudad;
     private String codProv;
     private String grupoCliente;
+    private String codCliente;
+    private String condicionPago;
 
     public MatrizVentasRow() {
     }
@@ -459,6 +461,22 @@ public class MatrizVentasRow {
 
     public void setGrupoCliente(String grupoCliente) {
         this.grupoCliente = grupoCliente;
+    }
+
+    public String getCodCliente() {
+        return codCliente != null ? codCliente : "";
+    }
+
+    public void setCodCliente(String codCliente) {
+        this.codCliente = codCliente;
+    }
+
+    public String getCondicionPago() {
+        return condicionPago != null ? condicionPago : "";
+    }
+
+    public void setCondicionPago(String condicionPago) {
+        this.condicionPago = condicionPago;
     }
 
     public String getMes() {

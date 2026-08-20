@@ -31,14 +31,33 @@ public class CxCDocumentoDAOTest {
         List<CxCDocumentoRow> rows = dao.fetchDocumentosCxC(desde, hasta, hasta);
         assertNotNull(rows);
 
-        // Si hay registros, verificar campos grupoCliente, iva, neto, saldo
-        for (CxCDocumentoRow r : rows) {
+        // Si hay registros, verificar campos grupoCliente, iva, neto, saldo y ordenamiento
+        for (int i = 0; i < rows.size(); i++) {
+            CxCDocumentoRow r = rows.get(i);
             assertTrue(r.getTasa() > 0, "La tasa debe ser mayor a 0");
             assertNotNull(r.getFactura());
             assertNotNull(r.getCodigoCliente());
             assertNotNull(r.getCliente());
-            // grupoCliente no debe ser null
             assertNotNull(r.getGrupoCliente());
+
+            // Validar orden ascendente por Vencimiento y luego Factura
+            if (i > 0) {
+                CxCDocumentoRow prev = rows.get(i - 1);
+                if (prev.getFechaVencimiento() != null && r.getFechaVencimiento() != null) {
+                    assertTrue(
+                        !r.getFechaVencimiento().isBefore(prev.getFechaVencimiento()),
+                        "Las filas deben estar ordenadas por fecha de vencimiento ascendente"
+                    );
+                    if (r.getFechaVencimiento().isEqual(prev.getFechaVencimiento())) {
+                        String factPrev = prev.getFactura() != null ? prev.getFactura() : "";
+                        String factCurr = r.getFactura() != null ? r.getFactura() : "";
+                        assertTrue(
+                            factCurr.compareToIgnoreCase(factPrev) >= 0,
+                            "Para misma fecha de vencimiento, debe estar ordenado por factura A-Z"
+                        );
+                    }
+                }
+            }
         }
     }
 }

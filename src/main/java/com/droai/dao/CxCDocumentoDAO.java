@@ -75,7 +75,7 @@ public class CxCDocumentoDAO {
               AND ISNULL(d.anulado, 0) = 0
               AND ABS(d.saldo) > 0.001
               AND RTRIM(ISNULL(d.co_mone, '')) IN ('0002', 'USD', 'US$', 'DOLAR', 'DOLARES')
-            ORDER BY d.fec_emis, cli.cli_des, d.nro_doc
+            ORDER BY d.fec_venc ASC, d.nro_doc ASC
         """;
 
         try (Connection conn = DatabaseConfig.getConnection(targetDb);
@@ -190,6 +190,12 @@ public class CxCDocumentoDAO {
         } catch (SQLException e) {
             logger.error("Error al consultar documentos de CxC en {}: {}", targetDb, e.getMessage(), e);
         }
+
+        // Orden por defecto: 1° Vencimiento (antiguo a nuevo), 2° Factura (A-Z)
+        result.sort(java.util.Comparator
+                .comparing(CxCDocumentoRow::getFechaVencimiento, java.util.Comparator.nullsLast(java.util.Comparator.naturalOrder()))
+                .thenComparing(r -> r.getFactura() != null ? r.getFactura() : "", String.CASE_INSENSITIVE_ORDER)
+        );
 
         logger.info("Obtenidos {} documentos de CxC desde {}", result.size(), targetDb);
         return result;

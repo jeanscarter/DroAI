@@ -219,6 +219,7 @@ public class AjusteInventarioFrame extends JFrame {
             public boolean isCellEditable(int row, int column) { return false; }
         };
         tblStockAlmacen = createStyledTable(modelStockAlmacen);
+        aplicarAlertaStockRenderer(tblStockAlmacen, 2);
         tblStockAlmacen.getSelectionModel().addListSelectionListener(e -> {
             if (!e.getValueIsAdjusting()) {
                 int row = tblStockAlmacen.getSelectedRow();
@@ -240,6 +241,7 @@ public class AjusteInventarioFrame extends JFrame {
             public boolean isCellEditable(int row, int column) { return false; }
         };
         tblStockLote = createStyledTable(modelStockLote);
+        aplicarAlertaStockRenderer(tblStockLote, 3);
         tblStockLote.getSelectionModel().addListSelectionListener(e -> {
             if (!e.getValueIsAdjusting()) {
                 int row = tblStockLote.getSelectedRow();
@@ -480,6 +482,37 @@ public class AjusteInventarioFrame extends JFrame {
             }
         }
         return table;
+    }
+
+    private void aplicarAlertaStockRenderer(JTable table, int colIndex) {
+        table.getColumnModel().getColumn(colIndex).setCellRenderer(new DefaultTableCellRenderer() {
+            @Override
+            public Component getTableCellRendererComponent(JTable tbl, Object value, boolean isSelected, boolean hasFocus, int row, int column) {
+                Component c = super.getTableCellRendererComponent(tbl, value, isSelected, hasFocus, row, column);
+                setHorizontalAlignment(SwingConstants.RIGHT);
+                String valStr = (value != null) ? value.toString().trim() : "";
+                boolean isNegative = valStr.startsWith("-");
+                if (!isSelected) {
+                    if (isNegative) {
+                        c.setForeground(tm.redAccent());
+                        c.setFont(c.getFont().deriveFont(Font.BOLD));
+                    } else {
+                        c.setForeground(tm.textPrimary());
+                        c.setFont(c.getFont().deriveFont(Font.PLAIN));
+                    }
+                    c.setBackground(tm.bgPanel());
+                } else {
+                    c.setForeground(Color.WHITE);
+                    c.setBackground(tm.accent());
+                }
+                if (isNegative) {
+                    setToolTipText("⚠ ¡Inconsistencia! Stock en negativo. Requiere ajuste.");
+                } else {
+                    setToolTipText(null);
+                }
+                return c;
+            }
+        });
     }
 
     private void cargarAlmacenes() {

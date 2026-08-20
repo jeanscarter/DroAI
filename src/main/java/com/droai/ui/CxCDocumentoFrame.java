@@ -23,6 +23,7 @@ import java.time.DayOfWeek;
 import java.time.LocalDate;
 import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
+import java.util.Comparator;
 import java.util.List;
 import java.util.Locale;
 
@@ -353,6 +354,46 @@ public class CxCDocumentoFrame extends JFrame {
         sorterDetalle = new TableRowSorter<>(modelDetalle);
         tableDetalle.setRowSorter(sorterDetalle);
 
+        // Comparador para columna # (0)
+        sorterDetalle.setComparator(0, (o1, o2) -> {
+            int i1 = (o1 instanceof Number) ? ((Number) o1).intValue() : Integer.parseInt(o1.toString().trim());
+            int i2 = (o2 instanceof Number) ? ((Number) o2).intValue() : Integer.parseInt(o2.toString().trim());
+            return Integer.compare(i1, i2);
+        });
+
+        // Comparador para fechas: Emisión (7) y Vencim (8)
+        Comparator<Object> dateComparator = (o1, o2) -> {
+            if (o1 == null && o2 == null) return 0;
+            if (o1 == null || o1.toString().isBlank()) return 1;
+            if (o2 == null || o2.toString().isBlank()) return -1;
+            try {
+                LocalDate d1 = LocalDate.parse(o1.toString().trim(), DISPLAY_FMT);
+                LocalDate d2 = LocalDate.parse(o2.toString().trim(), DISPLAY_FMT);
+                return d1.compareTo(d2);
+            } catch (Exception e) {
+                return o1.toString().compareToIgnoreCase(o2.toString());
+            }
+        };
+        sorterDetalle.setComparator(7, dateComparator);
+        sorterDetalle.setComparator(8, dateComparator);
+
+        // Comparador para días de vencimiento (9)
+        sorterDetalle.setComparator(9, (o1, o2) -> {
+            int i1 = (o1 != null && !o1.toString().isBlank()) ? Integer.parseInt(o1.toString().trim()) : 0;
+            int i2 = (o2 != null && !o2.toString().isBlank()) ? Integer.parseInt(o2.toString().trim()) : 0;
+            return Integer.compare(i1, i2);
+        });
+
+        // Comparador para montos numéricos (10 al 19)
+        Comparator<Object> currencyComparator = (o1, o2) -> {
+            double v1 = parseCurrency(o1);
+            double v2 = parseCurrency(o2);
+            return Double.compare(v1, v2);
+        };
+        for (int c = 10; c <= 19; c++) {
+            sorterDetalle.setComparator(c, currencyComparator);
+        }
+
         JScrollPane sp = new JScrollPane(tableDetalle);
         sp.setBorder(BorderFactory.createEmptyBorder());
         panel.add(sp, BorderLayout.CENTER);
@@ -594,6 +635,18 @@ public class CxCDocumentoFrame extends JFrame {
     }
 
     private void actualizarTablas(List<CxCDocumentoRow> rows) {
+        if (rows == null) return;
+
+        // Orden por defecto: 1° Vencimiento (antiguo a nuevo), 2° Factura (A-Z)
+        rows.sort(Comparator
+                .comparing(CxCDocumentoRow::getFechaVencimiento, Comparator.nullsLast(Comparator.naturalOrder()))
+                .thenComparing(r -> r.getFactura() != null ? r.getFactura() : "", String.CASE_INSENSITIVE_ORDER)
+        );
+
+        if (sorterDetalle != null) {
+            sorterDetalle.setSortKeys(null);
+        }
+
         // 1. Detalle
         modelDetalle.setRowCount(0);
         int sec = 1;
@@ -709,6 +762,21 @@ public class CxCDocumentoFrame extends JFrame {
                 }
             } catch (Exception e) {
                 Toast.showError("Error al exportar Excel: " + e.getMessage());
+            }
+        }
+    }
+
+    private double parseCurrency(Object obj) {
+        if (obj == null) return 0.0;
+        String s = obj.toString().trim();
+        if (s.isEmpty() || s.equals("-")) return 0.0;
+        try {
+            return CURRENCY_FMT.parse(s).doubleValue();
+        } catch (Exception e) {
+            try {
+                return Double.parseDouble(s.replace(".", "").replace(",", "."));
+            } catch (Exception ignored) {
+                return 0.0;
             }
         }
     }
