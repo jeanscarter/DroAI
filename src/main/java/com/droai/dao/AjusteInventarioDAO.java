@@ -313,56 +313,53 @@ public class AjusteInventarioDAO {
                     }
 
                     if (tipoTrans.equalsIgnoreCase("EA")) {
-                        if (existeLote) {
-                            StringBuilder sqlLoteUpd = new StringBuilder("UPDATE saLoteEntrada SET cantidad = cantidad + ?, stock_actual = stock_actual + ?, fe_us_mo = GETDATE(), co_us_mo = ?");
-                            if (fechaExpiracion != null) {
-                                sqlLoteUpd.append(", fecha_expiracion = ?");
-                            }
-                            sqlLoteUpd.append(" WHERE RTRIM(co_art) = ? AND RTRIM(co_alma) = ? AND RTRIM(numero_lote) = ?");
-                            try (PreparedStatement ps = conn.prepareStatement(sqlLoteUpd.toString())) {
-                                int idx = 1;
-                                ps.setDouble(idx++, cantidad);
-                                ps.setDouble(idx++, cantidad);
-                                ps.setString(idx++, usuarioLote);
-                                if (fechaExpiracion != null) {
-                                    ps.setTimestamp(idx++, new java.sql.Timestamp(fechaExpiracion.getTime()));
-                                }
-                                ps.setString(idx++, coArt);
-                                ps.setString(idx++, coAlma);
-                                ps.setString(idx++, loteClean);
-                                ps.executeUpdate();
-                            }
+                        // En Profit Plus cada Entrada por Ajuste crea un nuevo renglón en saLoteEntrada vinculado a saAjusteReng
+                        java.sql.Timestamp fVencTs = null;
+                        if (fechaExpiracion != null) {
+                            fVencTs = new java.sql.Timestamp(fechaExpiracion.getTime());
                         } else {
-                            String sqlLoteIns = """
-                                INSERT INTO saLoteEntrada (
-                                    co_art, co_alma, numero_lote, tipo_doc, reng_num,
-                                    cantidad, stock_actual, precio, fecha_inicio, fecha_expiracion,
-                                    fe_us_in, co_us_in, fe_us_mo, co_us_mo, rowguid_reng, rowguid
-                                ) VALUES (
-                                    ?, ?, ?, 'AJUS', 1,
-                                    ?, ?, ?, GETDATE(), ?,
-                                    GETDATE(), ?, GETDATE(), ?, ?, NEWID()
-                                )
-                                """;
-                            try (PreparedStatement ps = conn.prepareStatement(sqlLoteIns)) {
-                                ps.setString(1, coArt);
-                                ps.setString(2, coAlma);
-                                ps.setString(3, loteClean);
-                                ps.setDouble(4, cantidad);
-                                ps.setDouble(5, cantidad);
-                                ps.setDouble(6, costoUnitario);
-                                if (fechaExpiracion != null) {
-                                    ps.setTimestamp(7, new java.sql.Timestamp(fechaExpiracion.getTime()));
-                                } else {
-                                    java.util.Calendar cal = java.util.Calendar.getInstance();
-                                    cal.add(java.util.Calendar.YEAR, 2);
-                                    ps.setTimestamp(7, new java.sql.Timestamp(cal.getTimeInMillis()));
+                            // Buscar fecha de vencimiento previa de este lote si ya existía
+                            String sqlFecExistente = "SELECT TOP 1 fecha_expiracion FROM saLoteEntrada WHERE RTRIM(co_art) = ? AND RTRIM(co_alma) = ? AND RTRIM(numero_lote) = ? AND fecha_expiracion IS NOT NULL ORDER BY fe_us_in DESC";
+                            try (PreparedStatement psFec = conn.prepareStatement(sqlFecExistente)) {
+                                psFec.setString(1, coArt);
+                                psFec.setString(2, coAlma);
+                                psFec.setString(3, loteClean);
+                                try (ResultSet rsFec = psFec.executeQuery()) {
+                                    if (rsFec.next() && rsFec.getTimestamp(1) != null) {
+                                        fVencTs = rsFec.getTimestamp(1);
+                                    }
                                 }
-                                ps.setString(8, usuarioLote);
-                                ps.setString(9, usuarioLote);
-                                ps.setString(10, rowguidReng);
-                                ps.executeUpdate();
                             }
+                            if (fVencTs == null) {
+                                java.util.Calendar cal = java.util.Calendar.getInstance();
+                                cal.add(java.util.Calendar.YEAR, 2);
+                                fVencTs = new java.sql.Timestamp(cal.getTimeInMillis());
+                            }
+                        }
+
+                        String sqlLoteIns = """
+                            INSERT INTO saLoteEntrada (
+                                co_art, co_alma, numero_lote, tipo_doc, reng_num,
+                                cantidad, stock_actual, precio, fecha_inicio, fecha_expiracion,
+                                fe_us_in, co_us_in, fe_us_mo, co_us_mo, rowguid_reng, rowguid
+                            ) VALUES (
+                                ?, ?, ?, 'AJUS', 1,
+                                ?, ?, ?, GETDATE(), ?,
+                                GETDATE(), ?, GETDATE(), ?, ?, NEWID()
+                            )
+                            """;
+                        try (PreparedStatement ps = conn.prepareStatement(sqlLoteIns)) {
+                            ps.setString(1, coArt);
+                            ps.setString(2, coAlma);
+                            ps.setString(3, loteClean);
+                            ps.setDouble(4, cantidad);
+                            ps.setDouble(5, cantidad);
+                            ps.setDouble(6, costoUnitario);
+                            ps.setTimestamp(7, fVencTs);
+                            ps.setString(8, usuarioLote);
+                            ps.setString(9, usuarioLote);
+                            ps.setString(10, rowguidReng);
+                            ps.executeUpdate();
                         }
                     } else if (tipoTrans.equalsIgnoreCase("SA")) {
                         // Salida de Ajuste (SA) con lote explícito

@@ -48,7 +48,8 @@ public class CxCDocumentoDAO {
         // Si co_mone es US$ o 0002 o dolares, filtramos los documentos USD sin cancelar (saldo <> 0).
         String sql = """
             SELECT
-                REPLACE(REPLACE(REPLACE(REPLACE(ISNULL(RTRIM(cli.rif), RTRIM(d.co_cli)), 'J-', ''), 'V-', ''), 'G-', ''), 'E-', '') AS cod_cliente,
+                ISNULL(RTRIM(cli.co_cli), RTRIM(d.co_cli)) AS cod_cliente,
+                ISNULL(RTRIM(cli.rif), '') AS rif_cliente,
                 ISNULL(RTRIM(sg.seg_des), ISNULL(RTRIM(cli.co_seg), '')) AS grupo_cliente,
                 ISNULL(RTRIM(cli.cli_des), '') AS nom_cliente,
                 CAST(CAST(RTRIM(d.nro_doc) AS int) AS varchar) AS num_factura,
@@ -60,8 +61,8 @@ public class CxCDocumentoDAO {
                 d.monto_imp AS iva,
                 d.saldo,
                 d.tasa,
-                RTRIM(d.co_ven) AS cod_vendedor,
-                ISNULL(RTRIM(v.ven_des), RTRIM(d.co_ven)) AS nom_vendedor,
+                ISNULL(RTRIM(cli.co_ven), RTRIM(d.co_ven)) AS cod_vendedor,
+                ISNULL(RTRIM(vcli.ven_des), ISNULL(RTRIM(vdoc.ven_des), ISNULL(RTRIM(cli.co_ven), RTRIM(d.co_ven)))) AS nom_vendedor,
                 ISNULL(RTRIM(d.observa), '') AS observa,
                 ISNULL(RTRIM(d.campo1), '') AS campo1,
                 ISNULL(RTRIM(d.campo2), '') AS campo2,
@@ -69,7 +70,8 @@ public class CxCDocumentoDAO {
             FROM saDocumentoVenta d
             LEFT JOIN saCliente cli ON d.co_cli = cli.co_cli
             LEFT JOIN saSegmento sg ON cli.co_seg = sg.co_seg
-            LEFT JOIN saVendedor v ON d.co_ven = v.co_ven
+            LEFT JOIN saVendedor vcli ON cli.co_ven = vcli.co_ven
+            LEFT JOIN saVendedor vdoc ON d.co_ven = vdoc.co_ven
             LEFT JOIN saTipoDocumento t ON d.co_tipo_doc = t.co_tipo_doc
             WHERE CAST(d.fec_emis AS date) BETWEEN ? AND ?
               AND ISNULL(d.anulado, 0) = 0
@@ -91,6 +93,7 @@ public class CxCDocumentoDAO {
                     CxCDocumentoRow row = new CxCDocumentoRow();
 
                     row.setCodigoCliente(rs.getString("cod_cliente"));
+                    row.setRifCliente(rs.getString("rif_cliente"));
                     row.setGrupoCliente(rs.getString("grupo_cliente"));
                     row.setCliente(rs.getString("nom_cliente"));
                     row.setFactura(rs.getString("num_factura"));

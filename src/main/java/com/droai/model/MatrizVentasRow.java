@@ -486,17 +486,19 @@ public class MatrizVentasRow {
                                "JULIO", "AGOSTO", "SEPTIEMBRE", "OCTUBRE", "NOVIEMBRE", "DICIEMBRE"};
             int m = -1;
             int y = -1;
-            if (fecha.contains("-")) {
-                String[] parts = fecha.split("-");
+            String f = fecha.trim();
+            if (f.contains("-")) {
+                String[] parts = f.split("-");
                 if (parts.length >= 2) {
                     y = Integer.parseInt(parts[0].trim());
                     m = Integer.parseInt(parts[1].trim());
                 }
-            } else if (fecha.contains("/")) {
-                String[] parts = fecha.split("/");
+            } else if (f.contains("/")) {
+                String[] parts = f.split("/");
                 if (parts.length >= 3) {
                     m = Integer.parseInt(parts[1].trim());
-                    y = Integer.parseInt(parts[2].trim());
+                    String yStr = parts[2].trim().split("[ T]")[0];
+                    y = Integer.parseInt(yStr);
                 }
             }
             if (m >= 1 && m <= 12) {

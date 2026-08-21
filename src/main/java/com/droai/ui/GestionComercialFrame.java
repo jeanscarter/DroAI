@@ -232,13 +232,13 @@ public class GestionComercialFrame extends JFrame {
 
         // Tab 2: Tabla de Detalle Productos Facturados
         String[] columnNames = {
-            "N° Factura", "Fecha", "Cliente", "Vendedor", "Código",
+            "N° Factura", "Mes", "Fecha", "Cliente", "Vendedor", "Código",
             "Descripción Producto", "Cantidad", "Precio ($)", "Total ($)", "Proveedor", "Zona"
         };
         tableModel = new DefaultTableModel(columnNames, 0) {
             @Override public boolean isCellEditable(int row, int column) { return false; }
             @Override public Class<?> getColumnClass(int col) {
-                if (col == 6 || col == 7 || col == 8) return Double.class;
+                if (col == 7 || col == 8 || col == 9) return Double.class;
                 return String.class;
             }
         };
@@ -702,6 +702,7 @@ public class GestionComercialFrame extends JFrame {
         for (MatrizVentasRow r : filteredData) {
             tableModel.addRow(new Object[]{
                 r.getNumero(),
+                r.getMes(),
                 r.getFecha(),
                 r.getNombreRazonSocial(),
                 r.getNombreVendedor(),

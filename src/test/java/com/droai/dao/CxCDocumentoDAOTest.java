@@ -37,6 +37,7 @@ public class CxCDocumentoDAOTest {
             assertTrue(r.getTasa() > 0, "La tasa debe ser mayor a 0");
             assertNotNull(r.getFactura());
             assertNotNull(r.getCodigoCliente());
+            assertNotNull(r.getRifCliente());
             assertNotNull(r.getCliente());
             assertNotNull(r.getGrupoCliente());
 

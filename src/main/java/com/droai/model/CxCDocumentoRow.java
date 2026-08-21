@@ -9,6 +9,7 @@ import java.time.LocalDate;
 public class CxCDocumentoRow {
 
     private String codigoCliente;
+    private String rifCliente;
     private String grupoCliente;
     private String cliente;
     private String factura;
@@ -41,6 +42,14 @@ public class CxCDocumentoRow {
 
     public void setCodigoCliente(String codigoCliente) {
         this.codigoCliente = codigoCliente;
+    }
+
+    public String getRifCliente() {
+        return rifCliente != null ? rifCliente : "";
+    }
+
+    public void setRifCliente(String rifCliente) {
+        this.rifCliente = rifCliente;
     }
 
     public String getGrupoCliente() {

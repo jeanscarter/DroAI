@@ -284,7 +284,7 @@ public class CxCDocumentoFrame extends JFrame {
     private JPanel createDetalleTab() {
         JPanel panel = new JPanel(new BorderLayout());
         String[] columnNames = {
-                "#", "CODIGO CLIENTE", "GRUPO CLIENTE", "CLIENTE", "FACT", "TIPO", "F-I", "EMISIÓN",
+                "#", "CODIGO CLIENTE", "RIF", "GRUPO CLIENTE", "CLIENTE", "FACT", "TIPO", "F-I", "EMISIÓN",
                 "VENCIM.", "DIAS DE VENC", "NETO ($)", "IVA ($)", "SALDO ($)", "TASA", "TOTAL Bs.",
                 "POR VENCER", "1-30", "31-60", "61-90", ">=91", "COD. VND", "VEND.", "ANALISTA", "PEDIDO"
         };
@@ -306,17 +306,17 @@ public class CxCDocumentoFrame extends JFrame {
         rightRenderer.setHorizontalAlignment(SwingConstants.RIGHT);
 
         for (int i = 0; i < columnNames.length; i++) {
-            if (i == 2 || i == 3 || i == 21 || i == 23) {
+            if (i == 3 || i == 4 || i == 22 || i == 24) {
                 // Grupo Cliente, Cliente, Vendedor, Pedido alineado a la izquierda
-            } else if (i >= 10 && i <= 19) {
+            } else if (i >= 11 && i <= 20) {
                 tableDetalle.getColumnModel().getColumn(i).setCellRenderer(rightRenderer);
             } else {
                 tableDetalle.getColumnModel().getColumn(i).setCellRenderer(centerRenderer);
             }
         }
 
-        // Renderer especial para F-I (columna 6)
-        tableDetalle.getColumnModel().getColumn(6).setCellRenderer(new DefaultTableCellRenderer() {
+        // Renderer especial para F-I (columna 7)
+        tableDetalle.getColumnModel().getColumn(7).setCellRenderer(new DefaultTableCellRenderer() {
             @Override
             public Component getTableCellRendererComponent(JTable tbl, Object value, boolean isSelected, boolean hasFocus, int row, int column) {
                 Component c = super.getTableCellRendererComponent(tbl, value, isSelected, hasFocus, row, column);
@@ -331,8 +331,8 @@ public class CxCDocumentoFrame extends JFrame {
             }
         });
 
-        // Renderer especial para Días de Vencimiento (columna 9)
-        tableDetalle.getColumnModel().getColumn(9).setCellRenderer(new DefaultTableCellRenderer() {
+        // Renderer especial para Días de Vencimiento (columna 10)
+        tableDetalle.getColumnModel().getColumn(10).setCellRenderer(new DefaultTableCellRenderer() {
             @Override
             public Component getTableCellRendererComponent(JTable tbl, Object value, boolean isSelected, boolean hasFocus, int row, int column) {
                 Component c = super.getTableCellRendererComponent(tbl, value, isSelected, hasFocus, row, column);
@@ -661,6 +661,7 @@ public class CxCDocumentoFrame extends JFrame {
             Object[] rowData = {
                     sec++,
                     r.getCodigoCliente(),
+                    r.getRifCliente(),
                     r.getGrupoCliente() != null ? r.getGrupoCliente().trim() : "",
                     r.getCliente(),
                     r.getFactura(),

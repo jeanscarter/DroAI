@@ -265,26 +265,27 @@ public class DetalleMonitorDialog extends JDialog {
 
     private JScrollPane buildProductosFacturadosTab() {
         String[] cols = {
-                "Numero", "Reng", "Codigo", "Descripcion", "Cantidad",
+                "Numero", "Mes", "Reng", "Codigo", "Descripcion", "Cantidad",
                 "Precio", "Desc.%", "Total Reng.", "Costo", "Grupo", "Des.Grupo", "SubGr."
         };
 
-        Object[][] data = new Object[rawRows.size()][12];
+        Object[][] data = new Object[rawRows.size()][13];
         for (int i = 0; i < rawRows.size(); i++) {
             MatrizVentasRow r = rawRows.get(i);
             double divFactor = isBs ? 1.0 : (r.getTasa() > 0 ? r.getTasa() : 1.0);
             data[i][0]  = r.getNumero() != null ? r.getNumero().trim() : "";
-            data[i][1]  = i + 1;  // Renglón secuencial visible
-            data[i][2]  = r.getCodigoArt() != null ? r.getCodigoArt().trim() : "";
-            data[i][3]  = r.getDescripcion() != null ? r.getDescripcion().trim() : "";
-            data[i][4]  = r.getCantidad();
-            data[i][5]  = r.getPrecio() / divFactor;
-            data[i][6]  = r.getDescPct();
-            data[i][7]  = r.getRenglonDg() / divFactor;
-            data[i][8]  = r.getCostoVenta() / divFactor;
-            data[i][9]  = r.getCodLinea() != null ? r.getCodLinea().trim() : "";
-            data[i][10] = r.getLinea() != null ? r.getLinea().trim() : "";
-            data[i][11] = r.getCodSub() != null ? r.getCodSub().trim() : "";
+            data[i][1]  = r.getMes();
+            data[i][2]  = i + 1;  // Renglón secuencial visible
+            data[i][3]  = r.getCodigoArt() != null ? r.getCodigoArt().trim() : "";
+            data[i][4]  = r.getDescripcion() != null ? r.getDescripcion().trim() : "";
+            data[i][5]  = r.getCantidad();
+            data[i][6]  = r.getPrecio() / divFactor;
+            data[i][7]  = r.getDescPct();
+            data[i][8]  = r.getRenglonDg() / divFactor;
+            data[i][9]  = r.getCostoVenta() / divFactor;
+            data[i][10] = r.getCodLinea() != null ? r.getCodLinea().trim() : "";
+            data[i][11] = r.getLinea() != null ? r.getLinea().trim() : "";
+            data[i][12] = r.getCodSub() != null ? r.getCodSub().trim() : "";
         }
 
         DefaultTableModel model = new DefaultTableModel(data, cols) {
@@ -293,8 +294,8 @@ public class DetalleMonitorDialog extends JDialog {
             @Override
             public Class<?> getColumnClass(int col) {
                 return switch (col) {
-                    case 1 -> Integer.class;
-                    case 4, 5, 6, 7, 8 -> Double.class;
+                    case 2 -> Integer.class;
+                    case 5, 6, 7, 8, 9 -> Double.class;
                     default -> String.class;
                 };
             }
@@ -302,7 +303,7 @@ public class DetalleMonitorDialog extends JDialog {
 
         JTable table = createStyledTable(model);
         // Ajustar anchos de columna
-        int[] widths = {100, 40, 60, 260, 55, 70, 55, 80, 65, 55, 130, 55};
+        int[] widths = {90, 85, 40, 60, 240, 55, 70, 55, 80, 65, 55, 120, 55};
         for (int c = 0; c < widths.length && c < table.getColumnCount(); c++) {
             table.getColumnModel().getColumn(c).setPreferredWidth(widths[c]);
         }

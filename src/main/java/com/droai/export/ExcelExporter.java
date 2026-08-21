@@ -446,7 +446,7 @@ public class ExcelExporter {
 
             Sheet sheet = wb.createSheet("Matriz");
             String[] headers = {
-                    "Numero", "Fecha", "Cod. Cliente", "CI / RIF", "Nombre o Razon Social",
+                    "Numero", "Mes", "Fecha", "Cod. Cliente", "CI / RIF", "Nombre o Razon Social",
                     "Grupo", "Condicion de Pago", "Zona", "Ciudad", "Cod.Ven.", "Nombre Vendedor",
                     "Origen", "Tasa",
                     "Cod. Prov.", "Nombre Proveedor", "Cod. Art. Prov.", "Codigo Art.", "Descripcion",
@@ -471,50 +471,51 @@ public class ExcelExporter {
                 double divFactor = isBs ? 1.0 : tasa;
 
                 row.createCell(0).setCellValue(safeStr(r.getNumero()));
-                row.createCell(1).setCellValue(safeStr(r.getFecha()));
-                row.createCell(2).setCellValue(safeStr(r.getCodCliente()));
-                row.createCell(3).setCellValue(safeStr(r.getCiRif()));
-                row.createCell(4).setCellValue(safeStr(r.getNombreRazonSocial()));
-                row.createCell(5).setCellValue(safeStr(r.getGrupoCliente()));
-                row.createCell(6).setCellValue(safeStr(r.getCondicionPago()));
-                row.createCell(7).setCellValue(safeStr(r.getZona()));
-                row.createCell(8).setCellValue(safeStr(r.getCiudad()));
-                row.createCell(9).setCellValue(safeStr(r.getCoVen()));
-                row.createCell(10).setCellValue(safeStr(r.getNombreVendedor()));
-                row.createCell(11).setCellValue(safeStr(r.getOrigen()));
-                setCellNum(row, 12, r.getTasa(), numberStyle);
-                row.createCell(13).setCellValue(safeStr(r.getCodProveedor()));
-                row.createCell(14).setCellValue(safeStr(r.getNombreProveedor()));
-                row.createCell(15).setCellValue(safeStr(r.getCodProv())); // Cod. Art. Prov. (a.campo1)
-                row.createCell(16).setCellValue(safeStr(r.getCodigoArt()));
-                row.createCell(17).setCellValue(safeStr(r.getDescripcion()));
-                setCellNum(row, 18, r.getCantidad(), numberStyle);
-                setCellNum(row, 19, r.getPrecio() / divFactor, currencyStyle);
-                setCellNum(row, 20, r.getDp(), numberStyle);
-                setCellNum(row, 21, r.getDa(), numberStyle);
-                setCellNum(row, 22, r.getDct(), numberStyle);
-                setCellNum(row, 23, r.getDc(), numberStyle);
-                setCellNum(row, 24, r.getDv(), numberStyle);
-                setCellNum(row, 25, (r.getPrecio() * r.getCantidad()) / divFactor, currencyStyle);
-                setCellNum(row, 26, r.getDescPctGlobal(), numberStyle);
-                setCellNum(row, 27, r.getRenglonDg() / divFactor, currencyStyle);
-                setCellNum(row, 28, r.getMontoIva() / divFactor, currencyStyle);
-                setCellNum(row, 29, r.getIvaPct(), numberStyle);
-                setCellNum(row, 30, r.getTotRenglonIva() / divFactor, currencyStyle);
-                setCellNum(row, 31, r.getCostoVenta() / divFactor, currencyStyle);
-                setCellNum(row, 32, r.getTotalCostoVenta() / divFactor, currencyStyle);
-                setCellNum(row, 33, r.getTotCvDp() / divFactor, currencyStyle);
-                setCellNum(row, 34, r.getMontoUtilidad() / divFactor, currencyStyle);
-                setCellNum(row, 35, r.getUtilPct(), numberStyle);
-                setCellNum(row, 36, r.getCostoActual(), currencyStyle);
-                setCellNum(row, 37, r.getStockActual(), numberStyle);
-                row.createCell(38).setCellValue(safeStr(r.getCodLinea()));
-                row.createCell(39).setCellValue(safeStr(r.getLinea()));
-                row.createCell(40).setCellValue(safeStr(r.getCodSub()));
-                row.createCell(41).setCellValue(safeStr(r.getSubLinea()));
-                row.createCell(42).setCellValue(safeStr(r.getAlmacen()));
-                row.createCell(43).setCellValue(safeStr(r.getPedidoWeb()));
-                row.createCell(44).setCellValue(safeStr(r.getUsuarioWeb()));
+                row.createCell(1).setCellValue(safeStr(r.getMes()));
+                row.createCell(2).setCellValue(safeStr(r.getFecha()));
+                row.createCell(3).setCellValue(safeStr(r.getCodCliente()));
+                row.createCell(4).setCellValue(safeStr(r.getCiRif()));
+                row.createCell(5).setCellValue(safeStr(r.getNombreRazonSocial()));
+                row.createCell(6).setCellValue(safeStr(r.getGrupoCliente()));
+                row.createCell(7).setCellValue(safeStr(r.getCondicionPago()));
+                row.createCell(8).setCellValue(safeStr(r.getZona()));
+                row.createCell(9).setCellValue(safeStr(r.getCiudad()));
+                row.createCell(10).setCellValue(safeStr(r.getCoVen()));
+                row.createCell(11).setCellValue(safeStr(r.getNombreVendedor()));
+                row.createCell(12).setCellValue(safeStr(r.getOrigen()));
+                setCellNum(row, 13, r.getTasa(), numberStyle);
+                row.createCell(14).setCellValue(safeStr(r.getCodProveedor()));
+                row.createCell(15).setCellValue(safeStr(r.getNombreProveedor()));
+                row.createCell(16).setCellValue(safeStr(r.getCodProv())); // Cod. Art. Prov. (a.campo1)
+                row.createCell(17).setCellValue(safeStr(r.getCodigoArt()));
+                row.createCell(18).setCellValue(safeStr(r.getDescripcion()));
+                setCellNum(row, 19, r.getCantidad(), numberStyle);
+                setCellNum(row, 20, r.getPrecio() / divFactor, currencyStyle);
+                setCellNum(row, 21, r.getDp(), numberStyle);
+                setCellNum(row, 22, r.getDa(), numberStyle);
+                setCellNum(row, 23, r.getDct(), numberStyle);
+                setCellNum(row, 24, r.getDc(), numberStyle);
+                setCellNum(row, 25, r.getDv(), numberStyle);
+                setCellNum(row, 26, (r.getPrecio() * r.getCantidad()) / divFactor, currencyStyle);
+                setCellNum(row, 27, r.getDescPctGlobal(), numberStyle);
+                setCellNum(row, 28, r.getRenglonDg() / divFactor, currencyStyle);
+                setCellNum(row, 29, r.getMontoIva() / divFactor, currencyStyle);
+                setCellNum(row, 30, r.getIvaPct(), numberStyle);
+                setCellNum(row, 31, r.getTotRenglonIva() / divFactor, currencyStyle);
+                setCellNum(row, 32, r.getCostoVenta() / divFactor, currencyStyle);
+                setCellNum(row, 33, r.getTotalCostoVenta() / divFactor, currencyStyle);
+                setCellNum(row, 34, r.getTotCvDp() / divFactor, currencyStyle);
+                setCellNum(row, 35, r.getMontoUtilidad() / divFactor, currencyStyle);
+                setCellNum(row, 36, r.getUtilPct(), numberStyle);
+                setCellNum(row, 37, r.getCostoActual(), currencyStyle);
+                setCellNum(row, 38, r.getStockActual(), numberStyle);
+                row.createCell(39).setCellValue(safeStr(r.getCodLinea()));
+                row.createCell(40).setCellValue(safeStr(r.getLinea()));
+                row.createCell(41).setCellValue(safeStr(r.getCodSub()));
+                row.createCell(42).setCellValue(safeStr(r.getSubLinea()));
+                row.createCell(43).setCellValue(safeStr(r.getAlmacen()));
+                row.createCell(44).setCellValue(safeStr(r.getPedidoWeb()));
+                row.createCell(45).setCellValue(safeStr(r.getUsuarioWeb()));
             }
 
             sheet.createFreezePane(0, 1);
@@ -1106,7 +1107,7 @@ public class ExcelExporter {
             // ── HOJA 1: Detalle de Facturas ──
             Sheet sheet = wb.createSheet("Detalle Facturas");
             String[] headers = {
-                    "CODIGO CLIENTE", "GRUPO CLIENTE", "CLIENTE", "FACT", "TIPO", "F-I", "EMISIÓN", "VENCIM", "DIAS DE VENC",
+                    "CODIGO CLIENTE", "RIF", "GRUPO CLIENTE", "CLIENTE", "FACT", "TIPO", "F-I", "EMISIÓN", "VENCIM", "DIAS DE VENC",
                     isBs ? "NETO (Bs)" : "NETO ($)",
                     isBs ? "IVA (Bs)" : "IVA ($)",
                     isBs ? "SALDO (Bs)" : "SALDO ($)",
@@ -1143,81 +1144,82 @@ public class ExcelExporter {
                 double factor = isBs ? (r.getTasa() > 0 ? r.getTasa() : 1.0) : 1.0;
 
                 row.createCell(0).setCellValue(safeStr(r.getCodigoCliente()));
-                row.createCell(1).setCellValue(safeStr(r.getGrupoCliente()));
-                row.createCell(2).setCellValue(safeStr(r.getCliente()));
-                row.createCell(3).setCellValue(safeStr(r.getFactura()));
+                row.createCell(1).setCellValue(safeStr(r.getRifCliente()));
+                row.createCell(2).setCellValue(safeStr(r.getGrupoCliente()));
+                row.createCell(3).setCellValue(safeStr(r.getCliente()));
+                row.createCell(4).setCellValue(safeStr(r.getFactura()));
                 
-                Cell cTipo = row.createCell(4);
+                Cell cTipo = row.createCell(5);
                 cTipo.setCellValue(safeStr(r.getTipoDoc()));
                 cTipo.setCellStyle(centerStyle);
 
-                Cell cFi = row.createCell(5);
+                Cell cFi = row.createCell(6);
                 cFi.setCellValue(safeStr(r.getFacturaImpaga()));
                 cFi.setCellStyle(centerStyle);
 
-                Cell cEmis = row.createCell(6);
+                Cell cEmis = row.createCell(7);
                 cEmis.setCellValue(r.getFechaEmision() != null ? r.getFechaEmision().format(dateFmt) : "");
                 cEmis.setCellStyle(centerStyle);
 
-                Cell cVenc = row.createCell(7);
+                Cell cVenc = row.createCell(8);
                 cVenc.setCellValue(r.getFechaVencimiento() != null ? r.getFechaVencimiento().format(dateFmt) : "");
                 cVenc.setCellStyle(centerStyle);
 
-                Cell cDias = row.createCell(8);
+                Cell cDias = row.createCell(9);
                 cDias.setCellValue(r.getDiasVencimiento());
                 cDias.setCellStyle(centerStyle);
 
-                Cell cNeto = row.createCell(9);
+                Cell cNeto = row.createCell(10);
                 cNeto.setCellValue(r.getNeto() * factor);
                 cNeto.setCellStyle(currencyStyle);
 
-                Cell cIva = row.createCell(10);
+                Cell cIva = row.createCell(11);
                 cIva.setCellValue(r.getIva() * factor);
                 cIva.setCellStyle(currencyStyle);
 
-                Cell cSaldo = row.createCell(11);
+                Cell cSaldo = row.createCell(12);
                 cSaldo.setCellValue(isBs ? r.getTotalBs() : r.getSaldo());
                 cSaldo.setCellStyle(currencyStyle);
 
-                Cell cTasa = row.createCell(12);
+                Cell cTasa = row.createCell(13);
                 cTasa.setCellValue(r.getTasa());
                 cTasa.setCellStyle(tasaStyle);
 
-                Cell cAlt = row.createCell(13);
+                Cell cAlt = row.createCell(14);
                 cAlt.setCellValue(isBs ? r.getSaldo() : r.getTotalBs());
                 cAlt.setCellStyle(currencyStyle);
 
-                Cell cPv = row.createCell(14);
+                Cell cPv = row.createCell(15);
                 cPv.setCellValue(r.getPorVencer() * factor);
                 cPv.setCellStyle(currencyStyle);
 
-                Cell c1a30 = row.createCell(15);
+                Cell c1a30 = row.createCell(16);
                 c1a30.setCellValue(r.getVencido1a30() * factor);
                 c1a30.setCellStyle(currencyStyle);
 
-                Cell c31a60 = row.createCell(16);
+                Cell c31a60 = row.createCell(17);
                 c31a60.setCellValue(r.getVencido31a60() * factor);
                 c31a60.setCellStyle(currencyStyle);
 
-                Cell c61a90 = row.createCell(17);
+                Cell c61a90 = row.createCell(18);
                 c61a90.setCellValue(r.getVencido61a90() * factor);
                 c61a90.setCellStyle(currencyStyle);
 
-                Cell cMas91 = row.createCell(18);
+                Cell cMas91 = row.createCell(19);
                 cMas91.setCellValue(r.getVencidoMas91() * factor);
                 cMas91.setCellStyle(currencyStyle);
 
-                Cell cCodV = row.createCell(19);
+                Cell cCodV = row.createCell(20);
                 cCodV.setCellValue(safeStr(r.getCodVendedor()));
                 cCodV.setCellStyle(centerStyle);
 
-                row.createCell(20).setCellValue(safeStr(r.getNombreVendedor()));
+                row.createCell(21).setCellValue(safeStr(r.getNombreVendedor()));
                 
-                Cell cAna = row.createCell(21);
+                Cell cAna = row.createCell(22);
                 cAna.setCellValue(safeStr(r.getAnalista()));
                 cAna.setCellStyle(centerStyle);
 
-                row.createCell(22).setCellValue(safeStr(r.getPedido()));
+                row.createCell(23).setCellValue(safeStr(r.getPedido()));
             }
 
             sheet.createFreezePane(0, 1);
