@@ -3,6 +3,7 @@ package com.droai.ui.dialog;
 import com.droai.model.SesionUsuario;
 import com.droai.service.UsuarioService;
 import com.droai.service.UsuarioService.AutenticacionException;
+import com.droai.ui.util.IconHelper;
 import net.miginfocom.swing.MigLayout;
 
 import javax.swing.*;
@@ -55,6 +56,8 @@ public class LoginAuditoriaDialog extends JDialog {
         super(owner, "Autenticación — Profit Plus", true);
         this.usuarioService = new UsuarioService();
 
+        IconHelper.applyAppIcon(this);
+
         setSize(480, 460);
         setLocationRelativeTo(owner);
         setResizable(false);
@@ -83,8 +86,14 @@ public class LoginAuditoriaDialog extends JDialog {
         root.setBorder(BorderFactory.createLineBorder(BORDER, 1, true));
 
         // ── Ícono + Título ──
-        JLabel lblIcon = new JLabel("🔐");
-        lblIcon.setFont(new Font("Segoe UI Emoji", Font.PLAIN, 40));
+        JLabel lblIcon = new JLabel();
+        ImageIcon appLogo = IconHelper.getAppImageIcon(52, 52);
+        if (appLogo != null) {
+            lblIcon.setIcon(appLogo);
+        } else {
+            lblIcon.setText("🔐");
+            lblIcon.setFont(new Font("Segoe UI Emoji", Font.PLAIN, 40));
+        }
         lblIcon.setHorizontalAlignment(SwingConstants.CENTER);
         root.add(lblIcon, "center");
 

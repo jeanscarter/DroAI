@@ -1,6 +1,7 @@
 package com.droai.ui.dialog;
 
 import com.droai.model.ArticuloRow;
+import com.droai.ui.util.IconHelper;
 import net.miginfocom.swing.MigLayout;
 
 import javax.swing.*;
@@ -54,6 +55,7 @@ public class FichaProductoDialog extends JDialog {
     public FichaProductoDialog(Frame owner, ArticuloRow articulo) {
         super(owner, "Ficha Producto", true);
         this.articulo = articulo;
+        IconHelper.applyAppIcon(this);
         setSize(800, 780);
         setLocationRelativeTo(owner);
         setResizable(false);

@@ -5,6 +5,8 @@ import com.droai.ui.AdminDashboardFrame;
 import com.droai.ui.ThemeManager;
 import com.droai.ui.dialog.LoginAuditoriaDialog;
 
+import com.droai.ui.util.IconHelper;
+
 import javax.swing.*;
 import java.awt.*;
 
@@ -13,6 +15,9 @@ import java.awt.*;
  */
 public class App {
     public static void main(String[] args) {
+        // ── Configurar ícono en barra de tareas (Windows / macOS / Linux) ──
+        IconHelper.setupTaskbarIcon();
+
         // ── Inicializar tema DroAI (Dark por defecto) ──
         ThemeManager.get().initialize();
 

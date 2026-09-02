@@ -6,6 +6,7 @@ import com.droai.model.StockAlmacenRow;
 import com.droai.model.StockLoteRow;
 import com.droai.model.SesionUsuario;
 import com.droai.ui.components.Toast;
+import com.droai.ui.util.IconHelper;
 import com.formdev.flatlaf.FlatClientProperties;
 import net.miginfocom.swing.MigLayout;
 
@@ -75,6 +76,8 @@ public class AjusteInventarioFrame extends JFrame {
         setMinimumSize(new Dimension(1024, 720));
         setLocationRelativeTo(null);
         setDefaultCloseOperation(JFrame.DISPOSE_ON_CLOSE);
+
+        IconHelper.applyAppIcon(this);
 
         // ── Listener de tema ──
         Runnable themeListener = () -> {

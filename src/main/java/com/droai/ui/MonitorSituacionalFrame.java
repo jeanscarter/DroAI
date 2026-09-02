@@ -6,6 +6,7 @@ import com.droai.ui.components.RoundedPanel;
 import com.droai.ui.components.Toast;
 import com.droai.ui.dialog.DetalleMonitorDialog;
 import com.droai.ui.table.MonitorSituacionalTableModel;
+import com.droai.ui.util.IconHelper;
 import com.github.lgooddatepicker.components.DatePicker;
 import com.github.lgooddatepicker.components.DatePickerSettings;
 import net.miginfocom.swing.MigLayout;
@@ -57,10 +58,7 @@ public class MonitorSituacionalFrame extends JFrame {
         setMinimumSize(new Dimension(1100, 700));
         setLocationRelativeTo(null);
 
-        try {
-            ImageIcon icon = new ImageIcon(getClass().getResource("/images/logo.png"));
-            setIconImage(icon.getImage());
-        } catch (Exception ignored) {}
+        IconHelper.applyAppIcon(this);
 
         Toast.setParentFrame(this);
         monitorService = new MonitorService();

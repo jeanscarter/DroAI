@@ -2,6 +2,7 @@ package com.droai.ui.dialog;
 
 import com.droai.ui.components.RoundedPanel;
 import com.droai.ui.components.Toast;
+import com.droai.ui.util.IconHelper;
 import net.miginfocom.swing.MigLayout;
 
 import javax.swing.*;
@@ -21,6 +22,7 @@ public class VariacionPreciosDialog extends JDialog {
 
     public VariacionPreciosDialog(Frame owner) {
         super(owner, "Variación de Precios", true);
+        IconHelper.applyAppIcon(this);
         setSize(580, 260);
         setLocationRelativeTo(owner);
         setResizable(false);

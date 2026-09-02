@@ -1,6 +1,7 @@
 package com.droai.ui.dialog;
 
 import com.droai.ui.components.Toast;
+import com.droai.ui.util.IconHelper;
 import net.miginfocom.swing.MigLayout;
 
 import javax.swing.*;
@@ -22,6 +23,7 @@ public class TasaCambioDialog extends JDialog {
 
     public TasaCambioDialog(Frame owner, double tasaActual) {
         super(owner, "Tasa de Cambio", true);
+        IconHelper.applyAppIcon(this);
         setSize(520, 280);
         setLocationRelativeTo(owner);
         setResizable(false);

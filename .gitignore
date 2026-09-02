@@ -41,3 +41,10 @@ src/test/java/com/droai/dao/MatrizVentasDAOTest.java
 .agents/skills/diagnostico-descuentos/SKILL.md
 src/main/java/com/droai/NotaEntregaDescuentoInvestigator.java
 src/test/java/com/droai/export/ExcelExporterTest.java
+analisis_006950.txt
+analisis_detalle.txt
+cronologia_006950.txt
+diagnostico_lotes_salida.txt
+analisis_008817_profundo.txt
+analisis_pedido_95447.txt
+analisis_usuarios_soporte.txt

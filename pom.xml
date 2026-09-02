@@ -121,6 +121,47 @@
                     <mainClass>com.droai.App</mainClass>
                 </configuration>
             </plugin>
+            <plugin>
+                <groupId>com.akathist.maven.plugins.launch4j</groupId>
+                <artifactId>launch4j-maven-plugin</artifactId>
+                <version>2.5.3</version>
+                <executions>
+                    <execution>
+                        <id>l4j-gui</id>
+                        <phase>package</phase>
+                        <goals>
+                            <goal>launch4j</goal>
+                        </goals>
+                        <configuration>
+                            <headerType>gui</headerType>
+                            <jar>${project.build.directory}/${project.build.finalName}.jar</jar>
+                            <outfile>${project.build.directory}/DroAI.exe</outfile>
+                            <downloadUrl>https://www.oracle.com/java/technologies/downloads/</downloadUrl>
+                            <classPath>
+                                <mainClass>com.droai.App</mainClass>
+                            </classPath>
+                            <icon>${project.basedir}/Logo.ico</icon>
+                            <jre>
+                                <path>%JAVA_HOME%;%PATH%</path>
+                                <requires64Bit>true</requires64Bit>
+                                <minVersion>17.0.0</minVersion>
+                            </jre>
+                            <versionInfo>
+                                <fileVersion>1.0.0.0</fileVersion>
+                                <txtFileVersion>${project.version}</txtFileVersion>
+                                <fileDescription>DroAI - Sistema de Gestión y Catálogo</fileDescription>
+                                <copyright>DroAI</copyright>
+                                <productVersion>1.0.0.0</productVersion>
+                                <txtProductVersion>${project.version}</txtProductVersion>
+                                <productName>DroAI</productName>
+                                <companyName>DroAI</companyName>
+                                <internalName>DroAI</internalName>
+                                <originalFilename>DroAI.exe</originalFilename>
+                            </versionInfo>
+                        </configuration>
+                    </execution>
+                </executions>
+            </plugin>
         </plugins>
     </build>
 </project>

@@ -6,6 +6,7 @@ import com.droai.model.FiltrosCriteria;
 import com.droai.model.FiltrosCriteria.FiltroCosto;
 import com.droai.model.FiltrosCriteria.FiltroPrecio;
 import com.droai.model.FiltrosCriteria.FiltroStock;
+import com.droai.ui.util.IconHelper;
 import net.miginfocom.swing.MigLayout;
 
 import javax.swing.*;
@@ -70,6 +71,7 @@ public class FiltrosDialog extends JDialog {
 
     public FiltrosDialog(Frame owner, FiltrosCriteria criteriaAnterior) {
         super(owner, "Filtros", true);
+        IconHelper.applyAppIcon(this);
         setSize(860, 580);
         setLocationRelativeTo(owner);
         setResizable(false);

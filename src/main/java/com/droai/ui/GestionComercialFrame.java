@@ -7,6 +7,7 @@ import com.droai.model.ClienteMaestroRow;
 import com.droai.model.MatrizVentasRow;
 import com.droai.ui.components.RoundedPanel;
 import com.droai.ui.components.Toast;
+import com.droai.ui.util.IconHelper;
 import com.github.lgooddatepicker.components.DatePicker;
 import com.github.lgooddatepicker.components.DatePickerSettings;
 import net.miginfocom.swing.MigLayout;
@@ -115,10 +116,7 @@ public class GestionComercialFrame extends JFrame {
         setMinimumSize(new Dimension(1200, 750));
         setLocationRelativeTo(null);
 
-        try {
-            ImageIcon icon = new ImageIcon(getClass().getResource("/images/logo.png"));
-            setIconImage(icon.getImage());
-        } catch (Exception ignored) {}
+        IconHelper.applyAppIcon(this);
 
         Toast.setParentFrame(this);
 

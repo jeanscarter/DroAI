@@ -3,6 +3,7 @@ package com.droai.ui;
 import com.droai.model.SesionUsuario;
 import com.droai.ui.components.RoundedPanel;
 import com.droai.ui.components.Toast;
+import com.droai.ui.util.IconHelper;
 import net.miginfocom.swing.MigLayout;
 
 import javax.swing.*;
@@ -38,15 +39,11 @@ public class AdminDashboardFrame extends JFrame {
     public AdminDashboardFrame() {
         setTitle("DroAI — Menú Principal Administrativo");
         setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
-        setSize(1100, 720);
-        setMinimumSize(new Dimension(900, 600));
+        setSize(1220, 750);
+        setMinimumSize(new Dimension(980, 640));
         setLocationRelativeTo(null);
 
-        try {
-            ImageIcon icon = new ImageIcon(getClass().getResource("/images/logo.png"));
-            setIconImage(icon.getImage());
-        } catch (Exception ignored) {
-        }
+        IconHelper.applyAppIcon(this);
 
         Toast.setParentFrame(this);
 
@@ -171,9 +168,9 @@ public class AdminDashboardFrame extends JFrame {
         // CONTENT — Cards Grid
         // ═══════════════════════════════════════════════════════════
         JPanel content = new JPanel(new MigLayout(
-                "insets 20 40 20 40, gap 20, center, wrap 3",
-                "[grow, 260:320:][grow, 260:320:][grow, 260:320:]",
-                "[grow, 220:260:][grow, 220:260:]"));
+                "insets 16 32 16 32, gap 16, center, wrap 4",
+                "[grow, 240:280:][grow, 240:280:][grow, 240:280:][grow, 240:280:]",
+                "[grow, 200:240:][grow, 200:240:]"));
         content.setOpaque(false);
 
         // ── Tarjeta 1: Gestión de Precios ──
@@ -223,6 +220,14 @@ public class AdminDashboardFrame extends JFrame {
                 "Estado de cuentas y antigüedad de saldos,\nreporte multimoneda USD, analistas y exportación.",
                 tm.orangeAccent(),
                 this::abrirCuentasPorCobrar), "grow");
+
+        // ── Tarjeta 7: Notas de Crédito / Doc. Venta ──
+        content.add(createModuleCard(
+                "📄",
+                "Notas de Crédito (Doc. Venta)",
+                "Documentos de venta, consulta y anulación,\nconversión multimoneda e impresión fiscal.",
+                tm.accent(),
+                this::abrirNotasCredito), "grow");
 
         root.add(content, BorderLayout.CENTER);
 
@@ -397,6 +402,38 @@ public class AdminDashboardFrame extends JFrame {
     private void abrirCuentasPorCobrar() {
         SwingUtilities.invokeLater(() -> {
             CxCDocumentoFrame frame = new CxCDocumentoFrame();
+            frame.setVisible(true);
+        });
+    }
+
+    /**
+     * Usuarios autorizados para acceder a Notas de Crédito / Documentos de Venta.
+     */
+    private static final java.util.Set<String> USUARIOS_AUTORIZADOS_NCR = java.util.Set.of("JG", "CN", "OP", "JR", "ND", "FC");
+
+    /**
+     * Abre el módulo de Notas de Crédito / Documento de Venta con validación de usuario.
+     */
+    private void abrirNotasCredito() {
+        if (!SesionUsuario.isAutenticado()) {
+            Toast.show("Debes iniciar sesión para acceder a este módulo", Toast.Type.WARNING);
+            return;
+        }
+
+        String coUsuario = SesionUsuario.current().getCoUsuario().trim().toUpperCase();
+        if (!USUARIOS_AUTORIZADOS_NCR.contains(coUsuario)) {
+            JOptionPane.showMessageDialog(this,
+                    "<html><body style='width: 320px; font-family: sans-serif;'>"
+                    + "<h3 style='color: #ef4444; margin-bottom: 8px;'>🔒 Acceso Restringido</h3>"
+                    + "El usuario <b>" + coUsuario + "</b> no tiene autorización para acceder al módulo de Notas de Crédito.<br><br>"
+                    + "<span style='color: #64748b;'>Usuarios autorizados:</span> <b>JG, CN, OP, JR, ND, FC</b>.</body></html>",
+                    "Seguridad — Control de Acceso",
+                    JOptionPane.WARNING_MESSAGE);
+            return;
+        }
+
+        SwingUtilities.invokeLater(() -> {
+            DocumentoVentaFrame frame = new DocumentoVentaFrame();
             frame.setVisible(true);
         });
     }

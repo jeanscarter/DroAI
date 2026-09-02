@@ -1,5 +1,6 @@
 package com.droai.ui.dialog;
 
+import com.droai.ui.util.IconHelper;
 import net.miginfocom.swing.MigLayout;
 
 import javax.swing.*;
@@ -20,6 +21,7 @@ public class ComisionesPasswordDialog extends JDialog {
     public ComisionesPasswordDialog(Window parent) {
         super(parent, "Seguridad — Cálculo de Comisiones", ModalityType.APPLICATION_MODAL);
         setDefaultCloseOperation(DISPOSE_ON_CLOSE);
+        IconHelper.applyAppIcon(this);
         setSize(420, 240);
         setResizable(false);
         setLocationRelativeTo(parent);

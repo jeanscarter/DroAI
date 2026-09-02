@@ -70,7 +70,7 @@ public class AjusteInventarioDAO {
             SELECT sa.co_alma, RTRIM(ISNULL(a.des_alma, sa.co_alma)) AS des_alma, ISNULL(sa.stock, 0) AS stock
             FROM saStockAlmacen sa
             LEFT JOIN saAlmacen a ON sa.co_alma = a.co_alma
-            WHERE sa.co_art = ?
+            WHERE sa.co_art = ? AND RTRIM(sa.tipo) = 'ACT'
             ORDER BY sa.co_alma
             """;
 

@@ -22,6 +22,8 @@ import java.io.File;
 import java.util.List;
 import com.droai.service.ImportadorService;
 
+import com.droai.ui.util.IconHelper;
+
 public class MainFrame extends JFrame {
 
     private final HeaderPanel header;
@@ -38,11 +40,7 @@ public class MainFrame extends JFrame {
         setExtendedState(JFrame.MAXIMIZED_BOTH);
         setLocationRelativeTo(null);
 
-        try {
-            ImageIcon icon = new ImageIcon(getClass().getResource("/images/logo.png"));
-            setIconImage(icon.getImage());
-        } catch (Exception ignored) {
-        }
+        IconHelper.applyAppIcon(this);
 
         Toast.setParentFrame(this);
         service = new CatalogoService();

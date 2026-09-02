@@ -28,6 +28,70 @@ import java.util.List;
 
 public class ExcelExporter {
 
+    private static byte[] LOGO_BYTES = null;
+
+    /**
+     * Obtiene los bytes del logo oficial de DroActiva desde src/main/resources/images/logo.png
+     * o desde el classpath del JAR.
+     */
+    private static synchronized byte[] getLogoDroActivaBytes() {
+        if (LOGO_BYTES != null && LOGO_BYTES.length > 0) {
+            return LOGO_BYTES;
+        }
+
+        // 1. Intentar desde classpath (/images/logo.png)
+        try (InputStream is = ExcelExporter.class.getResourceAsStream("/images/logo.png")) {
+            if (is != null) {
+                LOGO_BYTES = is.readAllBytes();
+                return LOGO_BYTES;
+            }
+        } catch (Exception ignored) {}
+
+        // 2. Intentar desde ruta explícita en el proyecto
+        File[] candidateFiles = new File[]{
+            new File("C:\\Users\\jeancarlos\\Documents\\Proyectos\\dro-ai\\src\\main\\resources\\images\\logo.png"),
+            new File("src/main/resources/images/logo.png"),
+            new File("src/main/resources/logo.png"),
+            new File("Logo.png")
+        };
+
+        for (File f : candidateFiles) {
+            if (f.exists()) {
+                try (FileInputStream fis = new FileInputStream(f)) {
+                    LOGO_BYTES = fis.readAllBytes();
+                    return LOGO_BYTES;
+                } catch (Exception ignored) {}
+            }
+        }
+
+        return null;
+    }
+
+    /**
+     * Inserta el logo oficial de DroActiva en la hoja Excel en el rango de celdas especificado.
+     */
+    public static void insertarLogoDroActiva(Workbook wb, Sheet sheet, int col1, int row1, int col2, int row2) {
+        try {
+            byte[] bytes = getLogoDroActivaBytes();
+            if (bytes != null && bytes.length > 0) {
+                int pictureIdx = wb.addPicture(bytes, Workbook.PICTURE_TYPE_PNG);
+                CreationHelper helper = wb.getCreationHelper();
+                Drawing<?> drawing = sheet.getDrawingPatriarch();
+                if (drawing == null) {
+                    drawing = sheet.createDrawingPatriarch();
+                }
+                ClientAnchor anchor = helper.createClientAnchor();
+                anchor.setCol1(col1);
+                anchor.setRow1(row1);
+                anchor.setCol2(col2);
+                anchor.setRow2(row2);
+                drawing.createPicture(anchor, pictureIdx);
+            }
+        } catch (Exception e) {
+            // Continuar la exportación sin interrumpir si ocurre algún problema con POI
+        }
+    }
+
     /**
      * Exporta el catálogo completo de artículos con todas las columnas disponibles.
      */
@@ -550,39 +614,8 @@ public class ExcelExporter {
             XSSFSheet sheet = wb.createSheet("Unidades y Valores");
             sheet.setDisplayGridlines(true);
 
-            // Intentar cargar e insertar logo DroActiva en A1:C4 desde C:\Users\jeancarlos\Documents\Proyectos\dro-ai\Logo.png
-            try {
-                byte[] bytes = null;
-                File externalLogo = new File("C:\\Users\\jeancarlos\\Documents\\Proyectos\\dro-ai\\Logo.png");
-                if (!externalLogo.exists()) {
-                    externalLogo = new File(System.getProperty("user.dir"), "Logo.png");
-                }
-                if (externalLogo.exists()) {
-                    try (FileInputStream fis = new FileInputStream(externalLogo)) {
-                        bytes = fis.readAllBytes();
-                    }
-                } else {
-                    try (InputStream is = getClass().getResourceAsStream("/images/logo.png")) {
-                        if (is != null) {
-                            bytes = is.readAllBytes();
-                        }
-                    }
-                }
-
-                if (bytes != null && bytes.length > 0) {
-                    int pictureIdx = wb.addPicture(bytes, Workbook.PICTURE_TYPE_PNG);
-                    CreationHelper helper = wb.getCreationHelper();
-                    Drawing<?> drawing = sheet.createDrawingPatriarch();
-                    ClientAnchor anchor = helper.createClientAnchor();
-                    anchor.setCol1(0);
-                    anchor.setRow1(0);
-                    anchor.setCol2(3);
-                    anchor.setRow2(4);
-                    drawing.createPicture(anchor, pictureIdx);
-                }
-            } catch (Exception e) {
-                // Si ocurre algún inconveniente leyendo el logo, continuar sin interrumpir la exportación
-            }
+            // Insertar logo oficial de DroActiva en A1:C5
+            insertarLogoDroActiva(wb, sheet, 0, 0, 3, 4);
 
             // Título de factura en fila 1 (index 1)
             Row titleRow = sheet.createRow(1);
@@ -857,6 +890,9 @@ public class ExcelExporter {
                                        CellStyle boldNumStyle) {
 
         Sheet sheet = wb.createSheet(sheetName);
+
+        // Insertar logo oficial de DroActiva en A1:C6
+        insertarLogoDroActiva(wb, sheet, 0, 0, 3, 6);
 
         // Fila 7: DROGUERIA ACTIVA, C.A.
         Row r7 = sheet.createRow(6);

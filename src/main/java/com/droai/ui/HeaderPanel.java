@@ -4,6 +4,7 @@ import com.droai.ui.components.RoundedButton;
 import com.droai.ui.components.RoundedPanel;
 import com.droai.ui.dialog.TasaCambioDialog;
 import com.droai.ui.dialog.VariacionPreciosDialog;
+import com.droai.ui.util.IconHelper;
 import net.miginfocom.swing.MigLayout;
 
 import javax.swing.*;
@@ -46,11 +47,10 @@ public class HeaderPanel extends JPanel {
 
         // -- Logo area --
         JLabel lblLogo = new JLabel();
-        try {
-            ImageIcon icon = new ImageIcon(getClass().getResource("/images/logo.png"));
-            Image scaled = icon.getImage().getScaledInstance(36, 36, Image.SCALE_SMOOTH);
-            lblLogo.setIcon(new ImageIcon(scaled));
-        } catch (Exception e) {
+        ImageIcon icon = IconHelper.getAppImageIcon(36, 36);
+        if (icon != null) {
+            lblLogo.setIcon(icon);
+        } else {
             lblLogo.setText("🧪");
             lblLogo.setFont(new Font("Segoe UI Emoji", Font.PLAIN, 24));
         }

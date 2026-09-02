@@ -4,6 +4,7 @@ import com.droai.export.ExcelExporter;
 import com.droai.model.MatrizVentasRow;
 import com.droai.service.MonitorService.MonitorResult;
 import com.droai.ui.components.Toast;
+import com.droai.ui.util.IconHelper;
 import net.miginfocom.swing.MigLayout;
 
 import javax.swing.*;
@@ -85,6 +86,8 @@ public class DetalleMonitorDialog extends JDialog {
         super(owner, "Detalle", true);
         this.rawRows = result.rawRows();
         this.isBs = isBs;
+
+        IconHelper.applyAppIcon(this);
 
         setSize(1200, 750);
         setMinimumSize(new Dimension(900, 550));
