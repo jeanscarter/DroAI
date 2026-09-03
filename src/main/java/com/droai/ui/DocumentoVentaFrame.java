@@ -553,8 +553,12 @@ public class DocumentoVentaFrame extends JFrame {
         txtDescripcion.setText(currentDoc.getDescripcion());
         txtNControl.setText(currentDoc.getNControl());
 
-        txtDocAsoc.setText(currentDoc.getDocOrig());
-        txtNroRegistro.setText(currentDoc.getNroOrig());
+        String docAsoc = (currentDoc.getDocOrigRaw() != null && !currentDoc.getDocOrigRaw().isBlank()) 
+                ? currentDoc.getDocOrigRaw() : currentDoc.getDocOrig();
+        String nroReg = (currentDoc.getNroOrigRaw() != null && !currentDoc.getNroOrigRaw().isBlank()) 
+                ? currentDoc.getNroOrigRaw() : currentDoc.getNroOrig();
+        txtDocAsoc.setText(docAsoc);
+        txtNroRegistro.setText(nroReg);
         txtFechaCheque.setText(currentDoc.getFecCheque() != null ? currentDoc.getFecCheque().format(DTF_FECHA) : "");
         txtBanco.setText(currentDoc.getBanco());
         txtNroCheque.setText(currentDoc.getNroCheque());

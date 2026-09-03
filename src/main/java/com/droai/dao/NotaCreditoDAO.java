@@ -51,13 +51,42 @@ public class NotaCreditoDAO {
             ISNULL(RTRIM(d.tipo_imp), '7') AS tipo_imp,
             
             -- Documento origen / afectado
-            ISNULL(RTRIM(d.doc_orig), '') AS doc_orig,
-            ISNULL(RTRIM(d.nro_orig), '') AS nro_orig,
-            orig.fec_emis AS fec_emis_orig,
-            ISNULL(RTRIM(orig.n_control), '') AS n_control_orig,
-            ISNULL(orig.total_bruto, 0.0) AS subtotal_orig_bs,
-            ISNULL(orig.monto_imp, 0.0) AS iva_orig_bs,
-            ISNULL(orig.total_neto, 0.0) AS total_orig_bs,
+            ISNULL(RTRIM(d.doc_orig), '') AS doc_orig_raw,
+            ISNULL(RTRIM(d.nro_orig), '') AS nro_orig_raw,
+            CASE 
+                WHEN RTRIM(d.doc_orig) = 'DEVO' THEN 'FACT'
+                ELSE ISNULL(RTRIM(d.doc_orig), '')
+            END AS doc_orig,
+            CASE 
+                WHEN RTRIM(d.doc_orig) = 'DEVO' THEN 
+                    ISNULL((SELECT TOP 1 RTRIM(reng.num_doc) FROM saDevolucionClienteReng reng WHERE reng.doc_num = d.nro_orig AND (reng.tipo_doc='FACT' OR reng.tipo_doc='NENT' OR reng.reng_num=1)), RTRIM(d.nro_orig))
+                ELSE ISNULL(RTRIM(d.nro_orig), '')
+            END AS nro_orig,
+            CASE 
+                WHEN RTRIM(d.doc_orig) = 'DEVO' THEN 
+                    (SELECT TOP 1 docV.fec_emis FROM saDocumentoVenta docV WHERE docV.nro_doc = (SELECT TOP 1 reng.num_doc FROM saDevolucionClienteReng reng WHERE reng.doc_num = d.nro_orig AND (reng.tipo_doc='FACT' OR reng.tipo_doc='NENT' OR reng.reng_num=1)) AND docV.co_tipo_doc='FACT')
+                ELSE orig.fec_emis
+            END AS fec_emis_orig,
+            CASE 
+                WHEN RTRIM(d.doc_orig) = 'DEVO' THEN 
+                    (SELECT TOP 1 RTRIM(docV.n_control) FROM saDocumentoVenta docV WHERE docV.nro_doc = (SELECT TOP 1 reng.num_doc FROM saDevolucionClienteReng reng WHERE reng.doc_num = d.nro_orig AND (reng.tipo_doc='FACT' OR reng.tipo_doc='NENT' OR reng.reng_num=1)) AND docV.co_tipo_doc='FACT')
+                ELSE ISNULL(RTRIM(orig.n_control), '')
+            END AS n_control_orig,
+            CASE 
+                WHEN RTRIM(d.doc_orig) = 'DEVO' THEN 
+                    (SELECT TOP 1 docV.total_bruto FROM saDocumentoVenta docV WHERE docV.nro_doc = (SELECT TOP 1 reng.num_doc FROM saDevolucionClienteReng reng WHERE reng.doc_num = d.nro_orig AND (reng.tipo_doc='FACT' OR reng.tipo_doc='NENT' OR reng.reng_num=1)) AND docV.co_tipo_doc='FACT')
+                ELSE ISNULL(orig.total_bruto, 0.0)
+            END AS subtotal_orig_bs,
+            CASE 
+                WHEN RTRIM(d.doc_orig) = 'DEVO' THEN 
+                    (SELECT TOP 1 docV.monto_imp FROM saDocumentoVenta docV WHERE docV.nro_doc = (SELECT TOP 1 reng.num_doc FROM saDevolucionClienteReng reng WHERE reng.doc_num = d.nro_orig AND (reng.tipo_doc='FACT' OR reng.tipo_doc='NENT' OR reng.reng_num=1)) AND docV.co_tipo_doc='FACT')
+                ELSE ISNULL(orig.monto_imp, 0.0)
+            END AS iva_orig_bs,
+            CASE 
+                WHEN RTRIM(d.doc_orig) = 'DEVO' THEN 
+                    (SELECT TOP 1 docV.total_neto FROM saDocumentoVenta docV WHERE docV.nro_doc = (SELECT TOP 1 reng.num_doc FROM saDevolucionClienteReng reng WHERE reng.doc_num = d.nro_orig AND (reng.tipo_doc='FACT' OR reng.tipo_doc='NENT' OR reng.reng_num=1)) AND docV.co_tipo_doc='FACT')
+                ELSE ISNULL(orig.total_neto, 0.0)
+            END AS total_orig_bs,
             
             -- Factura de respaldo si doc_orig='FACT' o saFacturaVenta
             fac.fec_emis AS fac_fec_emis,
@@ -168,13 +197,42 @@ public class NotaCreditoDAO {
                 ISNULL(RTRIM(m.mone_des), 'DOLAR AMERICANO') AS mone_des,
                 ISNULL(d.tasa, 1.0) AS tasa,
                 ISNULL(RTRIM(d.tipo_imp), '7') AS tipo_imp,
-                ISNULL(RTRIM(d.doc_orig), '') AS doc_orig,
-                ISNULL(RTRIM(d.nro_orig), '') AS nro_orig,
-                orig.fec_emis AS fec_emis_orig,
-                ISNULL(RTRIM(orig.n_control), '') AS n_control_orig,
-                ISNULL(orig.total_bruto, 0.0) AS subtotal_orig_bs,
-                ISNULL(orig.monto_imp, 0.0) AS iva_orig_bs,
-                ISNULL(orig.total_neto, 0.0) AS total_orig_bs,
+                ISNULL(RTRIM(d.doc_orig), '') AS doc_orig_raw,
+                ISNULL(RTRIM(d.nro_orig), '') AS nro_orig_raw,
+                CASE 
+                    WHEN RTRIM(d.doc_orig) = 'DEVO' THEN 'FACT'
+                    ELSE ISNULL(RTRIM(d.doc_orig), '')
+                END AS doc_orig,
+                CASE 
+                    WHEN RTRIM(d.doc_orig) = 'DEVO' THEN 
+                        ISNULL((SELECT TOP 1 RTRIM(reng.num_doc) FROM saDevolucionClienteReng reng WHERE reng.doc_num = d.nro_orig AND (reng.tipo_doc='FACT' OR reng.tipo_doc='NENT' OR reng.reng_num=1)), RTRIM(d.nro_orig))
+                    ELSE ISNULL(RTRIM(d.nro_orig), '')
+                END AS nro_orig,
+                CASE 
+                    WHEN RTRIM(d.doc_orig) = 'DEVO' THEN 
+                        (SELECT TOP 1 docV.fec_emis FROM saDocumentoVenta docV WHERE docV.nro_doc = (SELECT TOP 1 reng.num_doc FROM saDevolucionClienteReng reng WHERE reng.doc_num = d.nro_orig AND (reng.tipo_doc='FACT' OR reng.tipo_doc='NENT' OR reng.reng_num=1)) AND docV.co_tipo_doc='FACT')
+                    ELSE orig.fec_emis
+                END AS fec_emis_orig,
+                CASE 
+                    WHEN RTRIM(d.doc_orig) = 'DEVO' THEN 
+                        (SELECT TOP 1 RTRIM(docV.n_control) FROM saDocumentoVenta docV WHERE docV.nro_doc = (SELECT TOP 1 reng.num_doc FROM saDevolucionClienteReng reng WHERE reng.doc_num = d.nro_orig AND (reng.tipo_doc='FACT' OR reng.tipo_doc='NENT' OR reng.reng_num=1)) AND docV.co_tipo_doc='FACT')
+                    ELSE ISNULL(RTRIM(orig.n_control), '')
+                END AS n_control_orig,
+                CASE 
+                    WHEN RTRIM(d.doc_orig) = 'DEVO' THEN 
+                        (SELECT TOP 1 docV.total_bruto FROM saDocumentoVenta docV WHERE docV.nro_doc = (SELECT TOP 1 reng.num_doc FROM saDevolucionClienteReng reng WHERE reng.doc_num = d.nro_orig AND (reng.tipo_doc='FACT' OR reng.tipo_doc='NENT' OR reng.reng_num=1)) AND docV.co_tipo_doc='FACT')
+                    ELSE ISNULL(orig.total_bruto, 0.0)
+                END AS subtotal_orig_bs,
+                CASE 
+                    WHEN RTRIM(d.doc_orig) = 'DEVO' THEN 
+                        (SELECT TOP 1 docV.monto_imp FROM saDocumentoVenta docV WHERE docV.nro_doc = (SELECT TOP 1 reng.num_doc FROM saDevolucionClienteReng reng WHERE reng.doc_num = d.nro_orig AND (reng.tipo_doc='FACT' OR reng.tipo_doc='NENT' OR reng.reng_num=1)) AND docV.co_tipo_doc='FACT')
+                    ELSE ISNULL(orig.monto_imp, 0.0)
+                END AS iva_orig_bs,
+                CASE 
+                    WHEN RTRIM(d.doc_orig) = 'DEVO' THEN 
+                        (SELECT TOP 1 docV.total_neto FROM saDocumentoVenta docV WHERE docV.nro_doc = (SELECT TOP 1 reng.num_doc FROM saDevolucionClienteReng reng WHERE reng.doc_num = d.nro_orig AND (reng.tipo_doc='FACT' OR reng.tipo_doc='NENT' OR reng.reng_num=1)) AND docV.co_tipo_doc='FACT')
+                    ELSE ISNULL(orig.total_neto, 0.0)
+                END AS total_orig_bs,
                 fac.fec_emis AS fac_fec_emis,
                 ISNULL(RTRIM(fac.n_control), '') AS fac_n_control,
                 ISNULL(fac.total_bruto, 0.0) AS fac_subtotal_bs,
@@ -380,6 +438,8 @@ public class NotaCreditoDAO {
         // Documento Origen / Afectado
         m.setDocOrig(rs.getString("doc_orig"));
         m.setNroOrig(rs.getString("nro_orig"));
+        m.setDocOrigRaw(rs.getString("doc_orig_raw"));
+        m.setNroOrigRaw(rs.getString("nro_orig_raw"));
 
         Timestamp tsOrig = rs.getTimestamp("fec_emis_orig");
         if (tsOrig == null) tsOrig = rs.getTimestamp("fac_fec_emis");

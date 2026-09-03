@@ -19,6 +19,7 @@ target/
 *.log
 scratch/
 **/scratch/
+referencia_reportes_profit/
 db.properties
 .vscode/
 *.xlsx

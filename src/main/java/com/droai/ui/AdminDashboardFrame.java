@@ -97,11 +97,10 @@ public class AdminDashboardFrame extends JFrame {
         titleGroup.setOpaque(false);
 
         JLabel lblLogo = new JLabel();
-        try {
-            ImageIcon icon = new ImageIcon(getClass().getResource("/images/logo.png"));
-            Image scaled = icon.getImage().getScaledInstance(44, 44, Image.SCALE_SMOOTH);
-            lblLogo.setIcon(new ImageIcon(scaled));
-        } catch (Exception e) {
+        ImageIcon icon = IconHelper.getAppImageIcon(44, 44);
+        if (icon != null) {
+            lblLogo.setIcon(icon);
+        } else {
             lblLogo.setText("🧪");
             lblLogo.setFont(new Font("Segoe UI Emoji", Font.PLAIN, 32));
         }

@@ -43,8 +43,10 @@ public class NotaCreditoModel {
     private String tipoImpDesc;
 
     // ── Documento origen / afectado ──
-    private String docOrig; // "FACT", "DEVO", etc.
+    private String docOrig; // "FACT", "DEVO", etc. (Resuelto a la factura afectada para impresión oficial)
     private String nroOrig;
+    private String docOrigRaw; // Documento original directo tal como está en saDocumentoVenta (ej: "DEVO")
+    private String nroOrigRaw; // Número original directo (ej: número de devolución "0000001055")
     private LocalDateTime fecEmisOrig;
     private String nControlOrig;
     private double subtotalOrigBs;
@@ -191,6 +193,14 @@ public class NotaCreditoModel {
 
     public String getNroOrig() { return nroOrig != null ? nroOrig.trim() : ""; }
     public void setNroOrig(String nroOrig) { this.nroOrig = nroOrig; }
+
+    public String getDocOrigRaw() { return docOrigRaw != null ? docOrigRaw.trim() : ""; }
+    public void setDocOrigRaw(String docOrigRaw) { this.docOrigRaw = docOrigRaw; }
+
+    public String getNroOrigRaw() { return nroOrigRaw != null ? nroOrigRaw.trim() : ""; }
+    public void setNroOrigRaw(String nroOrigRaw) { this.nroOrigRaw = nroOrigRaw; }
+
+    public boolean esOrigenDevolucion() { return "DEVO".equalsIgnoreCase(docOrigRaw); }
 
     public LocalDateTime getFecEmisOrig() { return fecEmisOrig; }
     public void setFecEmisOrig(LocalDateTime fecEmisOrig) { this.fecEmisOrig = fecEmisOrig; }
