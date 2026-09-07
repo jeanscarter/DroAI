@@ -167,9 +167,9 @@ public class AdminDashboardFrame extends JFrame {
         // CONTENT — Cards Grid
         // ═══════════════════════════════════════════════════════════
         JPanel content = new JPanel(new MigLayout(
-                "insets 16 32 16 32, gap 16, center, wrap 4",
-                "[grow, 240:280:][grow, 240:280:][grow, 240:280:][grow, 240:280:]",
-                "[grow, 200:240:][grow, 200:240:]"));
+                "insets 12 28 12 28, gap 16, center, wrap 4, fill",
+                "[grow, fill, sg col][grow, fill, sg col][grow, fill, sg col][grow, fill, sg col]",
+                "[grow, fill, sg row][grow, fill, sg row]"));
         content.setOpaque(false);
 
         // ── Tarjeta 1: Gestión de Precios ──
@@ -228,6 +228,14 @@ public class AdminDashboardFrame extends JFrame {
                 tm.accent(),
                 this::abrirNotasCredito), "grow");
 
+        // ── Tarjeta 8: Auditoría y Usuarios (Módulo futuro) ──
+        content.add(createModuleCard(
+                "👥",
+                "Auditoría y Usuarios",
+                "Gestión de usuarios, control de acceso,\nhistorial de operaciones del sistema.",
+                tm.cardBorder(),
+                null), "grow");
+
         root.add(content, BorderLayout.CENTER);
 
         // ═══════════════════════════════════════════════════════════
@@ -264,7 +272,7 @@ public class AdminDashboardFrame extends JFrame {
             Color accentColor, Runnable onClickAction) {
         RoundedPanel card = new RoundedPanel(16, true);
         card.setBackground(tm.cardBg());
-        card.setLayout(new MigLayout("insets 28 24 24 24, wrap, gap 8", "[grow, center]", ""));
+        card.setLayout(new MigLayout("insets 22 16 16 16, wrap, fillx", "[grow, center]", "[]6[]4[grow, center]push[]"));
         card.setCursor(onClickAction != null
                 ? Cursor.getPredefinedCursor(Cursor.HAND_CURSOR)
                 : Cursor.getDefaultCursor());
@@ -274,25 +282,27 @@ public class AdminDashboardFrame extends JFrame {
                 BorderFactory.createMatteBorder(0, 0, 3, 0, accentColor),
                 BorderFactory.createEmptyBorder(0, 0, 0, 0)));
 
-        // Ícono grande
+        // Ícono grande con margen superior y padding interno para evitar recorte de glifos
         JLabel lblIcon = new JLabel(icon);
-        lblIcon.setFont(new Font("Segoe UI Emoji", Font.PLAIN, 48));
+        lblIcon.setFont(new Font("Segoe UI Emoji", Font.PLAIN, 36));
+        lblIcon.setForeground(tm.textPrimary());
         lblIcon.setHorizontalAlignment(SwingConstants.CENTER);
-        card.add(lblIcon, "center, gapbottom 8");
+        lblIcon.setBorder(BorderFactory.createEmptyBorder(6, 6, 2, 6));
+        card.add(lblIcon, "center, gaptop 4, gapbottom 4");
 
         // Título
         JLabel lblTitle = new JLabel("<html><center>" + title + "</center></html>");
-        lblTitle.setFont(new Font("Segoe UI", Font.BOLD, 16));
+        lblTitle.setFont(new Font("Segoe UI", Font.BOLD, 14));
         lblTitle.setForeground(tm.textPrimary());
         lblTitle.setHorizontalAlignment(SwingConstants.CENTER);
-        card.add(lblTitle, "center, gapbottom 4");
+        card.add(lblTitle, "center, gapbottom 2");
 
         // Descripción
         JLabel lblDesc = new JLabel("<html><center>" + description.replace("\n", "<br>") + "</center></html>");
         lblDesc.setFont(new Font("Segoe UI", Font.PLAIN, 11));
         lblDesc.setForeground(tm.textSecondary());
         lblDesc.setHorizontalAlignment(SwingConstants.CENTER);
-        card.add(lblDesc, "center, gapbottom 16");
+        card.add(lblDesc, "center, grow");
 
         // Botón de acción
         if (onClickAction != null) {
@@ -302,14 +312,14 @@ public class AdminDashboardFrame extends JFrame {
             btnAcceder.setForeground(tm.btnForegroundFor(accentColor));
             btnAcceder.setFocusPainted(false);
             btnAcceder.setCursor(Cursor.getPredefinedCursor(Cursor.HAND_CURSOR));
-            btnAcceder.setBorder(BorderFactory.createEmptyBorder(10, 28, 10, 28));
+            btnAcceder.setBorder(BorderFactory.createEmptyBorder(8, 24, 8, 24));
             btnAcceder.addActionListener(e -> onClickAction.run());
             card.add(btnAcceder, "center");
         } else {
             JLabel lblProximamente = new JLabel("Próximamente");
             lblProximamente.setFont(new Font("Segoe UI", Font.ITALIC, 11));
             lblProximamente.setForeground(tm.textLabel());
-            card.add(lblProximamente, "center");
+            card.add(lblProximamente, "center, gaptop 6, gapbottom 6");
         }
 
         // Hover effect

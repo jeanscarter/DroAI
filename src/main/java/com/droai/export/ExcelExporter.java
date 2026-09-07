@@ -610,8 +610,12 @@ public class ExcelExporter {
             return safeStr(a.getNumero()).compareTo(safeStr(b.getNumero()));
         });
 
-        try (XSSFWorkbook wb = new XSSFWorkbook()) {
-            XSSFSheet sheet = wb.createSheet("Unidades y Valores");
+        // SXSSFWorkbook: modo streaming — mantiene solo 100 filas en RAM
+        // Evita OutOfMemoryError al exportar grandes volúmenes (100K+ registros)
+        SXSSFWorkbook wb = new SXSSFWorkbook(100);
+        wb.setCompressTempFiles(true);
+        try {
+            Sheet sheet = wb.createSheet("Unidades y Valores");
             sheet.setDisplayGridlines(true);
 
             // Insertar logo oficial de DroActiva en A1:C5
@@ -621,12 +625,20 @@ public class ExcelExporter {
             Row titleRow = sheet.createRow(1);
             Cell titleCell = titleRow.createCell(5);
             String mesTitle = "FACTURACION";
-            if (!sorted.isEmpty() && sorted.get(0).getMes() != null && !sorted.get(0).getMes().isBlank()) {
-                mesTitle = "FACTURACION " + sorted.get(0).getMes();
+            if (!sorted.isEmpty()) {
+                String mesInicio = sorted.get(0).getMes();
+                String mesFin = sorted.get(sorted.size() - 1).getMes();
+                if (mesInicio != null && !mesInicio.isBlank()) {
+                    if (mesFin != null && !mesFin.isBlank() && !mesInicio.equals(mesFin)) {
+                        mesTitle = "FACTURACION " + mesInicio + " A " + mesFin;
+                    } else {
+                        mesTitle = "FACTURACION " + mesInicio;
+                    }
+                }
             }
             titleCell.setCellValue(mesTitle);
 
-            XSSFFont titleFont = wb.createFont();
+            XSSFFont titleFont = (XSSFFont) wb.createFont();
             titleFont.setBold(true);
             titleFont.setFontHeightInPoints((short) 16);
             titleFont.setColor(new XSSFColor(new java.awt.Color(0, 51, 102), null));
@@ -678,14 +690,25 @@ public class ExcelExporter {
                     "Descripcion Art", "Cantidad", "Total Renglon"
             };
 
+            // Anchos predefinidos por columna (en unidades POI: 256ths de carácter)
+            // Reemplaza autoSizeColumn que no funciona con streaming y consume mucha RAM
+            int[] colWidths = {
+                    3800, 3200, 3200, 7000, 3800, 4200, 8000,
+                    4500, 5500, 4000, 5500, 3800, 3800, 3500, 3200,
+                    9000, 3200, 4500
+            };
+            for (int i = 0; i < colWidths.length; i++) {
+                sheet.setColumnWidth(i, colWidths[i]);
+            }
+
             // Estilo Teal (#00A89D) para encabezados
             CellStyle headerStyle = wb.createCellStyle();
-            XSSFFont headerFont = wb.createFont();
+            XSSFFont headerFont = (XSSFFont) wb.createFont();
             headerFont.setBold(true);
             headerFont.setColor(IndexedColors.WHITE.getIndex());
             headerFont.setFontHeightInPoints((short) 10);
             headerStyle.setFont(headerFont);
-            headerStyle.setFillForegroundColor(new XSSFColor(new java.awt.Color(0, 168, 157), null));
+            ((XSSFCellStyle) headerStyle).setFillForegroundColor(new XSSFColor(new java.awt.Color(0, 168, 157), null));
             headerStyle.setFillPattern(FillPatternType.SOLID_FOREGROUND);
             headerStyle.setAlignment(HorizontalAlignment.CENTER);
             headerStyle.setVerticalAlignment(VerticalAlignment.CENTER);
@@ -748,16 +771,12 @@ public class ExcelExporter {
                 sheet.setAutoFilter(new CellRangeAddress(6, rowIdx - 1, 0, 17));
             }
 
-            // Ajustar anchos de columnas
-            for (int col = 0; col < headers.length; col++) {
-                sheet.autoSizeColumn(col);
-                int width = sheet.getColumnWidth(col) + 1000;
-                sheet.setColumnWidth(col, Math.min(Math.max(width, 2500), 15000));
-            }
-
             try (FileOutputStream fos = new FileOutputStream(file)) {
                 wb.write(fos);
             }
+        } finally {
+            wb.dispose(); // Eliminar archivos temporales de streaming
+            wb.close();
         }
         return file;
     }
@@ -775,7 +794,9 @@ public class ExcelExporter {
 
         File file = fileDestino != null ? fileDestino : new File(System.getProperty("user.dir"), "COMISIONES_" + coVen + ".xlsx");
 
-        try (XSSFWorkbook wb = new XSSFWorkbook()) {
+        SXSSFWorkbook wb = new SXSSFWorkbook(100);
+        wb.setCompressTempFiles(true);
+        try {
             Font fontBold = wb.createFont(); fontBold.setFontName("Calibri"); fontBold.setFontHeightInPoints((short) 11); fontBold.setBold(true);
             Font fontTitle = wb.createFont(); fontTitle.setFontName("Calibri"); fontTitle.setFontHeightInPoints((short) 14); fontTitle.setBold(true);
             Font fontRegular = wb.createFont(); fontRegular.setFontName("Calibri"); fontRegular.setFontHeightInPoints((short) 10);
@@ -811,6 +832,9 @@ public class ExcelExporter {
             try (FileOutputStream fos = new FileOutputStream(file)) {
                 wb.write(fos);
             }
+        } finally {
+            wb.dispose();
+            wb.close();
         }
         return file;
     }
@@ -825,7 +849,9 @@ public class ExcelExporter {
 
         File file = fileDestino != null ? fileDestino : new File(System.getProperty("user.dir"), "RELACION_DE_COMISIONES_GENERAL.xlsx");
 
-        try (XSSFWorkbook wb = new XSSFWorkbook()) {
+        SXSSFWorkbook wb = new SXSSFWorkbook(100);
+        wb.setCompressTempFiles(true);
+        try {
             Font fontBold = wb.createFont(); fontBold.setFontName("Calibri"); fontBold.setFontHeightInPoints((short) 11); fontBold.setBold(true);
             Font fontTitle = wb.createFont(); fontTitle.setFontName("Calibri"); fontTitle.setFontHeightInPoints((short) 14); fontTitle.setBold(true);
             Font fontRegular = wb.createFont(); fontRegular.setFontName("Calibri"); fontRegular.setFontHeightInPoints((short) 10);
@@ -877,6 +903,9 @@ public class ExcelExporter {
             try (FileOutputStream fos = new FileOutputStream(file)) {
                 wb.write(fos);
             }
+        } finally {
+            wb.dispose();
+            wb.close();
         }
 
         return file;
@@ -1016,11 +1045,15 @@ public class ExcelExporter {
         Cell cTotBase = totRow.createCell(14); cTotBase.setCellValue(sumBase); cTotBase.setCellStyle(boldNumStyle);
         Cell cTotCom = totRow.createCell(16); cTotCom.setCellValue(sumCom); cTotCom.setCellStyle(boldNumStyle);
 
-        // Ajustar anchos de columna
-        for (int col = 0; col < headers.length; col++) {
-            sheet.autoSizeColumn(col);
-            int width = sheet.getColumnWidth(col) + 800;
-            sheet.setColumnWidth(col, Math.min(Math.max(width, 2400), 14000));
+        // Anchos predefinidos por columna (compatible con SXSSFWorkbook streaming)
+        int[] comisionWidths = {
+                1500, 3500, 5500, 2800, 4500,
+                5500, 4500, 4500, 3200,
+                4000, 8000, 4500, 2500,
+                4500, 4500, 3200, 4500, 6000, 2500
+        };
+        for (int col = 0; col < Math.min(headers.length, comisionWidths.length); col++) {
+            sheet.setColumnWidth(col, comisionWidths[col]);
         }
     }
 
@@ -1031,7 +1064,9 @@ public class ExcelExporter {
         String timestamp = LocalDateTime.now().format(DateTimeFormatter.ofPattern("yyyyMMdd_HHmmss"));
         File file = new File(System.getProperty("user.dir"), "Maestro_Clientes_" + timestamp + ".xlsx");
 
-        try (XSSFWorkbook wb = new XSSFWorkbook()) {
+        SXSSFWorkbook wb = new SXSSFWorkbook(100);
+        wb.setCompressTempFiles(true);
+        try {
             CellStyle headerStyle = createHeaderStyle(wb);
             CellStyle currencyStyle = createCurrencyStyle(wb);
 
@@ -1043,6 +1078,18 @@ public class ExcelExporter {
                 "Email", "Crédito", "Teléfono", "Límite Crédito ($)", "Ruta",
                 "Tipo de Persona", "Contacto", "Dirección"
             };
+
+            // Anchos predefinidos por columna (compatible con streaming)
+            int[] clienteWidths = {
+                3200, 4200, 9000, 3200, 3800,
+                4000, 3000, 3000, 3500, 4000,
+                3500, 3000, 4000, 3500, 4500,
+                7000, 3000, 4000, 5500, 3000,
+                4500, 5000, 10000
+            };
+            for (int i = 0; i < clienteWidths.length; i++) {
+                sheet.setColumnWidth(i, clienteWidths[i]);
+            }
 
             Row hr = sheet.createRow(0);
             hr.setHeightInPoints(24);
@@ -1088,16 +1135,12 @@ public class ExcelExporter {
 
             sheet.createFreezePane(0, 1);
 
-            // Anchos automáticos
-            for (int col = 0; col < headers.length; col++) {
-                sheet.autoSizeColumn(col);
-                int width = sheet.getColumnWidth(col) + 600;
-                sheet.setColumnWidth(col, Math.min(Math.max(width, 2400), 12000));
-            }
-
             try (FileOutputStream fos = new FileOutputStream(file)) {
                 wb.write(fos);
             }
+        } finally {
+            wb.dispose();
+            wb.close();
         }
         return file;
     }
@@ -1113,7 +1156,9 @@ public class ExcelExporter {
         File file = (fileToSave != null) ? fileToSave
                 : new File(System.getProperty("user.dir"), "EDC_Maestro_" + LocalDateTime.now().format(DateTimeFormatter.ofPattern("yyyyMMdd_HHmmss")) + ".xlsx");
 
-        try (XSSFWorkbook wb = new XSSFWorkbook()) {
+        SXSSFWorkbook wb = new SXSSFWorkbook(100);
+        wb.setCompressTempFiles(true);
+        try {
             CellStyle headerStyle = wb.createCellStyle();
             Font hFont = wb.createFont();
             hFont.setBold(true);
@@ -1156,6 +1201,17 @@ public class ExcelExporter {
                     isBs ? ">=91 (Bs)" : ">=91 ($)",
                     "cod. Vnd", "VEND.", "ANALISTA", "PEDIDO"
             };
+
+            // Anchos predefinidos por columna (compatible con streaming)
+            int[] cxcWidths = {
+                    4500, 4200, 4500, 8000, 3500, 2500, 2500, 3800, 3800, 4000,
+                    4500, 4000, 4500, 3500, 4500,
+                    4500, 4000, 4000, 4000, 4000,
+                    3200, 5500, 4000, 3500
+            };
+            for (int i = 0; i < cxcWidths.length; i++) {
+                sheet.setColumnWidth(i, cxcWidths[i]);
+            }
 
             Row hr = sheet.createRow(0);
             hr.setHeightInPoints(24);
@@ -1259,15 +1315,13 @@ public class ExcelExporter {
             }
 
             sheet.createFreezePane(0, 1);
-            for (int col = 0; col < headers.length; col++) {
-                sheet.autoSizeColumn(col);
-                int width = sheet.getColumnWidth(col) + 600;
-                sheet.setColumnWidth(col, Math.min(Math.max(width, 2400), 12000));
-            }
 
             try (FileOutputStream fos = new FileOutputStream(file)) {
                 wb.write(fos);
             }
+        } finally {
+            wb.dispose();
+            wb.close();
         }
         return file;
     }

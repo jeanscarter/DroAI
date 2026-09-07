@@ -676,6 +676,7 @@ public class DetalleMonitorDialog extends JDialog {
         btnExport.setFocusPainted(false);
         btnExport.setCursor(Cursor.getPredefinedCursor(Cursor.HAND_CURSOR));
         btnExport.addActionListener(e -> exportarExcel());
+        btnExportRef = btnExport; // Guardar referencia para feedback durante export async
         footer.add(btnExport);
 
         // Total Monto
@@ -705,20 +706,53 @@ public class DetalleMonitorDialog extends JDialog {
     //  EXPORT
     // ═══════════════════════════════════════════════════════════════
 
+    private JButton btnExportRef; // Referencia para habilitar/deshabilitar durante export
+
     private void exportarExcel() {
-        try {
-            ExcelExporter exporter = new ExcelExporter();
-            File file;
-            if (mainTabs != null && mainTabs.getSelectedIndex() == 2) {
-                file = exporter.exportUnidadesValores(currentUnidadesValoresRows, isBs);
-            } else {
-                file = exporter.exportMatrizVentas(rawRows, isBs);
-            }
-            Toast.show("Exportado: " + file.getName(), Toast.Type.SUCCESS);
-        } catch (Exception ex) {
-            Toast.show("Error al exportar: " + ex.getMessage(), Toast.Type.ERROR);
-            ex.printStackTrace();
+        // Deshabilitar botón para evitar clics dobles
+        if (btnExportRef != null) {
+            btnExportRef.setEnabled(false);
+            btnExportRef.setText("⏳ Exportando...");
         }
+
+        // Capturar datos para el hilo de fondo
+        final List<MatrizVentasRow> rowsToExport;
+        final boolean exportUnidades = (mainTabs != null && mainTabs.getSelectedIndex() == 2);
+        if (exportUnidades) {
+            rowsToExport = new ArrayList<>(currentUnidadesValoresRows);
+        } else {
+            rowsToExport = rawRows;
+        }
+        final boolean exportIsBs = this.isBs;
+
+        new SwingWorker<File, Void>() {
+            @Override
+            protected File doInBackground() throws Exception {
+                ExcelExporter exporter = new ExcelExporter();
+                if (exportUnidades) {
+                    return exporter.exportUnidadesValores(rowsToExport, exportIsBs);
+                } else {
+                    return exporter.exportMatrizVentas(rowsToExport, exportIsBs);
+                }
+            }
+
+            @Override
+            protected void done() {
+                try {
+                    File file = get();
+                    Toast.show("Exportado: " + file.getName(), Toast.Type.SUCCESS);
+                } catch (Exception ex) {
+                    Throwable cause = ex.getCause() != null ? ex.getCause() : ex;
+                    Toast.show("Error al exportar: " + cause.getMessage(), Toast.Type.ERROR);
+                    cause.printStackTrace();
+                } finally {
+                    if (btnExportRef != null) {
+                        btnExportRef.setEnabled(true);
+                        btnExportRef.setText("✅ Exportar Excel");
+                    }
+                }
+            }
+        }.execute();
     }
 
     // ═══════════════════════════════════════════════════════════════
