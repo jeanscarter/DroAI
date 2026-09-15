@@ -317,13 +317,13 @@ public class GestionComercialFrame extends JFrame {
             "Código", "R.I.F", "Nombres / Razón Social", "NIT", "F. Registro",
             "Contrib.", "Tipo", "Zona", "Ciudad", "Segmento",
             "Inactivo", "Vendedor", "Cod. Postal", "Cond. Pago", "Email",
-            "Crédito", "Teléfono", "Límite ($)", "Ruta", "Tipo Persona",
+            "Crédito", "Desc. Comercial", "Teléfono", "Límite ($)", "Ruta", "Tipo Persona",
             "Contacto", "Dirección"
         };
         tableModelClientes = new DefaultTableModel(colsCli, 0) {
             @Override public boolean isCellEditable(int row, int column) { return false; }
             @Override public Class<?> getColumnClass(int col) {
-                if (col == 17) return Double.class;
+                if (col == 16 || col == 18) return Double.class;
                 return String.class;
             }
         };
@@ -981,7 +981,43 @@ public class GestionComercialFrame extends JFrame {
             }
         };
 
-        if (t.getColumnCount() >= 22) {
+        DefaultTableCellRenderer descRenderer = new DefaultTableCellRenderer() {
+            @Override
+            public Component getTableCellRendererComponent(JTable table, Object value, boolean isSelected, boolean hasFocus, int row, int column) {
+                Component c = super.getTableCellRendererComponent(table, value, isSelected, hasFocus, row, column);
+                setHorizontalAlignment(SwingConstants.CENTER);
+                if (value instanceof Number n) {
+                    double d = n.doubleValue();
+                    if (d > 0.0001) {
+                        if (Math.abs(d - Math.floor(d)) < 0.001) {
+                            setText(String.format("%.0f%%", d));
+                        } else {
+                            setText(String.format(Locale.US, "%.2f%%", d).replace('.', ','));
+                        }
+                        if (!isSelected) {
+                            setForeground(tm.greenAccent());
+                            setFont(getFont().deriveFont(Font.BOLD));
+                        }
+                    } else {
+                        setText("-");
+                        if (!isSelected) {
+                            setForeground(tm.textSecondary());
+                            setFont(getFont().deriveFont(Font.PLAIN));
+                        }
+                    }
+                } else {
+                    setText("-");
+                }
+                if (isSelected) {
+                    setBackground(table.getSelectionBackground());
+                } else {
+                    setBackground(row % 2 == 0 ? tm.tableBg() : tm.tableAlt());
+                }
+                return c;
+            }
+        };
+
+        if (t.getColumnCount() >= 23) {
             t.getColumnModel().getColumn(0).setCellRenderer(centerRenderer);  // Código
             t.getColumnModel().getColumn(1).setCellRenderer(centerRenderer);  // RIF
             t.getColumnModel().getColumn(3).setCellRenderer(centerRenderer);  // NIT
@@ -989,7 +1025,9 @@ public class GestionComercialFrame extends JFrame {
             t.getColumnModel().getColumn(5).setCellRenderer(centerRenderer);  // Contrib.
             t.getColumnModel().getColumn(10).setCellRenderer(inactivoRenderer); // Inactivo
             t.getColumnModel().getColumn(15).setCellRenderer(creditoRenderer);  // Crédito
-            t.getColumnModel().getColumn(17).setCellRenderer(currencyRenderer); // Límite ($)
+            t.getColumnModel().getColumn(16).setCellRenderer(descRenderer);     // Desc. Comercial
+            t.getColumnModel().getColumn(17).setCellRenderer(centerRenderer);   // Teléfono
+            t.getColumnModel().getColumn(18).setCellRenderer(currencyRenderer); // Límite ($)
         }
     }
 
@@ -1084,6 +1122,7 @@ public class GestionComercialFrame extends JFrame {
                 r.getCondPago(),
                 r.getEmail(),
                 r.getCredito(),
+                r.getDescComercial(),
                 r.getTelefono(),
                 r.getLimiteCredito(),
                 r.getRuta(),

@@ -23,6 +23,7 @@ public class ClienteMaestroRow {
     private String condPago;        // Plazo / condición de crédito
     private String email;
     private String credito;         // "SI" (Tiene crédito) / "NO" (Sin crédito)
+    private double descComercial;   // Descuento Comercial (%) extraído de frecu_vist en saCliente
     private String telefono;
     private double limiteCredito;
     private String ruta;
@@ -171,6 +172,14 @@ public class ClienteMaestroRow {
 
     public void setCredito(String credito) {
         this.credito = credito;
+    }
+
+    public double getDescComercial() {
+        return descComercial;
+    }
+
+    public void setDescComercial(double descComercial) {
+        this.descComercial = descComercial;
     }
 
     public String getTelefono() {

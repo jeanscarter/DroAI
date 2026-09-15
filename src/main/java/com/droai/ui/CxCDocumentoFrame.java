@@ -24,6 +24,7 @@ import java.time.DayOfWeek;
 import java.time.LocalDate;
 import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.Comparator;
 import java.util.List;
 import java.util.Locale;
@@ -140,12 +141,13 @@ public class CxCDocumentoFrame extends JFrame {
         JPanel exportBox = new JPanel(new MigLayout("insets 0, gap 8", "[][]", "[]"));
         exportBox.setOpaque(false);
 
-        JButton btnExportExcel = new JButton("📥 Exportar a Excel (EDC Maestro)");
+        JButton btnExportExcel = new JButton("📥 Exportar a Excel");
         btnExportExcel.setFont(new Font("Segoe UI", Font.BOLD, 12));
         btnExportExcel.setBackground(tm.greenAccent());
         btnExportExcel.setForeground(tm.btnForegroundFor(tm.greenAccent()));
         btnExportExcel.setFocusPainted(false);
         btnExportExcel.setCursor(Cursor.getPredefinedCursor(Cursor.HAND_CURSOR));
+        btnExportExcel.setToolTipText("Exporta los documentos visibles o el maestro completo a Excel (.xlsx)");
         btnExportExcel.addActionListener(e -> exportarExcel());
         exportBox.add(btnExportExcel);
 
@@ -218,6 +220,7 @@ public class CxCDocumentoFrame extends JFrame {
         // Barra de búsqueda rápida
         txtBuscar = new JTextField();
         txtBuscar.putClientProperty("JTextField.placeholderText", "🔍 Filtrar por Cliente, Vendedor, Factura o Analista...");
+        txtBuscar.putClientProperty("JTextField.showClearButton", true);
         txtBuscar.setFont(new Font("Segoe UI", Font.PLAIN, 12));
         txtBuscar.getDocument().addDocumentListener(new DocumentListener() {
             @Override public void insertUpdate(DocumentEvent e) { aplicarFiltroRapido(); }
@@ -601,7 +604,11 @@ public class CxCDocumentoFrame extends JFrame {
     }
 
     private void actualizarKpis() {
-        TotalesCxC tot = service.calcularTotales(currentData);
+        actualizarKpis(getDatosVisibles());
+    }
+
+    private void actualizarKpis(List<CxCDocumentoRow> rows) {
+        TotalesCxC tot = service.calcularTotales(rows != null ? rows : Collections.emptyList());
 
         lblStatRegistros.setText(String.valueOf(tot.getTotalRegistros()));
         if (!isBs) {
@@ -721,27 +728,75 @@ public class CxCDocumentoFrame extends JFrame {
             };
             modelAnalistas.addRow(r);
         }
+
+        aplicarFiltroRapido();
     }
 
     private void aplicarFiltroRapido() {
         if (sorterDetalle == null) return;
-        String query = txtBuscar.getText().trim();
+        String query = (txtBuscar != null) ? txtBuscar.getText().trim() : "";
         if (query.isEmpty()) {
             sorterDetalle.setRowFilter(null);
         } else {
             sorterDetalle.setRowFilter(RowFilter.regexFilter("(?i)" + java.util.regex.Pattern.quote(query)));
         }
+        actualizarKpis();
+    }
+
+    private List<CxCDocumentoRow> getDatosVisibles() {
+        if (currentData == null || currentData.isEmpty()) {
+            return Collections.emptyList();
+        }
+        if (tableDetalle == null || tableDetalle.getRowSorter() == null) {
+            return currentData;
+        }
+        int rowCount = tableDetalle.getRowCount();
+        if (rowCount == 0) {
+            return Collections.emptyList();
+        }
+        List<CxCDocumentoRow> visibles = new ArrayList<>(rowCount);
+        for (int i = 0; i < rowCount; i++) {
+            int modelIdx = tableDetalle.convertRowIndexToModel(i);
+            if (modelIdx >= 0 && modelIdx < currentData.size()) {
+                visibles.add(currentData.get(modelIdx));
+            }
+        }
+        return visibles;
     }
 
     private void exportarExcel() {
-        if (currentData.isEmpty()) {
+        if (currentData == null || currentData.isEmpty()) {
             Toast.showWarning("Primero debes procesar una consulta para exportar.");
             return;
         }
 
+        List<CxCDocumentoRow> datosAExportar = getDatosVisibles();
+        if (datosAExportar.isEmpty()) {
+            Toast.showWarning("No hay registros visibles o coincidentes con el filtro para exportar.");
+            return;
+        }
+
+        String query = (txtBuscar != null) ? txtBuscar.getText().trim() : "";
+        boolean isFiltered = (datosAExportar.size() < currentData.size()) || !query.isEmpty();
+
+        String fechaStr = LocalDate.now().format(DateTimeFormatter.ofPattern("dd-MM-yy"));
+        String defaultFilename;
+        if (isFiltered) {
+            String sanitized = query.replaceAll("[\\\\/:*?\"<>|]", "_").trim();
+            if (!sanitized.isEmpty()) {
+                defaultFilename = "EDC " + fechaStr + " [" + sanitized + "].xlsx";
+            } else {
+                defaultFilename = "EDC " + fechaStr + " FILTRADO.xlsx";
+            }
+        } else {
+            defaultFilename = "EDC " + fechaStr + " MAESTRO.xlsx";
+        }
+
         JFileChooser fileChooser = new JFileChooser();
-        fileChooser.setDialogTitle("Guardar Estado de Cuentas por Cobrar (EDC)");
-        fileChooser.setSelectedFile(new File("EDC " + LocalDate.now().format(DateTimeFormatter.ofPattern("dd-MM-yy")) + " MAESTRO.xlsx"));
+        fileChooser.setDialogTitle(isFiltered
+                ? "Guardar Estado de Cuentas por Cobrar (Filtrado: " + datosAExportar.size() + " de " + currentData.size() + " registros)"
+                : "Guardar Estado de Cuentas por Cobrar (Maestro Completo: " + datosAExportar.size() + " registros)");
+        fileChooser.setSelectedFile(new File(defaultFilename));
 
         int userSelection = fileChooser.showSaveDialog(this);
         if (userSelection == JFileChooser.APPROVE_OPTION) {
@@ -751,10 +806,19 @@ public class CxCDocumentoFrame extends JFrame {
             }
 
             try {
-                File exported = excelExporter.exportCxCDocumentos(currentData, fileToSave, isBs);
-                Toast.showSuccess("Archivo exportado exitosamente.");
+                // Preservar el orden visual actual de la tabla y exportar únicamente los registros visibles
+                File exported = excelExporter.exportCxCDocumentos(new ArrayList<>(datosAExportar), fileToSave, isBs, true);
+
+                String tipoExportacion = isFiltered
+                        ? ("Filtrado (" + datosAExportar.size() + " de " + currentData.size() + " registros)")
+                        : ("Maestro Completo (" + datosAExportar.size() + " registros)");
+
+                Toast.showSuccess("Archivo exportado: " + tipoExportacion);
                 JOptionPane.showMessageDialog(this,
-                        "El archivo Excel ha sido exportado exitosamente en:\n\n" + exported.getAbsolutePath(),
+                        "El archivo Excel ha sido exportado exitosamente:\n\n"
+                        + "📁 Archivo: " + exported.getAbsolutePath() + "\n"
+                        + "📊 Modo: " + tipoExportacion + "\n"
+                        + "💵 Moneda: " + (isBs ? "Bolívares (Bs.)" : "Dólares ($ USD)"),
                         "Exportación Completada", JOptionPane.INFORMATION_MESSAGE);
                 if (Desktop.isDesktopSupported()) {
                     Desktop.getDesktop().open(exported);

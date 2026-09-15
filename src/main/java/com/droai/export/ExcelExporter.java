@@ -1069,13 +1069,16 @@ public class ExcelExporter {
         try {
             CellStyle headerStyle = createHeaderStyle(wb);
             CellStyle currencyStyle = createCurrencyStyle(wb);
+            CellStyle percentStyle = wb.createCellStyle();
+            percentStyle.setDataFormat(wb.createDataFormat().getFormat("0.00%"));
+            percentStyle.setAlignment(HorizontalAlignment.CENTER);
 
             Sheet sheet = wb.createSheet("Maestro Clientes");
             String[] headers = {
                 "Código", "R.I.F", "Nombres / Razón Social", "NIT", "Fecha Registro",
                 "Contribuyente", "Tipo", "País", "Zona", "Ciudad",
                 "Segmento", "Inactivo", "Vendedor", "Cod. Postal", "Cond. de Pago",
-                "Email", "Crédito", "Teléfono", "Límite Crédito ($)", "Ruta",
+                "Email", "Crédito", "Desc. Comercial (%)", "Teléfono", "Límite Crédito ($)", "Ruta",
                 "Tipo de Persona", "Contacto", "Dirección"
             };
 
@@ -1084,7 +1087,7 @@ public class ExcelExporter {
                 3200, 4200, 9000, 3200, 3800,
                 4000, 3000, 3000, 3500, 4000,
                 3500, 3000, 4000, 3500, 4500,
-                7000, 3000, 4000, 5500, 3000,
+                7000, 3000, 3500, 4000, 5500, 3000,
                 4500, 5000, 10000
             };
             for (int i = 0; i < clienteWidths.length; i++) {
@@ -1121,16 +1124,21 @@ public class ExcelExporter {
                 row.createCell(14).setCellValue(safeStr(r.getCondPago()));
                 row.createCell(15).setCellValue(safeStr(r.getEmail()));
                 row.createCell(16).setCellValue(safeStr(r.getCredito()));
-                row.createCell(17).setCellValue(safeStr(r.getTelefono()));
 
-                Cell cLim = row.createCell(18);
+                Cell cDesc = row.createCell(17);
+                cDesc.setCellValue(r.getDescComercial() / 100.0);
+                cDesc.setCellStyle(percentStyle);
+
+                row.createCell(18).setCellValue(safeStr(r.getTelefono()));
+
+                Cell cLim = row.createCell(19);
                 cLim.setCellValue(r.getLimiteCredito());
                 cLim.setCellStyle(currencyStyle);
 
-                row.createCell(19).setCellValue(safeStr(r.getRuta()));
-                row.createCell(20).setCellValue(safeStr(r.getTipoPersona()));
-                row.createCell(21).setCellValue(safeStr(r.getContacto()));
-                row.createCell(22).setCellValue(safeStr(r.getDireccion()));
+                row.createCell(20).setCellValue(safeStr(r.getRuta()));
+                row.createCell(21).setCellValue(safeStr(r.getTipoPersona()));
+                row.createCell(22).setCellValue(safeStr(r.getContacto()));
+                row.createCell(23).setCellValue(safeStr(r.getDireccion()));
             }
 
             sheet.createFreezePane(0, 1);
@@ -1153,6 +1161,10 @@ public class ExcelExporter {
     }
 
     public File exportCxCDocumentos(List<CxCDocumentoRow> listado, File fileToSave, boolean isBs) throws IOException {
+        return exportCxCDocumentos(listado, fileToSave, isBs, false);
+    }
+
+    public File exportCxCDocumentos(List<CxCDocumentoRow> listado, File fileToSave, boolean isBs, boolean preserveOrder) throws IOException {
         File file = (fileToSave != null) ? fileToSave
                 : new File(System.getProperty("user.dir"), "EDC_Maestro_" + LocalDateTime.now().format(DateTimeFormatter.ofPattern("yyyyMMdd_HHmmss")) + ".xlsx");
 
@@ -1223,7 +1235,7 @@ public class ExcelExporter {
 
             DateTimeFormatter dateFmt = DateTimeFormatter.ofPattern("dd/MM/yyyy");
             int rowIdx = 1;
-            if (listado != null) {
+            if (listado != null && !preserveOrder) {
                 listado.sort(java.util.Comparator
                         .comparing(CxCDocumentoRow::getFechaVencimiento, java.util.Comparator.nullsLast(java.util.Comparator.naturalOrder()))
                         .thenComparing(r -> r.getFactura() != null ? r.getFactura() : "", String.CASE_INSENSITIVE_ORDER)

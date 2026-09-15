@@ -36,6 +36,7 @@ public class ClienteDAO {
                 ISNULL(cp.cond_des, ISNULL(c.cond_pag, 'CONTADO')) AS condPago,
                 ISNULL(c.email, '') AS email,
                 CASE WHEN c.sincredito = 1 THEN 'NO' ELSE 'SI' END AS credito,
+                ISNULL(c.frecu_vist, '') AS descComercial,
                 ISNULL(c.telefonos, '') AS telefono,
                 ISNULL(c.mont_cre, 0) AS limiteCredito,
                 ISNULL(c.campo1, '') AS ruta,
@@ -84,6 +85,14 @@ public class ClienteDAO {
                 row.setCondPago(rs.getString("condPago"));
                 row.setEmail(rs.getString("email"));
                 row.setCredito(rs.getString("credito"));
+                String rawDesc = rs.getString("descComercial");
+                double descVal = 0.0;
+                if (rawDesc != null && !rawDesc.isBlank()) {
+                    try {
+                        descVal = Double.parseDouble(rawDesc.trim().replace(',', '.'));
+                    } catch (Exception ignored) {}
+                }
+                row.setDescComercial(descVal);
                 row.setTelefono(rs.getString("telefono"));
                 row.setLimiteCredito(rs.getDouble("limiteCredito"));
                 row.setRuta(rs.getString("ruta"));
