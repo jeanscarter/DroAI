@@ -3,6 +3,8 @@ package com.droai.ui;
 import com.droai.model.SesionUsuario;
 import com.droai.ui.components.RoundedPanel;
 import com.droai.ui.components.Toast;
+import com.droai.ui.dialog.ComisionesPasswordDialog;
+import com.droai.ui.dialog.TesoreriaPasswordDialog;
 import com.droai.ui.util.IconHelper;
 import net.miginfocom.swing.MigLayout;
 
@@ -167,9 +169,9 @@ public class AdminDashboardFrame extends JFrame {
         // CONTENT — Cards Grid
         // ═══════════════════════════════════════════════════════════
         JPanel content = new JPanel(new MigLayout(
-                "insets 12 28 12 28, gap 16, center, wrap 4, fill",
-                "[grow, fill, sg col][grow, fill, sg col][grow, fill, sg col][grow, fill, sg col]",
-                "[grow, fill, sg row][grow, fill, sg row]"));
+                "insets 12 28 12 28, gap 16, center, wrap 3, fill",
+                "[grow, fill, sg col][grow, fill, sg col][grow, fill, sg col]",
+                "[grow, fill, sg row][grow, fill, sg row][grow, fill, sg row]"));
         content.setOpaque(false);
 
         // ── Tarjeta 1: Gestión de Precios ──
@@ -228,7 +230,15 @@ public class AdminDashboardFrame extends JFrame {
                 tm.accent(),
                 this::abrirNotasCredito), "grow");
 
-        // ── Tarjeta 8: Auditoría y Usuarios (Módulo futuro) ──
+        // ── Tarjeta 8: Tesorería y Control de Pagos ──
+        content.add(createModuleCard(
+                "🏦",
+                "Tesorería y Pagos",
+                "Control de arqueo diario, clasificación OP/MB,\nconciliación bancaria y validación Profit.",
+                tm.greenAccent(),
+                this::abrirTesoreriaPagos), "grow");
+
+        // ── Tarjeta 9: Auditoría y Usuarios (Módulo futuro) ──
         content.add(createModuleCard(
                 "👥",
                 "Auditoría y Usuarios",
@@ -375,7 +385,7 @@ public class AdminDashboardFrame extends JFrame {
      * Abre el módulo de Cálculo de Comisiones con protección por clave.
      */
     private void abrirCalculoComisiones() {
-        com.droai.ui.dialog.ComisionesPasswordDialog dialog = new com.droai.ui.dialog.ComisionesPasswordDialog(this);
+        ComisionesPasswordDialog dialog = new ComisionesPasswordDialog(this);
         dialog.setVisible(true);
         if (dialog.isAutenticado()) {
             SwingUtilities.invokeLater(() -> {
@@ -443,6 +453,34 @@ public class AdminDashboardFrame extends JFrame {
 
         SwingUtilities.invokeLater(() -> {
             DocumentoVentaFrame frame = new DocumentoVentaFrame();
+            frame.setVisible(true);
+        });
+    }
+
+    /**
+     * Usuarios autorizados exclusivamente para acceder a Tesorería y Control de Pagos.
+     */
+    private static final java.util.Set<String> USUARIOS_AUTORIZADOS_TESORERIA = java.util.Set.of("CN", "JG");
+
+    /**
+     * Abre el módulo de Tesorería y Control de Pagos con validación de usuario (CN y JG).
+     */
+    private void abrirTesoreriaPagos() {
+        if (SesionUsuario.isAutenticado()) {
+            String coUsuario = SesionUsuario.current().getCoUsuario().trim().toUpperCase();
+            int nivel = SesionUsuario.current().getNivel();
+
+            if (!USUARIOS_AUTORIZADOS_TESORERIA.contains(coUsuario) && nivel > 0) {
+                TesoreriaPasswordDialog dialog = new TesoreriaPasswordDialog(this);
+                dialog.setVisible(true);
+                if (!dialog.isAutenticado()) {
+                    return;
+                }
+            }
+        }
+
+        SwingUtilities.invokeLater(() -> {
+            TesoreriaPagosFrame frame = new TesoreriaPagosFrame();
             frame.setVisible(true);
         });
     }
