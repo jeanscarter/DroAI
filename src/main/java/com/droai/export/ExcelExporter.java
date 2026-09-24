@@ -591,8 +591,12 @@ public class ExcelExporter {
         return file;
     }
 
+    public File exportProductosFacturados(List<MatrizVentasRow> listado, boolean esDolar) throws IOException {
+        return exportMatrizVentas(listado, !esDolar);
+    }
+
     public File exportProductosFacturados(List<MatrizVentasRow> listado) throws IOException {
-        return exportMatrizVentas(listado, true);
+        return exportProductosFacturados(listado, false);
     }
 
     /**

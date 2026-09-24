@@ -49,9 +49,12 @@ diagnostico_lotes_salida.txt
 analisis_008817_profundo.txt
 analisis_usuarios_soporte.txt
 *.txt
-# Temporary scripts and inspection tools
+
+# Temporary scripts and inspection tools
 *.ps1
 *.bat
 *.dbf
 sync_inspect/
 sincronuevo*/
+scripts/trigger_auto_asignar_lote_devoluciones_JG.sql
+scripts/trigger_auto_asignar_lote_compras_JG.sql

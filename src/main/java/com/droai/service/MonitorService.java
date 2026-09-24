@@ -1,6 +1,7 @@
 package com.droai.service;
 
 import com.droai.dao.MatrizVentasDAO;
+import com.droai.model.FacturaResumenRow;
 import com.droai.model.MatrizVentasRow;
 
 import java.sql.SQLException;
@@ -57,6 +58,19 @@ public class MonitorService {
             String descripcion,
             double monto,
             double porcentaje
+    ) {}
+
+    /**
+     * Agrupación de ventas por línea de producto.
+     *
+     * @param codLinea código de la línea de producto.
+     * @param linea    nombre o descripción de la línea.
+     * @param unidades cantidad total de unidades vendidas.
+     */
+    public record AgrupacionLinea(
+            String codLinea,
+            String linea,
+            double unidades
     ) {}
 
     /**
@@ -161,5 +175,86 @@ public class MonitorService {
             case "ALICUOTA ADICIONAL" -> "Artículos con alícuota adicional (31%)";
             default                   -> grupo;
         };
+    }
+
+    /**
+     * Agrupa una lista de renglones de venta por documento de factura.
+     */
+    public List<FacturaResumenRow> agruparFacturas(List<MatrizVentasRow> rawRows) {
+        if (rawRows == null || rawRows.isEmpty()) {
+            return new ArrayList<>();
+        }
+
+        Map<String, List<MatrizVentasRow>> porDoc = new LinkedHashMap<>();
+        for (MatrizVentasRow r : rawRows) {
+            String doc = r.getNumero() != null ? r.getNumero().trim() : "";
+            porDoc.computeIfAbsent(doc, k -> new ArrayList<>()).add(r);
+        }
+
+        List<FacturaResumenRow> facturas = new ArrayList<>();
+        for (Map.Entry<String, List<MatrizVentasRow>> entry : porDoc.entrySet()) {
+            List<MatrizVentasRow> items = entry.getValue();
+            MatrizVentasRow first = items.get(0);
+
+            FacturaResumenRow f = new FacturaResumenRow();
+            f.setNumero(entry.getKey());
+            f.setFecha(first.getFecha());
+            f.setCodCliente(first.getCodCliente());
+            f.setNombreCliente(first.getNombreRazonSocial());
+            f.setCodVen(first.getCoVen());
+            f.setNombreVendedor(first.getNombreVendedor());
+            f.setTasa(first.getTasa() > 0 ? first.getTasa() : 1.0);
+
+            double bruto = 0;
+            double neto = 0;
+            double iva = 0;
+            double total = 0;
+
+            for (MatrizVentasRow r : items) {
+                bruto += r.getTotalRenglon();
+                neto += r.getRenglonDg();
+                iva += r.getMontoIva();
+                total += r.getTotRenglonIva();
+            }
+
+            double desc = bruto - neto;
+            if (desc < 0) desc = 0;
+            double descPct = bruto > 0 ? (desc / bruto) * 100.0 : 0.0;
+
+            f.setMontoBruto(bruto);
+            f.setDescuento(desc);
+            f.setDescPct(descPct);
+            f.setMontoNeto(neto);
+            f.setIva(iva);
+            f.setTotalGeneral(total);
+
+            facturas.add(f);
+        }
+
+        return facturas;
+    }
+
+    /**
+     * Agrupa una lista de renglones de venta por línea de producto.
+     */
+    public List<AgrupacionLinea> agruparLineas(List<MatrizVentasRow> rows) {
+        if (rows == null || rows.isEmpty()) {
+            return new ArrayList<>();
+        }
+        Map<String, AgrupacionLinea> map = new LinkedHashMap<>();
+        for (MatrizVentasRow r : rows) {
+            String cod = r.getCodLinea() != null ? r.getCodLinea().trim() : "";
+            String lin = r.getLinea() != null ? r.getLinea().trim() : "";
+            String key = cod + "|" + lin;
+            AgrupacionLinea existing = map.get(key);
+            if (existing == null) {
+                map.put(key, new AgrupacionLinea(cod, lin, r.getCantidad()));
+            } else {
+                map.put(key, new AgrupacionLinea(cod, lin, existing.unidades() + r.getCantidad()));
+            }
+        }
+        List<AgrupacionLinea> list = new ArrayList<>(map.values());
+        list.sort((a, b) -> Double.compare(b.unidades(), a.unidades()));
+        return list;
     }
 }
