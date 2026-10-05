@@ -3,6 +3,7 @@ package com.droai.ui;
 import com.droai.config.DatabaseConfig;
 import com.droai.model.ArticuloImportRow;
 import com.droai.model.ArticuloRow;
+import com.droai.model.DescuentoAdicionalRow;
 import com.droai.model.DescuentoProductoRow;
 import com.droai.model.DescuentoVolumenRow;
 import com.droai.model.FiltrosCriteria;
@@ -55,6 +56,7 @@ public class MainFrame extends JFrame {
         header = new HeaderPanel();
         header.setOnSearch(query -> {
             dataTabs.getCatalogoModel().setFilter(query);
+            dataTabs.getDctoAdicionalModel().setFilterText(query);
             dataTabs.getDctoVolumenModel().setFilterText(query);
             dataTabs.getDctoProductoModel().setFilterText(query);
             actualizarFooterConPestanaActiva();
@@ -71,11 +73,69 @@ public class MainFrame extends JFrame {
         // Escuchar cambios de pestaña para actualizar el footer de registros
         dataTabs.addChangeListener(e -> actualizarFooterConPestanaActiva());
 
-        // Escuchar los botones para aplicar descuento masivo
+        // Escuchar los botones para Descuento Adicional (saArticulo)
+        dataTabs.getBtnDAAplicar().addActionListener(e -> aplicarDescuentoDA());
+        dataTabs.getBtnDAImportExcel().addActionListener(e -> cargarDescuentoDADesdeExcel());
+
+        // Escuchar los botones para Descuentos x Volumen
         dataTabs.getBtnDVAplicar().addActionListener(e -> aplicarDescuentoDV());
         dataTabs.getBtnDVImportExcel().addActionListener(e -> cargarDescuentoDVDesdeExcel());
+
+        // Escuchar los botones para Descuento x Producto
         dataTabs.getBtnDPAplicar().addActionListener(e -> aplicarDescuentoDP());
         dataTabs.getBtnDPImportExcel().addActionListener(e -> cargarDescuentoDPDesdeExcel());
+
+        // Listener para actualización directa desde la celda en Descuentos Adicional (saArticulo)
+        dataTabs.getDctoAdicionalModel().setOnCellDiscountEdited((codigo, nuevoPorcentaje, fechaDesde, fechaHasta) -> {
+            new SwingWorker<Void, Void>() {
+                @Override
+                protected Void doInBackground() throws Exception {
+                    java.sql.Date fIni = (fechaDesde != null && !fechaDesde.isEmpty()) ? java.sql.Date.valueOf(fechaDesde) : null;
+                    java.sql.Date fFin = (fechaHasta != null && !fechaHasta.isEmpty()) ? java.sql.Date.valueOf(fechaHasta) : null;
+                    service.actualizarDescuentoAdicionalIndividual(codigo, nuevoPorcentaje, fIni, fFin);
+                    return null;
+                }
+                @Override
+                protected void done() {
+                    try {
+                        get();
+                        String msg = "✔ Descuento DA del producto " + codigo + " actualizado a " + String.format("%.2f", nuevoPorcentaje) + "%";
+                        if (fechaHasta != null && !fechaHasta.isEmpty()) {
+                            msg += " (Vigente hasta " + fechaHasta + ")";
+                        }
+                        Toast.show(msg, Toast.Type.SUCCESS);
+                    } catch (Exception ex) {
+                        ex.printStackTrace();
+                        Toast.show("✘ Error al actualizar descuento DA del producto " + codigo, Toast.Type.ERROR);
+                    }
+                }
+            }.execute();
+        });
+
+        // Listener para actualización directa de fechas desde las celdas en Descuentos Adicional
+        dataTabs.getDctoAdicionalModel().setOnCellDateEdited((codigo, fechaDesde, fechaHasta) -> {
+            new SwingWorker<Void, Void>() {
+                @Override
+                protected Void doInBackground() throws Exception {
+                    java.sql.Date fIni = (fechaDesde != null && !fechaDesde.isEmpty()) ? java.sql.Date.valueOf(fechaDesde) : null;
+                    java.sql.Date fFin = (fechaHasta != null && !fechaHasta.isEmpty()) ? java.sql.Date.valueOf(fechaHasta) : null;
+                    service.actualizarFechasDescuentoAdicionalIndividual(codigo, fIni, fFin);
+                    return null;
+                }
+                @Override
+                protected void done() {
+                    try {
+                        get();
+                        Toast.show("✔ Vigencia de " + codigo + " actualizada: "
+                                + (fechaDesde != null && !fechaDesde.isEmpty() ? fechaDesde : "Sin inicio")
+                                + " hasta " + (fechaHasta != null && !fechaHasta.isEmpty() ? fechaHasta : "Sin fin"), Toast.Type.SUCCESS);
+                    } catch (Exception ex) {
+                        ex.printStackTrace();
+                        Toast.show("✘ Error al actualizar fechas del producto " + codigo, Toast.Type.ERROR);
+                    }
+                }
+            }.execute();
+        });
 
         // Listener para actualización directa desde la celda en Descuentos x Volumen
         dataTabs.getDctoVolumenModel().setOnCellDiscountEdited((codigo, nuevoPorcentaje) -> {
@@ -165,12 +225,14 @@ public class MainFrame extends JFrame {
         Toast.show("Consultando Catálogo de Productos y Descuentos...", Toast.Type.INFO);
         new SwingWorker<Boolean, Void>() {
             private List<ArticuloRow> catalogoRows;
+            private List<DescuentoAdicionalRow> daRows;
             private List<DescuentoVolumenRow> dvRows;
             private List<DescuentoProductoRow> dpRows;
 
             @Override
             protected Boolean doInBackground() throws Exception {
                 catalogoRows = service.obtenerCatalogo();
+                daRows = service.obtenerDescuentosAdicionales();
                 dvRows = service.obtenerDescuentosVolumen();
                 dpRows = service.obtenerDescuentosProducto();
                 return true;
@@ -181,6 +243,7 @@ public class MainFrame extends JFrame {
                 try {
                     get();
                     dataTabs.getCatalogoModel().setData(catalogoRows);
+                    dataTabs.getDctoAdicionalModel().setData(daRows);
                     dataTabs.getDctoVolumenModel().setData(dvRows);
                     dataTabs.getDctoProductoModel().setData(dpRows);
                     actualizarFooterConPestanaActiva();
@@ -200,6 +263,8 @@ public class MainFrame extends JFrame {
 
         if (dialog.isFiltrosEliminados()) {
             dataTabs.getCatalogoModel().setFiltrosCriteria(null);
+            dataTabs.getDctoAdicionalModel().setFiltrosCriteria(null);
+            dataTabs.getDctoAdicionalModel().setFilterMarca(null);
             dataTabs.getDctoVolumenModel().setFiltrosCriteria(null);
             dataTabs.getDctoVolumenModel().setFilterMarca(null);
             dataTabs.getDctoProductoModel().setFiltrosCriteria(null);
@@ -210,6 +275,7 @@ public class MainFrame extends JFrame {
             FiltrosCriteria result = dialog.getResultado();
             if (result != null) {
                 dataTabs.getCatalogoModel().setFiltrosCriteria(result);
+                dataTabs.getDctoAdicionalModel().setFiltrosCriteria(result);
                 dataTabs.getDctoVolumenModel().setFiltrosCriteria(result);
                 dataTabs.getDctoProductoModel().setFiltrosCriteria(result);
                 actualizarFooterConPestanaActiva();
@@ -222,11 +288,185 @@ public class MainFrame extends JFrame {
         int index = dataTabs.getSelectedIndex();
         int count = switch (index) {
             case 0 -> dataTabs.getCatalogoModel().getRowCount();
+            case 1 -> dataTabs.getDctoAdicionalModel().getRowCount();
             case 2 -> dataTabs.getDctoVolumenModel().getRowCount();
             case 3 -> dataTabs.getDctoProductoModel().getRowCount();
             default -> 0;
         };
         footer.setRegistroCount(count);
+    }
+
+    private void aplicarDescuentoDA() {
+        List<String> codigos = dataTabs.getDctoAdicionalModel().getSelectedCodigos();
+        if (codigos.isEmpty()) {
+            Toast.show("Selecciona al menos un producto de la lista", Toast.Type.WARNING);
+            return;
+        }
+
+        String pctStr = dataTabs.getTxtDAPorcentaje().getText().trim();
+        double porcentaje;
+        try {
+            porcentaje = Double.parseDouble(pctStr);
+            if (porcentaje < 0 || porcentaje > 100) {
+                Toast.show("El porcentaje debe estar entre 0 y 100", Toast.Type.WARNING);
+                return;
+            }
+        } catch (NumberFormatException e) {
+            Toast.show("Porcentaje de descuento inválido", Toast.Type.WARNING);
+            return;
+        }
+
+        java.time.LocalDate localIni = dataTabs.getDateDAFechaIni().getDate();
+        java.time.LocalDate localFin = dataTabs.getDateDAFechaFin().getDate();
+
+        java.sql.Date fechaIni = (localIni != null) ? java.sql.Date.valueOf(localIni) : null;
+        java.sql.Date fechaFin = (localFin != null) ? java.sql.Date.valueOf(localFin) : null;
+
+        if (fechaIni != null && fechaFin != null && fechaFin.before(fechaIni)) {
+            Toast.show("La fecha 'Hasta' no puede ser anterior a la fecha 'Desde'", Toast.Type.WARNING);
+            return;
+        }
+
+        if (porcentaje > 0 && fechaIni == null && fechaFin == null) {
+            java.time.LocalDate hoy = java.time.LocalDate.now();
+            java.time.LocalDate finMes = hoy.withDayOfMonth(hoy.lengthOfMonth());
+            fechaIni = java.sql.Date.valueOf(hoy);
+            fechaFin = java.sql.Date.valueOf(finMes);
+        }
+
+        final java.sql.Date fIni = fechaIni;
+        final java.sql.Date fFin = fechaFin;
+
+        String msgConfirm = "¿Deseas aplicar un descuento DA del " + String.format("%.2f", porcentaje) + "% a los " + codigos.size() + " productos seleccionados en saArticulo?";
+        if (fIni != null || fFin != null) {
+            msgConfirm += "\nVigencia: [" + (fIni != null ? fIni : "Sin inicio") + "] a [" + (fFin != null ? fFin : "Sin fin") + "]";
+        }
+
+        int confirm = JOptionPane.showConfirmDialog(this,
+                msgConfirm,
+                "Confirmar Descuento Adicional",
+                JOptionPane.YES_NO_OPTION,
+                JOptionPane.QUESTION_MESSAGE);
+
+        if (confirm != JOptionPane.YES_OPTION) {
+            return;
+        }
+
+        Toast.show("Actualizando descuentos adicionales en saArticulo...", Toast.Type.INFO);
+        new SwingWorker<Void, Void>() {
+            @Override
+            protected Void doInBackground() throws Exception {
+                service.actualizarDescuentosAdicionales(codigos, porcentaje, fIni, fFin);
+                return null;
+            }
+
+            @Override
+            protected void done() {
+                try {
+                    get();
+                    Toast.show(codigos.size() + " descuentos adicionales actualizados correctamente", Toast.Type.SUCCESS);
+                    loadData();
+                } catch (Exception ex) {
+                    ex.printStackTrace();
+                    Toast.show("Error al actualizar descuentos adicionales", Toast.Type.ERROR);
+                }
+            }
+        }.execute();
+    }
+
+    private void cargarDescuentoDADesdeExcel() {
+        JFileChooser fileChooser = new JFileChooser();
+        fileChooser.setDialogTitle("Seleccionar Archivo de Descuentos DA");
+        fileChooser.setFileFilter(new FileNameExtensionFilter("Archivos Excel (*.xlsx, *.xls)", "xlsx", "xls"));
+
+        int userSelection = fileChooser.showOpenDialog(this);
+        if (userSelection != JFileChooser.APPROVE_OPTION) {
+            return;
+        }
+
+        java.time.LocalDate localIni = dataTabs.getDateDAFechaIni().getDate();
+        java.time.LocalDate localFin = dataTabs.getDateDAFechaFin().getDate();
+
+        java.sql.Date fechaIni = (localIni != null) ? java.sql.Date.valueOf(localIni) : null;
+        java.sql.Date fechaFin = (localFin != null) ? java.sql.Date.valueOf(localFin) : null;
+
+        if (fechaIni != null && fechaFin != null && fechaFin.before(fechaIni)) {
+            Toast.show("La fecha 'Hasta' no puede ser anterior a la fecha 'Desde'", Toast.Type.WARNING);
+            return;
+        }
+
+        final java.sql.Date fIni = fechaIni;
+        final java.sql.Date fFin = fechaFin;
+
+        File selectedFile = fileChooser.getSelectedFile();
+        Toast.show("Leyendo archivo Excel de descuentos DA...", Toast.Type.INFO);
+
+        new SwingWorker<List<ImportadorService.DescuentoDAImportItem>, Void>() {
+            private final ImportadorService importadorService = new ImportadorService();
+
+            @Override
+            protected List<ImportadorService.DescuentoDAImportItem> doInBackground() throws Exception {
+                return importadorService.leerExcelDescuentoDAItems(selectedFile);
+            }
+
+            @Override
+            protected void done() {
+                try {
+                    List<ImportadorService.DescuentoDAImportItem> items = get();
+                    if (items == null || items.isEmpty()) {
+                        Toast.show("No se encontraron descuentos válidos en el archivo.", Toast.Type.WARNING);
+                        return;
+                    }
+
+                    long conFechasExcel = items.stream().filter(i -> i.getFechaDesde() != null || i.getFechaHasta() != null).count();
+
+                    String msgConfirm = "Se leyeron " + items.size() + " descuentos DA del archivo Excel.\n";
+                    if (conFechasExcel > 0) {
+                        msgConfirm += conFechasExcel + " registros contienen su propio rango de fechas en el Excel.\n";
+                    }
+                    if (fIni != null || fFin != null) {
+                        msgConfirm += "Vigencia por defecto UI: [" + (fIni != null ? fIni : "Sin inicio") + "] a [" + (fFin != null ? fFin : "Sin fin") + "]\n";
+                    }
+                    msgConfirm += "¿Deseas aplicarlos en saArticulo?";
+
+                    int confirm = JOptionPane.showConfirmDialog(MainFrame.this,
+                            msgConfirm,
+                            "Confirmar Carga de Descuentos DA",
+                            JOptionPane.YES_NO_OPTION,
+                            JOptionPane.QUESTION_MESSAGE);
+
+                    if (confirm != JOptionPane.YES_OPTION) {
+                        return;
+                    }
+
+                    Toast.show("Actualizando descuentos adicionales en saArticulo...", Toast.Type.INFO);
+
+                    new SwingWorker<Void, Void>() {
+                        @Override
+                        protected Void doInBackground() throws Exception {
+                            service.actualizarDescuentosAdicionalesItems(items, fIni, fFin);
+                            return null;
+                        }
+
+                        @Override
+                        protected void done() {
+                            try {
+                                get();
+                                Toast.show("Se actualizaron " + items.size() + " descuentos DA correctamente.", Toast.Type.SUCCESS);
+                                loadData();
+                            } catch (Exception ex) {
+                                ex.printStackTrace();
+                                Toast.show("Error al actualizar descuentos DA en la base de datos.", Toast.Type.ERROR);
+                            }
+                        }
+                    }.execute();
+
+                } catch (Exception ex) {
+                    ex.printStackTrace();
+                    Toast.show("Error al leer el archivo Excel: " + ex.getMessage(), Toast.Type.ERROR);
+                }
+            }
+        }.execute();
     }
 
     private void aplicarDescuentoDV() {
@@ -519,7 +759,14 @@ public class MainFrame extends JFrame {
 
     private void saveData() {
         int index = dataTabs.getSelectedIndex();
-        if (index == 2) { // Descuentos x Volumen
+        if (index == 1) { // Descuento Adicional
+            List<String> codigos = dataTabs.getDctoAdicionalModel().getSelectedCodigos();
+            if (!codigos.isEmpty()) {
+                aplicarDescuentoDA();
+            } else {
+                Toast.show("✔ Cambios guardados correctamente", Toast.Type.SUCCESS);
+            }
+        } else if (index == 2) { // Descuentos x Volumen
             List<String> codigos = dataTabs.getDctoVolumenModel().getSelectedCodigos();
             if (!codigos.isEmpty()) {
                 aplicarDescuentoDV();
@@ -566,7 +813,7 @@ public class MainFrame extends JFrame {
                         return exporter.exportCatalogo(data, footer.getTasa());
                     }
                     case 1 -> { // Descuentos Adicional
-                        List<com.droai.model.ResumenRow> data = dataTabs.getSimuladorRowsVisibles();
+                        List<DescuentoAdicionalRow> data = dataTabs.getDctoAdicionalRowsVisibles();
                         if (data.isEmpty()) throw new IllegalStateException("No hay datos de descuentos adicionales para exportar.");
                         return exporter.exportDescuentosAdicionales(data);
                     }

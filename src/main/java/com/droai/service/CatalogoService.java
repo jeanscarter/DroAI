@@ -1,9 +1,11 @@
 package com.droai.service;
 
 import com.droai.dao.ArticuloDAO;
+import com.droai.dao.DescuentoAdicionalDAO;
 import com.droai.dao.DescuentoProductoDAO;
 import com.droai.dao.DescuentoVolumenDAO;
 import com.droai.model.ArticuloRow;
+import com.droai.model.DescuentoAdicionalRow;
 import com.droai.model.DescuentoProductoRow;
 import com.droai.model.DescuentoVolumenRow;
 
@@ -11,7 +13,7 @@ import java.sql.SQLException;
 import java.util.List;
 
 /**
- * Servicio para el Catálogo de Productos.
+ * Servicio para el Catálogo de Productos y Descuentos.
  * Obtiene los artículos del DAO y calcula campos derivados (utilPct, precioCiva).
  */
 public class CatalogoService {
@@ -19,17 +21,20 @@ public class CatalogoService {
     private final ArticuloDAO articuloDAO;
     private final DescuentoVolumenDAO descuentoVolumenDAO;
     private final DescuentoProductoDAO descuentoProductoDAO;
+    private final DescuentoAdicionalDAO descuentoAdicionalDAO;
 
     public CatalogoService() {
         this.articuloDAO = new ArticuloDAO();
         this.descuentoVolumenDAO = new DescuentoVolumenDAO();
         this.descuentoProductoDAO = new DescuentoProductoDAO();
+        this.descuentoAdicionalDAO = new DescuentoAdicionalDAO();
     }
 
-    public CatalogoService(ArticuloDAO articuloDAO, DescuentoVolumenDAO descuentoVolumenDAO, DescuentoProductoDAO descuentoProductoDAO) {
+    public CatalogoService(ArticuloDAO articuloDAO, DescuentoVolumenDAO descuentoVolumenDAO, DescuentoProductoDAO descuentoProductoDAO, DescuentoAdicionalDAO descuentoAdicionalDAO) {
         this.articuloDAO = articuloDAO;
         this.descuentoVolumenDAO = descuentoVolumenDAO;
         this.descuentoProductoDAO = descuentoProductoDAO;
+        this.descuentoAdicionalDAO = descuentoAdicionalDAO;
     }
 
     public List<DescuentoVolumenRow> obtenerDescuentosVolumen() throws SQLException {
@@ -70,6 +75,40 @@ public class CatalogoService {
 
     public void actualizarDescuentosProductoDAMap(java.util.Map<String, Double> dctosMap) throws SQLException {
         descuentoProductoDAO.updateDescuentosProductoDAMap(dctosMap);
+    }
+
+    // --- Métodos para Descuento Adicional (saArticulo) ---
+
+    public List<DescuentoAdicionalRow> obtenerDescuentosAdicionales() throws SQLException {
+        return descuentoAdicionalDAO.fetchDescuentosAdicionales();
+    }
+
+    public void actualizarDescuentosAdicionales(List<String> codigos, double nuevoPorcentaje) throws SQLException {
+        descuentoAdicionalDAO.updateDescuentosAdicionales(codigos, nuevoPorcentaje, null, null);
+    }
+
+    public void actualizarDescuentosAdicionales(List<String> codigos, double nuevoPorcentaje, java.sql.Date fechaDesde, java.sql.Date fechaHasta) throws SQLException {
+        descuentoAdicionalDAO.updateDescuentosAdicionales(codigos, nuevoPorcentaje, fechaDesde, fechaHasta);
+    }
+
+    public void actualizarDescuentoAdicionalIndividual(String codigo, double nuevoPorcentaje) throws SQLException {
+        descuentoAdicionalDAO.updateDescuentoAdicionalIndividual(codigo, nuevoPorcentaje);
+    }
+
+    public void actualizarDescuentoAdicionalIndividual(String codigo, double nuevoPorcentaje, java.sql.Date fechaDesde, java.sql.Date fechaHasta) throws SQLException {
+        descuentoAdicionalDAO.updateDescuentoAdicionalIndividual(codigo, nuevoPorcentaje, fechaDesde, fechaHasta);
+    }
+
+    public void actualizarFechasDescuentoAdicionalIndividual(String codigo, java.sql.Date fechaDesde, java.sql.Date fechaHasta) throws SQLException {
+        descuentoAdicionalDAO.updateFechasDescuentoAdicionalIndividual(codigo, fechaDesde, fechaHasta);
+    }
+
+    public void actualizarDescuentosAdicionalesMap(java.util.Map<String, Double> dctosMap, java.sql.Date fechaDesde, java.sql.Date fechaHasta) throws SQLException {
+        descuentoAdicionalDAO.updateDescuentosAdicionalesMap(dctosMap, fechaDesde, fechaHasta);
+    }
+
+    public void actualizarDescuentosAdicionalesItems(List<ImportadorService.DescuentoDAImportItem> items, java.sql.Date fechaDesde, java.sql.Date fechaHasta) throws SQLException {
+        descuentoAdicionalDAO.updateDescuentosAdicionalesItems(items, fechaDesde, fechaHasta);
     }
 
     public List<ArticuloRow> obtenerCatalogo() throws SQLException {

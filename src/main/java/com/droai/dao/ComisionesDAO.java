@@ -8,7 +8,9 @@ import org.slf4j.LoggerFactory;
 import java.sql.*;
 import java.time.LocalDate;
 import java.util.ArrayList;
+import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Map;
 
 /**
  * DAO para la extracción de cobros y cálculo de comisiones.
@@ -136,6 +138,11 @@ public class ComisionesDAO {
             allResults.addAll(parcial);
         }
 
+        // Si consultó más de una BD (rango cruzado), deduplicar entre ambas bases si hubiera documentos repetidos
+        if (rangos.size() > 1 && allResults.size() > 1) {
+            allResults = deduplicarComisiones(allResults);
+        }
+
         return allResults;
     }
 
@@ -159,61 +166,139 @@ public class ComisionesDAO {
         List<ComisionRow> result = new ArrayList<>();
 
         String sql = """
+            WITH CobrosCandidatos AS (
+                SELECT 
+                    CASE 
+                        WHEN RTRIM(r.co_tipo_doc) = 'AJNA' THEN 'DPP'
+                        ELSE RTRIM(r.co_tipo_doc)
+                    END AS tipo_doc,
+                    CAST(CAST(RTRIM(r.nro_doc) AS int) AS varchar) AS numero_doc,
+                    RTRIM(r.nro_doc) AS nro_doc_raw,
+                    ISNULL(RTRIM(d.n_control), '01') AS clase,
+                    d.fec_emis, 
+                    d.fec_venc, 
+                    CASE 
+                        WHEN ISNULL(cli.contribu_e, 0) = 1 
+                             AND (r.monto_retencion_iva > 0 OR r.monto_retencion > 0 
+                                  OR EXISTS (SELECT 1 FROM saCobroDocReng rx WHERE rx.cob_num = c.cob_num AND rx.co_tipo_doc IN ('IVAN', 'ISLR', 'IVAP', 'IMUN')))
+                             AND COALESCE(prev_com.prev_fec_cobro, prev_com_hist.prev_fec_cobro) IS NOT NULL
+                        THEN COALESCE(prev_com.prev_fec_cobro, prev_com_hist.prev_fec_cobro)
+                        ELSE ISNULL(t.fecha_che, c.fecha)
+                    END AS fec_cobro,
+                    CASE 
+                        WHEN ISNULL(cli.contribu_e, 0) = 1 
+                             AND (r.monto_retencion_iva > 0 OR r.monto_retencion > 0 
+                                  OR EXISTS (SELECT 1 FROM saCobroDocReng rx WHERE rx.cob_num = c.cob_num AND rx.co_tipo_doc IN ('IVAN', 'ISLR', 'IVAP', 'IMUN')))
+                             AND COALESCE(prev_com.prev_cob_num, prev_com_hist.prev_cob_num) IS NOT NULL
+                        THEN CAST(CAST(RTRIM(COALESCE(prev_com.prev_cob_num, prev_com_hist.prev_cob_num)) AS int) AS varchar)
+                        ELSE CAST(CAST(RTRIM(c.cob_num) AS int) AS varchar)
+                    END AS num_cobro,
+                    DATEDIFF(day, d.fec_venc, 
+                        CASE 
+                            WHEN ISNULL(cli.contribu_e, 0) = 1 
+                                 AND (r.monto_retencion_iva > 0 OR r.monto_retencion > 0 
+                                      OR EXISTS (SELECT 1 FROM saCobroDocReng rx WHERE rx.cob_num = c.cob_num AND rx.co_tipo_doc IN ('IVAN', 'ISLR', 'IVAP', 'IMUN')))
+                                 AND COALESCE(prev_com.prev_fec_cobro, prev_com_hist.prev_fec_cobro) IS NOT NULL
+                            THEN COALESCE(prev_com.prev_fec_cobro, prev_com_hist.prev_fec_cobro)
+                            ELSE ISNULL(t.fecha_che, c.fecha)
+                        END
+                    ) AS dias_calle,
+                    REPLACE(REPLACE(REPLACE(REPLACE(ISNULL(RTRIM(cli.rif), ''), 'J-', ''), 'V-', ''), 'G-', ''), 'E-', '') AS cod_cli,
+                    ISNULL(RTRIM(cli.cli_des), '') AS nom_cli,
+                    ISNULL(cli.contribu_e, 0) AS contribu_e,
+                    ISNULL(d.total_neto, r.mont_cob) AS monto_doc,
+                    ISNULL(r.dpcobro_porc_desc, 0) AS porc_desc,
+                    ISNULL(d.total_neto, r.mont_cob) AS monto_cobrado,
+                    ISNULL(d.total_bruto, r.mont_cob) AS base_comision,
+                    ISNULL(RTRIM(v.ven_des), '') AS vendedor,
+                    RTRIM(c.co_ven) AS co_ven,
+                    ISNULL(d.saldo, -1) AS saldo_factura,
+                    CASE 
+                        WHEN ISNULL(cli.contribu_e, 0) = 1 
+                             AND (r.monto_retencion_iva > 0 OR r.monto_retencion > 0 
+                                  OR EXISTS (SELECT 1 FROM saCobroDocReng rx WHERE rx.cob_num = c.cob_num AND rx.co_tipo_doc IN ('IVAN', 'ISLR', 'IVAP', 'IMUN')))
+                        THEN 1
+                        ELSE 0
+                    END AS es_retencion
+                FROM saCobro c
+                JOIN saCobroDocReng r ON c.cob_num = r.cob_num
+                LEFT JOIN saCobroTPReng t ON c.cob_num = t.cob_num AND t.reng_num = 1
+                LEFT JOIN saDocumentoVenta d ON r.nro_doc = d.nro_doc AND r.co_tipo_doc = d.co_tipo_doc
+                LEFT JOIN saCliente cli ON c.co_cli = cli.co_cli
+                LEFT JOIN saVendedor v ON c.co_ven = v.co_ven
+                OUTER APPLY (
+                    SELECT TOP 1 
+                        c_prev.cob_num AS prev_cob_num,
+                        ISNULL(t_prev.fecha_che, c_prev.fecha) AS prev_fec_cobro
+                    FROM saCobroDocReng r_prev
+                    JOIN saCobro c_prev ON r_prev.cob_num = c_prev.cob_num
+                    LEFT JOIN saCobroTPReng t_prev ON c_prev.cob_num = t_prev.cob_num AND t_prev.reng_num = 1
+                    WHERE r_prev.nro_doc = r.nro_doc
+                      AND r_prev.co_tipo_doc = r.co_tipo_doc
+                      AND ISNULL(c_prev.anulado, 0) = 0
+                      AND r_prev.cob_num < c.cob_num
+                      AND NOT (r_prev.monto_retencion_iva > 0 OR r_prev.monto_retencion > 0 
+                               OR EXISTS (SELECT 1 FROM saCobroDocReng rx WHERE rx.cob_num = c_prev.cob_num AND rx.co_tipo_doc IN ('IVAN', 'ISLR', 'IVAP', 'IMUN')))
+                    ORDER BY ISNULL(t_prev.fecha_che, c_prev.fecha) DESC, c_prev.cob_num DESC
+                ) prev_com
+                OUTER APPLY (
+                    SELECT TOP 1 
+                        c_prev2.cob_num AS prev_cob_num,
+                        ISNULL(t_prev2.fecha_che, c_prev2.fecha) AS prev_fec_cobro
+                    FROM DROA2_A.dbo.saCobroDocReng r_prev2
+                    JOIN DROA2_A.dbo.saCobro c_prev2 ON r_prev2.cob_num = c_prev2.cob_num
+                    LEFT JOIN DROA2_A.dbo.saCobroTPReng t_prev2 ON c_prev2.cob_num = t_prev2.cob_num AND t_prev2.reng_num = 1
+                    WHERE r_prev2.nro_doc = r.nro_doc
+                      AND r_prev2.co_tipo_doc = r.co_tipo_doc
+                      AND ISNULL(c_prev2.anulado, 0) = 0
+                      AND NOT (r_prev2.monto_retencion_iva > 0 OR r_prev2.monto_retencion > 0 
+                               OR EXISTS (SELECT 1 FROM DROA2_A.dbo.saCobroDocReng rx WHERE rx.cob_num = c_prev2.cob_num AND rx.co_tipo_doc IN ('IVAN', 'ISLR', 'IVAP', 'IMUN')))
+                    ORDER BY ISNULL(t_prev2.fecha_che, c_prev2.fecha) DESC, c_prev2.cob_num DESC
+                ) prev_com_hist
+                WHERE c.fecha BETWEEN ? AND ?
+                  AND ISNULL(c.anulado, 0) = 0
+                  AND RTRIM(r.co_tipo_doc) IN ('FACT', 'N/CR', 'DPP', 'AJNA')
+                  AND RTRIM(ISNULL(v.ven_des, '')) NOT IN ('EMPLEADOS', 'OFICINA')
+                  AND RTRIM(c.co_ven) NOT IN ('EMP', 'OFI')
+                  AND ISNULL(d.saldo, 0) = 0
+                  AND ABS(r.mont_cob) > 0.01
+            ),
+            Ranked AS (
+                SELECT *,
+                    ROW_NUMBER() OVER (
+                        PARTITION BY tipo_doc, numero_doc
+                        ORDER BY 
+                            es_retencion ASC,
+                            fec_cobro DESC,
+                            CAST(num_cobro AS int) DESC
+                    ) AS rn
+                FROM CobrosCandidatos
+            )
             SELECT 
-                CASE 
-                    WHEN RTRIM(r.co_tipo_doc) = 'AJNA' THEN 'DPP'
-                    ELSE RTRIM(r.co_tipo_doc)
-                END AS tipo_doc,
-                CAST(CAST(RTRIM(r.nro_doc) AS int) AS varchar) AS numero_doc,
-                ISNULL(RTRIM(d.n_control), '01') AS clase,
-                d.fec_emis, 
-                d.fec_venc, 
-                ISNULL(t.fecha_che, c.fecha) AS fec_cobro,
-                CAST(CAST(RTRIM(c.cob_num) AS int) AS varchar) AS num_cobro,
-                DATEDIFF(day, d.fec_venc, ISNULL(t.fecha_che, c.fecha)) AS dias_calle,
-                REPLACE(REPLACE(REPLACE(REPLACE(ISNULL(RTRIM(cli.rif), ''), 'J-', ''), 'V-', ''), 'G-', ''), 'E-', '') AS cod_cli,
-                ISNULL(RTRIM(cli.cli_des), '') AS nom_cli,
-                ISNULL(d.total_neto, r.mont_cob) AS monto_doc,
-                ISNULL(r.dpcobro_porc_desc, 0) AS porc_desc,
-                r.mont_cob AS monto_cobrado,
-                ISNULL(d.total_bruto, r.mont_cob) AS base_comision,
-                ISNULL(RTRIM(v.ven_des), '') AS vendedor,
-                RTRIM(c.co_ven) AS co_ven,
-                ISNULL(d.saldo, -1) AS saldo_factura,
+                r.*,
                 ISNULL((
                     SELECT TOP 1 CAST(CAST(RTRIM(dr.doc_num) AS int) AS varchar)
                     FROM saFacturaVentaReng dr
                     JOIN saArticulo a ON dr.co_art = a.co_art
-                    WHERE RTRIM(dr.doc_num) = RTRIM(r.nro_doc)
-                      AND RTRIM(r.co_tipo_doc) = 'FACT'
+                    WHERE RTRIM(dr.doc_num) = r.nro_doc_raw
+                      AND r.tipo_doc = 'FACT'
                       AND RTRIM(a.co_lin) BETWEEN '000007' AND '000010'
                 ), ISNULL((
                     SELECT TOP 1 CAST(CAST(RTRIM(dr2.doc_num) AS int) AS varchar)
                     FROM DROA2_A.dbo.saFacturaVentaReng dr2
                     JOIN DROA2_A.dbo.saArticulo a2 ON dr2.co_art = a2.co_art
-                    WHERE RTRIM(dr2.doc_num) = RTRIM(r.nro_doc)
-                      AND RTRIM(r.co_tipo_doc) = 'FACT'
+                    WHERE RTRIM(dr2.doc_num) = r.nro_doc_raw
+                      AND r.tipo_doc = 'FACT'
                       AND RTRIM(a2.co_lin) BETWEEN '000007' AND '000010'
                 ), '#N/D')) AS psico
-            FROM saCobro c
-            JOIN saCobroDocReng r ON c.cob_num = r.cob_num
-            LEFT JOIN saCobroTPReng t ON c.cob_num = t.cob_num AND t.reng_num = 1
-            LEFT JOIN saDocumentoVenta d ON RTRIM(r.nro_doc) = RTRIM(d.nro_doc) AND RTRIM(r.co_tipo_doc) = RTRIM(d.co_tipo_doc)
-            LEFT JOIN saCliente cli ON c.co_cli = cli.co_cli
-            LEFT JOIN saVendedor v ON c.co_ven = v.co_ven
-            WHERE c.fecha BETWEEN ? AND ?
-              AND ISNULL(c.anulado, 0) = 0
-              AND RTRIM(r.co_tipo_doc) IN ('FACT', 'N/CR', 'DPP', 'AJNA')
-              AND RTRIM(ISNULL(v.ven_des, '')) NOT IN ('EMPLEADOS', 'OFICINA')
-              AND RTRIM(c.co_ven) NOT IN ('EMP', 'OFI')
-              AND ISNULL(d.saldo, 0) = 0
-              AND ABS(r.mont_cob) > 0.01
+            FROM Ranked r
+            WHERE r.rn = 1
             """;
 
         if (coVenFiltro != null && !coVenFiltro.isBlank() && !"TODOS".equalsIgnoreCase(coVenFiltro)) {
-            sql += " AND RTRIM(c.co_ven) = ? ";
+            sql += " AND RTRIM(r.co_ven) = ? ";
         }
-        sql += " ORDER BY c.fecha, c.cob_num, r.nro_doc";
+        sql += " ORDER BY r.fec_cobro, CAST(r.num_cobro AS int), r.numero_doc";
 
         try (Connection conn = DatabaseConfig.getConnection(targetDb);
              PreparedStatement ps = conn.prepareStatement(sql)) {
@@ -250,6 +335,7 @@ public class ComisionesDAO {
 
                     row.setCodigoCliente(rs.getString("cod_cli"));
                     row.setNombreCliente(rs.getString("nom_cli"));
+                    row.setAgenteRetencion(rs.getInt("contribu_e") == 1);
 
                     double montoDoc = rs.getDouble("monto_doc");
                     double porcDesc = rs.getDouble("porc_desc");
@@ -330,6 +416,7 @@ public class ComisionesDAO {
                         kgRow.setMontoCobrado(row.getMontoCobrado());
                         kgRow.setBaseComision(row.getBaseComision());
                         kgRow.setFacturaCerrada(row.isFacturaCerrada());
+                        kgRow.setAgenteRetencion(row.isAgenteRetencion());
                         kgRow.setPsico(psicoVal);
 
                         kgRow.setCodigoVendedor("KG");
@@ -347,5 +434,40 @@ public class ComisionesDAO {
 
         logger.info("Obtenidos {} registros de comisiones desde {}", result.size(), targetDb);
         return result;
+    }
+
+    /**
+     * Deduplica registros en caso de consultas que abarcan tanto la base histórica como producción.
+     * Mantiene una sola fila por documento (o dos si aplica el desdoblamiento por psicotrópico para Karina García).
+     */
+    private List<ComisionRow> deduplicarComisiones(List<ComisionRow> rows) {
+        Map<String, ComisionRow> map = new LinkedHashMap<>();
+        for (ComisionRow r : rows) {
+            String key = r.getTipoDoc() + ":" + r.getNumeroDocumento() + ":" + r.getCodigoVendedor();
+            if (!map.containsKey(key)) {
+                map.put(key, r);
+            } else {
+                ComisionRow existing = map.get(key);
+                // Si el cliente es agente de retención, priorizar el cobro comercial sobre el cobro de retención
+                if (r.isAgenteRetencion() && existing.isAgenteRetencion()) {
+                    // Si r es más reciente comercialmente o existing era retención, priorizar
+                    if (r.getFechaCobro() != null && existing.getFechaCobro() != null
+                            && r.getFechaCobro().isAfter(existing.getFechaCobro())) {
+                        map.put(key, r);
+                    }
+                } else {
+                    if (r.getFechaCobro() != null && existing.getFechaCobro() != null
+                            && r.getFechaCobro().isAfter(existing.getFechaCobro())) {
+                        map.put(key, r);
+                    }
+                }
+            }
+        }
+        List<ComisionRow> deduped = new ArrayList<>(map.values());
+        int sec = 1;
+        for (ComisionRow r : deduped) {
+            r.setNumero(sec++);
+        }
+        return deduped;
     }
 }

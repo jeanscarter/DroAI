@@ -1,10 +1,11 @@
 package com.droai.ui;
 
 import com.droai.model.ArticuloRow;
+import com.droai.model.DescuentoAdicionalRow;
 import com.droai.model.DescuentoVolumenRow;
 import com.droai.ui.table.CatalogoTableModel;
+import com.droai.ui.table.DescuentoAdicionalTableModel;
 import com.droai.ui.table.DescuentoProductoTableModel;
-import com.droai.ui.table.ResumenTableModel;
 import com.formdev.flatlaf.FlatClientProperties;
 import com.github.lgooddatepicker.components.DatePicker;
 import com.github.lgooddatepicker.components.DatePickerSettings;
@@ -24,16 +25,25 @@ import net.miginfocom.swing.MigLayout;
 public class DataTabbedPane extends JTabbedPane {
 
     private final JTable tblCatalogo;
-    private final JTable tblSimulador;
+    private final JTable tblDctoAdicional;
     private final JTable tblDctoVolumen;
     private final JTable tblDctoProducto;
     private final ImportarPanel importarPanel;
     private final CargaMasivaCostosPreciosPanel cargaMasivaPanel;
 
     private final CatalogoTableModel catalogoModel;
-    private final ResumenTableModel simuladorModel;
+    private final DescuentoAdicionalTableModel dctoAdicionalModel;
     private final DescuentoVolumenTableModel dctoVolumenModel;
     private final DescuentoProductoTableModel dctoProductoModel;
+
+    // Controles para panel de acciones masivas de Descuento Adicional (saArticulo)
+    private final JTextField txtDAPorcentaje;
+    private final DatePicker dateDAFechaIni;
+    private final DatePicker dateDAFechaFin;
+    private final JButton btnDAAplicar;
+    private final JButton btnDASelectAll;
+    private final JButton btnDAUnselectAll;
+    private final JButton btnDAImportExcel;
 
     // Controles para panel de acciones masivas de Descuentos x Volumen
     private final JTextField txtDVPorcentaje;
@@ -60,10 +70,68 @@ public class DataTabbedPane extends JTabbedPane {
         tblCatalogo.setAutoCreateRowSorter(true);
         addTab("  Catálogo de Productos  ", wrapTable(tblCatalogo));
 
-        simuladorModel = new ResumenTableModel();
-        tblSimulador = createStyledTable(simuladorModel);
-        tblSimulador.setAutoCreateRowSorter(true);
-        addTab("  Descuentos Adicional  ", wrapTable(tblSimulador));
+        // Pestaña Descuentos Adicional (saArticulo) con panel interactivo
+        dctoAdicionalModel = new DescuentoAdicionalTableModel();
+        tblDctoAdicional = createStyledTable(dctoAdicionalModel);
+        tblDctoAdicional.setAutoCreateRowSorter(true);
+        tblDctoAdicional.getColumnModel().getColumn(0).setMaxWidth(80);
+        tblDctoAdicional.getColumnModel().getColumn(0).setMinWidth(80);
+        tblDctoAdicional.getColumnModel().getColumn(0).setPreferredWidth(80);
+
+        JPanel pnlDctoAdicional = new JPanel(new MigLayout("insets 0, fill, wrap", "[grow]", "[grow]0[]"));
+        pnlDctoAdicional.add(wrapTable(tblDctoAdicional), "grow");
+
+        JPanel pnlDAActions = new JPanel(new MigLayout("insets 8 16 8 16, fillx, gap 8", "[]8[]8[]push[]8[]8[]8[]8[]8[]", "[]"));
+        pnlDAActions.setBorder(BorderFactory.createMatteBorder(1, 0, 0, 0, UIManager.getColor("Component.borderColor")));
+
+        btnDASelectAll = new JButton("Seleccionar Todos");
+        btnDASelectAll.setFont(new Font("Segoe UI", Font.BOLD, 11));
+        btnDASelectAll.addActionListener(e -> dctoAdicionalModel.selectAll(true));
+        pnlDAActions.add(btnDASelectAll);
+
+        btnDAUnselectAll = new JButton("Deseleccionar Todos");
+        btnDAUnselectAll.setFont(new Font("Segoe UI", Font.BOLD, 11));
+        btnDAUnselectAll.addActionListener(e -> dctoAdicionalModel.selectAll(false));
+        pnlDAActions.add(btnDAUnselectAll);
+
+        btnDAImportExcel = new JButton("Cargar Excel DA");
+        btnDAImportExcel.setFont(new Font("Segoe UI", Font.BOLD, 11));
+        pnlDAActions.add(btnDAImportExcel);
+
+        JLabel lblDAInfo = new JLabel("Aplicar DA (%):");
+        lblDAInfo.setFont(new Font("Segoe UI", Font.BOLD, 11));
+        pnlDAActions.add(lblDAInfo);
+
+        txtDAPorcentaje = new JTextField("0.00");
+        txtDAPorcentaje.setFont(new Font("Segoe UI", Font.BOLD, 12));
+        txtDAPorcentaje.setHorizontalAlignment(SwingConstants.RIGHT);
+        pnlDAActions.add(txtDAPorcentaje, "w 60!");
+
+        JLabel lblDAFechaIni = new JLabel("Desde:");
+        lblDAFechaIni.setFont(new Font("Segoe UI", Font.BOLD, 11));
+        pnlDAActions.add(lblDAFechaIni);
+
+        dateDAFechaIni = createDatePicker();
+        pnlDAActions.add(dateDAFechaIni);
+
+        JLabel lblDAFechaFin = new JLabel("Hasta:");
+        lblDAFechaFin.setFont(new Font("Segoe UI", Font.BOLD, 11));
+        pnlDAActions.add(lblDAFechaFin);
+
+        dateDAFechaFin = createDatePicker();
+        pnlDAActions.add(dateDAFechaFin);
+
+        btnDAAplicar = new JButton("Aplicar a Seleccionados");
+        btnDAAplicar.setFont(new Font("Segoe UI", Font.BOLD, 11));
+        btnDAAplicar.setBackground(UIManager.getColor("Component.accentColor"));
+        btnDAAplicar.setForeground(Color.WHITE);
+        btnDAAplicar.setFocusPainted(false);
+        btnDAAplicar.setCursor(Cursor.getPredefinedCursor(Cursor.HAND_CURSOR));
+        pnlDAActions.add(btnDAAplicar);
+
+        pnlDctoAdicional.add(pnlDAActions, "growx");
+
+        addTab("  Descuentos Adicional  ", pnlDctoAdicional);
 
         // Pestaña Descuentos x Volumen con panel interactivo
         dctoVolumenModel = new DescuentoVolumenTableModel();
@@ -205,10 +273,6 @@ public class DataTabbedPane extends JTabbedPane {
         return importarPanel;
     }
 
-    public ResumenTableModel getSimuladorModel() {
-        return simuladorModel;
-    }
-
     public DescuentoVolumenTableModel getDctoVolumenModel() {
         return dctoVolumenModel;
     }
@@ -241,10 +305,6 @@ public class DataTabbedPane extends JTabbedPane {
         return visibleRows;
     }
 
-    public List<com.droai.model.ResumenRow> getSimuladorRowsVisibles() {
-        return new ArrayList<>(simuladorModel.getData());
-    }
-
     public List<com.droai.model.CargaMasivaCostosPreciosRow> getCargaMasivaRowsVisibles() {
         return cargaMasivaPanel.getDisplayedRows();
     }
@@ -273,9 +333,59 @@ public class DataTabbedPane extends JTabbedPane {
         return dateDVFechaFin;
     }
 
+    public DescuentoAdicionalTableModel getDctoAdicionalModel() {
+        return dctoAdicionalModel;
+    }
+
+    public JTable getTblDctoAdicional() {
+        return tblDctoAdicional;
+    }
+
+    public List<DescuentoAdicionalRow> getDctoAdicionalRowsVisibles() {
+        List<DescuentoAdicionalRow> visibleRows = new ArrayList<>();
+        List<DescuentoAdicionalRow> filteredData = dctoAdicionalModel.getFilteredData();
+        for (int i = 0; i < tblDctoAdicional.getRowCount(); i++) {
+            int modelRow = tblDctoAdicional.convertRowIndexToModel(i);
+            if (modelRow >= 0 && modelRow < filteredData.size()) {
+                visibleRows.add(filteredData.get(modelRow));
+            }
+        }
+        return visibleRows;
+    }
+
+    public JTextField getTxtDAPorcentaje() {
+        return txtDAPorcentaje;
+    }
+
+    public DatePicker getDateDAFechaIni() {
+        return dateDAFechaIni;
+    }
+
+    public DatePicker getDateDAFechaFin() {
+        return dateDAFechaFin;
+    }
+
+    public JButton getBtnDAAplicar() {
+        return btnDAAplicar;
+    }
+
+    public JButton getBtnDAImportExcel() {
+        return btnDAImportExcel;
+    }
+
+    public JButton getBtnDASelectAll() {
+        return btnDASelectAll;
+    }
+
+    public JButton getBtnDAUnselectAll() {
+        return btnDAUnselectAll;
+    }
+
     public void updateDatePickerThemes(boolean isDark) {
         applyThemeToDatePicker(dateDVFechaIni, isDark);
         applyThemeToDatePicker(dateDVFechaFin, isDark);
+        applyThemeToDatePicker(dateDAFechaIni, isDark);
+        applyThemeToDatePicker(dateDAFechaFin, isDark);
     }
 
     private DatePicker createDatePicker() {

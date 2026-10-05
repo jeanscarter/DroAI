@@ -28,6 +28,7 @@ public class ComisionRow {
     private String nombreVendedor;
     private String psico;
     private boolean facturaCerrada;
+    private boolean agenteRetencion;
 
     public ComisionRow() {
     }
@@ -198,5 +199,13 @@ public class ComisionRow {
 
     public void setFacturaCerrada(boolean facturaCerrada) {
         this.facturaCerrada = facturaCerrada;
+    }
+
+    public boolean isAgenteRetencion() {
+        return agenteRetencion;
+    }
+
+    public void setAgenteRetencion(boolean agenteRetencion) {
+        this.agenteRetencion = agenteRetencion;
     }
 }

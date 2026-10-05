@@ -485,6 +485,25 @@ public class ImportadorService {
         public java.sql.Date getFechaFin() { return fechaFin; }
     }
 
+    public static class DescuentoDAImportItem {
+        private final String codigoArticulo;
+        private final double porcentaje;
+        private final java.sql.Date fechaDesde;
+        private final java.sql.Date fechaHasta;
+
+        public DescuentoDAImportItem(String codigoArticulo, double porcentaje, java.sql.Date fechaDesde, java.sql.Date fechaHasta) {
+            this.codigoArticulo = codigoArticulo;
+            this.porcentaje = porcentaje;
+            this.fechaDesde = fechaDesde;
+            this.fechaHasta = fechaHasta;
+        }
+
+        public String getCodigoArticulo() { return codigoArticulo; }
+        public double getPorcentaje() { return porcentaje; }
+        public java.sql.Date getFechaDesde() { return fechaDesde; }
+        public java.sql.Date getFechaHasta() { return fechaHasta; }
+    }
+
     private java.sql.Date parseCellDate(Cell cell) {
         if (cell == null) return null;
         try {
@@ -621,12 +640,12 @@ public class ImportadorService {
         return dctosMap;
     }
 
-    public java.util.Map<String, Double> leerExcelDescuentoDA(File file) throws IOException {
-        java.util.Map<String, Double> dctosMap = new java.util.HashMap<>();
+    public List<DescuentoDAImportItem> leerExcelDescuentoDAItems(File file) throws IOException {
+        List<DescuentoDAImportItem> items = new ArrayList<>();
         try (FileInputStream fis = new FileInputStream(file);
              Workbook wb = new XSSFWorkbook(fis)) {
 
-            Sheet sheet = wb.getSheetAt(0); // Tomamos la primera pestaña
+            Sheet sheet = wb.getSheetAt(0);
             if (sheet == null) {
                 throw new IOException("El archivo Excel no tiene hojas.");
             }
@@ -634,6 +653,8 @@ public class ImportadorService {
             int headerRowIdx = -1;
             int colCodInt = -1;
             int colDescuento = -1;
+            int colFechaIni = -1;
+            int colFechaFin = -1;
 
             // 1. Buscar la fila de encabezados
             for (int r = 0; r <= Math.min(sheet.getLastRowNum(), 20); r++) {
@@ -644,11 +665,17 @@ public class ImportadorService {
                     String val = getCellString(row, c);
                     if (val != null) {
                         String norm = val.trim().toLowerCase();
-                        if (norm.contains("cod int") || norm.equals("codigo") || norm.equals("co_art") || norm.equals("cod_int")) {
+                        if (norm.contains("cod int") || norm.equals("codigo") || norm.equals("co_art") || norm.equals("cod_int") || norm.equals("ref")) {
                             colCodInt = c;
                         }
-                        if (norm.contains("descuento") || norm.contains("dcto") || norm.equals("da") || norm.equals("porc1") || norm.equals("volumen") || norm.equals("flash")) {
+                        if (norm.contains("descuento") || norm.contains("dcto") || norm.equals("da") || norm.equals("lic_grado_al") || norm.equals("volumen") || norm.equals("porc1") || norm.equals("flash")) {
                             colDescuento = c;
+                        }
+                        if (norm.contains("fecha inicial") || norm.contains("fecha inicio") || norm.contains("fecha desde") || norm.equals("fecha_ini") || norm.equals("desde") || norm.equals("f. inicio") || norm.equals("f. desde") || norm.equals("fdesdesc")) {
+                            colFechaIni = c;
+                        }
+                        if (norm.contains("fecha final") || norm.contains("fecha fin") || norm.contains("fecha hasta") || norm.equals("fecha_fin") || norm.equals("hasta") || norm.equals("f. fin") || norm.equals("f. hasta") || norm.equals("fhasdesc")) {
+                            colFechaFin = c;
                         }
                     }
                 }
@@ -699,13 +726,24 @@ public class ImportadorService {
                     }
                 }
 
-                // Si el descuento viene en formato decimal (ej: 0.05 para 5%), convertir a porcentaje (5.0)
                 if (valDcto > 0.0 && valDcto <= 1.0) {
                     valDcto = valDcto * 100.0;
                 }
 
-                dctosMap.put(cod.trim(), valDcto);
+                java.sql.Date fechaIni = (colFechaIni != -1) ? parseCellDate(row.getCell(colFechaIni)) : null;
+                java.sql.Date fechaFin = (colFechaFin != -1) ? parseCellDate(row.getCell(colFechaFin)) : null;
+
+                items.add(new DescuentoDAImportItem(cod.trim(), valDcto, fechaIni, fechaFin));
             }
+        }
+        return items;
+    }
+
+    public java.util.Map<String, Double> leerExcelDescuentoDA(File file) throws IOException {
+        java.util.Map<String, Double> dctosMap = new java.util.HashMap<>();
+        List<DescuentoDAImportItem> items = leerExcelDescuentoDAItems(file);
+        for (DescuentoDAImportItem item : items) {
+            dctosMap.put(item.getCodigoArticulo(), item.getPorcentaje());
         }
         return dctosMap;
     }

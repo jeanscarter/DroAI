@@ -39,4 +39,23 @@ public class ComisionesServiceTest {
         assertEquals(267212.28, tot.getTotalBaseComision(), 0.01);
         assertEquals(4008.18, tot.getTotalMontoComision(), 0.01);
     }
+
+    @Test
+    @DisplayName("Debe consultar comisiones sin duplicar facturas para un vendedor o cliente")
+    public void testDeduplicacionComisiones() {
+        ComisionesService service = new ComisionesService();
+        java.time.LocalDate desde = java.time.LocalDate.of(2026, 9, 1);
+        java.time.LocalDate hasta = java.time.LocalDate.of(2026, 9, 20);
+
+        List<ComisionRow> rows = service.consultarComisiones(desde, hasta, "TODOS");
+        if (rows != null && !rows.isEmpty()) {
+            java.util.Set<String> seen = new java.util.HashSet<>();
+            for (ComisionRow r : rows) {
+                String key = r.getTipoDoc() + ":" + r.getNumeroDocumento() + ":" + r.getCodigoVendedor();
+                org.junit.jupiter.api.Assertions.assertFalse(seen.contains(key),
+                        "Documento duplicado encontrado en comisiones: " + key);
+                seen.add(key);
+            }
+        }
+    }
 }

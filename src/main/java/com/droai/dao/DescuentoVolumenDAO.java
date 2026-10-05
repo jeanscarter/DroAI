@@ -19,7 +19,7 @@ public class DescuentoVolumenDAO {
                 ISNULL(a.modelo, '') AS modelo,
                 ISNULL(a.ref, '') AS codigoBarra,
                 ISNULL(pr.monto, 0) AS precio1,
-                ISNULL(da.porc1, 0) AS descuentoDV,
+                ISNULL(da.porc_efectivo, 0) AS descuentoDV,
                 ISNULL(CONVERT(varchar, da.fecha_ini, 23), '') AS fechaIni,
                 ISNULL(CONVERT(varchar, da.fecha_fin, 23), '') AS fechaFin,
                 ISNULL(da.co_us_in, '') AS coUsIn,
@@ -48,7 +48,24 @@ public class DescuentoVolumenDAO {
                 WHERE co_precio = '01' 
                 GROUP BY co_art
             ) pr ON a.co_art = pr.co_art
-            LEFT JOIN saDescArticulo da ON a.co_art = da.co_art AND da.tip_cli = '000001'
+            LEFT JOIN (
+                SELECT co_art, tip_cli, fecha_ini, fecha_fin,
+                       co_us_in, fe_us_in, co_us_mo, fe_us_mo,
+                       CASE 
+                           WHEN porc1 > 0 THEN porc1 
+                           WHEN porc2 > 0 THEN porc2 
+                           WHEN porc3 > 0 THEN porc3 
+                           ELSE 0 
+                       END AS porc_efectivo,
+                       ROW_NUMBER() OVER (
+                           PARTITION BY co_art 
+                           ORDER BY 
+                               CASE WHEN CAST(GETDATE() AS DATE) BETWEEN fecha_ini AND fecha_fin THEN 1 ELSE 2 END,
+                               fecha_ini DESC
+                       ) AS rn
+                FROM saDescArticulo
+                WHERE tip_cli = '000001'
+            ) da ON a.co_art = da.co_art AND da.rn = 1
             ORDER BY a.co_art
             """;
 

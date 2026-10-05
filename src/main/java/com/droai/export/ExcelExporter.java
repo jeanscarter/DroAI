@@ -6,11 +6,11 @@ import com.droai.model.CargaMasivaCostosPreciosRow;
 import com.droai.model.ClienteMaestroRow;
 import com.droai.model.ComisionRow;
 import com.droai.model.CxCDocumentoRow;
+import com.droai.model.DescuentoAdicionalRow;
 import com.droai.model.DescuentoProductoRow;
 import com.droai.model.DescuentoVolumenRow;
 import com.droai.model.MatrizVentasRow;
 import com.droai.model.ProductoReporteRow;
-import com.droai.model.ResumenRow;
 import org.apache.poi.ss.usermodel.*;
 import org.apache.poi.ss.util.CellRangeAddress;
 import org.apache.poi.xssf.streaming.SXSSFWorkbook;
@@ -304,19 +304,21 @@ public class ExcelExporter {
     }
 
     /**
-     * Exporta los Descuentos Adicionales (Simulador / Resumen).
+     * Exporta los Descuentos Adicionales (saArticulo).
      */
-    public File exportDescuentosAdicionales(List<ResumenRow> listado) throws IOException {
+    public File exportDescuentosAdicionales(List<DescuentoAdicionalRow> listado) throws IOException {
         String timestamp = LocalDateTime.now().format(DateTimeFormatter.ofPattern("yyyyMMdd_HHmmss"));
         File file = new File(System.getProperty("user.dir"), "DescuentosAdicionales_" + timestamp + ".xlsx");
 
         try (SXSSFWorkbook wb = new SXSSFWorkbook(100)) {
             CellStyle headerStyle = createHeaderStyle(wb);
             CellStyle numberStyle = createNumberStyle(wb);
+            CellStyle currencyStyle = createCurrencyStyle(wb);
 
             Sheet sheet = wb.createSheet();
             String[] headers = {
-                    "Clave", "Descripción", "Total", "Descuento", "Neto", "% Descuento", "Costo OM", "Util %"
+                    "Codigo", "Descripcion", "Marca", "Codigo de Barra", "Precio", "Descuento DA",
+                    "Fecha Desde", "Fecha Hasta"
             };
 
             Row hr = sheet.createRow(0);
@@ -327,16 +329,16 @@ public class ExcelExporter {
             }
 
             int rowIdx = 1;
-            for (ResumenRow r : listado) {
+            for (DescuentoAdicionalRow r : listado) {
                 Row row = sheet.createRow(rowIdx++);
-                row.createCell(0).setCellValue(r.getClave());
+                row.createCell(0).setCellValue(r.getCodigo());
                 row.createCell(1).setCellValue(r.getDescripcion());
-                setCellNum(row, 2, r.getTotal(), numberStyle);
-                setCellNum(row, 3, r.getDescuento(), numberStyle);
-                setCellNum(row, 4, r.getNeto(), numberStyle);
-                setCellNum(row, 5, r.getPorcentaje(), numberStyle);
-                setCellNum(row, 6, r.getCostoOm(), numberStyle);
-                setCellNum(row, 7, r.getUtilPct(), numberStyle);
+                row.createCell(2).setCellValue(r.getMarca());
+                row.createCell(3).setCellValue(r.getCodigoBarra());
+                setCellNum(row, 4, r.getPrecio1(), currencyStyle);
+                setCellNum(row, 5, r.getDescuentoDA(), numberStyle);
+                row.createCell(6).setCellValue(r.getFechaDesde());
+                row.createCell(7).setCellValue(r.getFechaHasta());
             }
 
             sheet.createFreezePane(0, 1);

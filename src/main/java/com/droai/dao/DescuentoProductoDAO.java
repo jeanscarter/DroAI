@@ -28,15 +28,17 @@ public class DescuentoProductoDAO {
                     THEN ((ISNULL(p1.monto, 0) - ISNULL(ce.costo, 0)) / ISNULL(p1.monto, 0)) * 100
                     ELSE 0
                 END                             AS utilidadPct,
-                ISNULL(da.porc1, 0)             AS dctoPct,
-                ISNULL(a.volumen, 0)            AS dctoPct2,
+                ISNULL(a.volumen, 0)            AS dctoPct,
+                ISNULL(da.porc_efectivo, 0)     AS dctoPct2,
                 CASE
-                    WHEN ISNULL(a.volumen, 0) > 0
+                    WHEN ISNULL(a.volumen, 0) > 0 
                     THEN ISNULL(p1.monto, 0) * (1 - (ISNULL(a.volumen, 0) / 100.0))
+                    WHEN ISNULL(da.porc_efectivo, 0) > 0
+                    THEN ISNULL(p1.monto, 0) * (1 - (ISNULL(da.porc_efectivo, 0) / 100.0))
                     ELSE ISNULL(p1.monto, 0)
                 END                             AS precioDcto,
-                ISNULL(CONVERT(varchar, da.fecha_ini, 23), '') AS fechaDesde,
-                ISNULL(CONVERT(varchar, da.fecha_fin, 23), '') AS fechaHasta,
+                COALESCE(CONVERT(varchar, da.fecha_ini, 23), CONVERT(varchar, a.fdesdesc, 23), '') AS fechaDesde,
+                COALESCE(CONVERT(varchar, da.fecha_fin, 23), CONVERT(varchar, a.fhasdesc, 23), '') AS fechaHasta,
                 ISNULL(a.co_lin, '')            AS codLinea,
                 ISNULL(l.lin_des, '')           AS linea,
                 ISNULL(ap.co_prov, '')          AS codProveedor,
@@ -73,7 +75,23 @@ public class DescuentoProductoDAO {
                 ) ranked
                 WHERE rn = 1
             ) ce ON a.rowguid = ce.cod_articulo_rowguid
-            LEFT JOIN saDescArticulo da ON a.co_art = da.co_art AND da.tip_cli = '000001'
+            LEFT JOIN (
+                SELECT co_art, tip_cli, fecha_ini, fecha_fin,
+                       CASE 
+                           WHEN porc1 > 0 THEN porc1 
+                           WHEN porc2 > 0 THEN porc2 
+                           WHEN porc3 > 0 THEN porc3 
+                           ELSE 0 
+                       END AS porc_efectivo,
+                       ROW_NUMBER() OVER (
+                           PARTITION BY co_art 
+                           ORDER BY 
+                               CASE WHEN CAST(GETDATE() AS DATE) BETWEEN fecha_ini AND fecha_fin THEN 1 ELSE 2 END,
+                               fecha_ini DESC
+                       ) AS rn
+                FROM saDescArticulo
+                WHERE tip_cli = '000001'
+            ) da ON a.co_art = da.co_art AND da.rn = 1
             ORDER BY a.co_art
             """;
 
@@ -123,7 +141,18 @@ public class DescuentoProductoDAO {
             conn.setAutoCommit(false);
             try {
                 // 1. Actualizar el DA en saArticulo (columna volumen)
-                String sqlUpdateArt = "UPDATE saArticulo SET volumen = ?, co_us_mo = ?, fe_us_mo = GETDATE() WHERE co_art = ?";
+                // Se dejan fdesdesc, fhasdesc y fvendesc en NULL para que no caduquen por fecha,
+                // salgan de inmediato en la web y solo se eliminen cuando el usuario coloque 0 en DroAI.
+                String sqlUpdateArt = """
+                        UPDATE saArticulo
+                        SET volumen = ?,
+                            fdesdesc = NULL,
+                            fhasdesc = NULL,
+                            fvendesc = NULL,
+                            co_us_mo = ?,
+                            fe_us_mo = GETDATE()
+                        WHERE co_art = ?
+                        """;
                 try (PreparedStatement psUpdateArt = conn.prepareStatement(sqlUpdateArt)) {
                     for (String coArt : codigosArticulos) {
                         psUpdateArt.setDouble(1, dctoDA);
@@ -233,7 +262,19 @@ public class DescuentoProductoDAO {
         try (Connection conn = DatabaseConfig.getDataSource().getConnection()) {
             conn.setAutoCommit(false);
             try {
-                String sqlUpdateArt = "UPDATE saArticulo SET volumen = ?, co_us_mo = ?, fe_us_mo = GETDATE() WHERE co_art = ?";
+                // Al asignar descuento en Descuento x Producto, se actualiza volumen
+                // y se limpian fdesdesc, fhasdesc y fvendesc (NULL) para que no tengan fecha de caducidad
+                // y salgan de inmediato en la web. Solo se eliminarán cuando el usuario coloque 0 en DroAI.
+                String sqlUpdateArt = """
+                        UPDATE saArticulo
+                        SET volumen = ?,
+                            fdesdesc = NULL,
+                            fhasdesc = NULL,
+                            fvendesc = NULL,
+                            co_us_mo = ?,
+                            fe_us_mo = GETDATE()
+                        WHERE co_art = ?
+                        """;
                 try (PreparedStatement psUpdateArt = conn.prepareStatement(sqlUpdateArt)) {
                     for (String coArt : codigosArticulos) {
                         psUpdateArt.setDouble(1, dctoDA);
@@ -243,6 +284,25 @@ public class DescuentoProductoDAO {
                     }
                     psUpdateArt.executeBatch();
                 }
+
+                // Si se coloca 0 en DroAI, se elimina completamente el descuento en saArticulo
+                // y también se limpia cualquier registro en saDescArticulo para que no persista.
+                if (dctoDA <= 0.0001) {
+                    String sqlClearDesc = """
+                            UPDATE saDescArticulo
+                            SET porc1 = 0, porc2 = 0, porc3 = 0, co_us_mo = ?, fe_us_mo = GETDATE()
+                            WHERE co_art = ?
+                            """;
+                    try (PreparedStatement psClear = conn.prepareStatement(sqlClearDesc)) {
+                        for (String coArt : codigosArticulos) {
+                            psClear.setString(1, coUsuario);
+                            psClear.setString(2, coArt.trim());
+                            psClear.addBatch();
+                        }
+                        psClear.executeBatch();
+                    }
+                }
+
                 conn.commit();
             } catch (SQLException e) {
                 conn.rollback();
@@ -262,8 +322,25 @@ public class DescuentoProductoDAO {
         try (Connection conn = DatabaseConfig.getDataSource().getConnection()) {
             conn.setAutoCommit(false);
             try {
-                String sqlUpdateArt = "UPDATE saArticulo SET volumen = ?, co_us_mo = ?, fe_us_mo = GETDATE() WHERE co_art = ?";
-                try (PreparedStatement psUpdateArt = conn.prepareStatement(sqlUpdateArt)) {
+                String sqlUpdateArt = """
+                        UPDATE saArticulo
+                        SET volumen = ?,
+                            fdesdesc = NULL,
+                            fhasdesc = NULL,
+                            fvendesc = NULL,
+                            co_us_mo = ?,
+                            fe_us_mo = GETDATE()
+                        WHERE co_art = ?
+                        """;
+                String sqlClearDesc = """
+                        UPDATE saDescArticulo
+                        SET porc1 = 0, porc2 = 0, porc3 = 0, co_us_mo = ?, fe_us_mo = GETDATE()
+                        WHERE co_art = ?
+                        """;
+
+                try (PreparedStatement psUpdateArt = conn.prepareStatement(sqlUpdateArt);
+                     PreparedStatement psClear = conn.prepareStatement(sqlClearDesc)) {
+                    boolean hasZeros = false;
                     for (java.util.Map.Entry<String, Double> entry : dctosMap.entrySet()) {
                         String coArt = entry.getKey().trim();
                         double nuevoPorcentaje = entry.getValue();
@@ -271,8 +348,18 @@ public class DescuentoProductoDAO {
                         psUpdateArt.setString(2, coUsuario);
                         psUpdateArt.setString(3, coArt);
                         psUpdateArt.addBatch();
+
+                        if (nuevoPorcentaje <= 0.0001) {
+                            psClear.setString(1, coUsuario);
+                            psClear.setString(2, coArt);
+                            psClear.addBatch();
+                            hasZeros = true;
+                        }
                     }
                     psUpdateArt.executeBatch();
+                    if (hasZeros) {
+                        psClear.executeBatch();
+                    }
                 }
                 conn.commit();
             } catch (SQLException e) {

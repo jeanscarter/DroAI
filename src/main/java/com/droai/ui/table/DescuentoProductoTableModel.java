@@ -86,7 +86,7 @@ public class DescuentoProductoTableModel extends AbstractTableModel {
             case 8  -> (r.getCostoActual() > 0) ? r.getCostoActual() : r.getCostoFabrica();
             case 9  -> r.getUtilidadPct();
             case 10 -> r.getPrecio1();
-            case 11 -> r.getDctoPct2();
+            case 11 -> r.getDctoPct();
             case 12 -> r.getPrecioDcto();
             case 13 -> r.getFechaDesde();
             case 14 -> r.getFechaHasta();
@@ -117,7 +117,12 @@ public class DescuentoProductoTableModel extends AbstractTableModel {
             if (nuevoDcto < 0) nuevoDcto = 0.0;
             if (nuevoDcto > 100) nuevoDcto = 100.0;
 
+            r.setDctoPct(nuevoDcto);
             r.setDctoPct2(nuevoDcto);
+            if (nuevoDcto <= 0.0001) {
+                r.setFechaDesde("");
+                r.setFechaHasta("");
+            }
             double precio1 = r.getPrecio1();
             r.setPrecioDcto(precio1 * (1.0 - (nuevoDcto / 100.0)));
             selectionMap.put(r.getCodigo(), true);
@@ -125,6 +130,8 @@ public class DescuentoProductoTableModel extends AbstractTableModel {
             fireTableCellUpdated(row, 0);
             fireTableCellUpdated(row, 11);
             fireTableCellUpdated(row, 12);
+            fireTableCellUpdated(row, 13);
+            fireTableCellUpdated(row, 14);
 
             if (onCellDiscountEdited != null) {
                 onCellDiscountEdited.accept(r.getCodigo(), nuevoDcto);

@@ -41,8 +41,9 @@ public class AdminDashboardFrame extends JFrame {
     public AdminDashboardFrame() {
         setTitle("DroAI — Menú Principal Administrativo");
         setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
-        setSize(1220, 750);
+        setSize(1240, 780);
         setMinimumSize(new Dimension(980, 640));
+        setExtendedState(JFrame.MAXIMIZED_BOTH);
         setLocationRelativeTo(null);
 
         IconHelper.applyAppIcon(this);
@@ -238,15 +239,20 @@ public class AdminDashboardFrame extends JFrame {
                 tm.greenAccent(),
                 this::abrirTesoreriaPagos), "grow");
 
-        // ── Tarjeta 9: Auditoría y Usuarios (Módulo futuro) ──
+        // ── Tarjeta 9: Auditoría y Control de Lotes (Exclusivo DV y JG) ──
         content.add(createModuleCard(
-                "👥",
-                "Auditoría y Usuarios",
-                "Gestión de usuarios, control de acceso,\nhistorial de operaciones del sistema.",
-                tm.cardBorder(),
-                null), "grow");
+                "🔍",
+                "Auditoría y Control de Lotes",
+                "Discrepancias Almacén vs. Lotes, historial Kardex,\nedición de vencimientos y nivelación en 1-Clic.",
+                tm.purpleAccent(),
+                this::abrirAuditoriaLotes), "grow");
 
-        root.add(content, BorderLayout.CENTER);
+        JScrollPane scrollPane = new JScrollPane(content);
+        scrollPane.setBorder(null);
+        scrollPane.setOpaque(false);
+        scrollPane.getViewport().setOpaque(false);
+        scrollPane.getVerticalScrollBar().setUnitIncrement(16);
+        root.add(scrollPane, BorderLayout.CENTER);
 
         // ═══════════════════════════════════════════════════════════
         // FOOTER
@@ -481,6 +487,20 @@ public class AdminDashboardFrame extends JFrame {
 
         SwingUtilities.invokeLater(() -> {
             TesoreriaPagosFrame frame = new TesoreriaPagosFrame();
+            frame.setVisible(true);
+        });
+    }
+
+    /**
+     * Abre el módulo de Auditoría y Control de Lotes con validación estricta de usuario (DV y JG).
+     */
+    private void abrirAuditoriaLotes() {
+        if (!AuditoriaLotesFrame.verificarAutorizacion(this)) {
+            return;
+        }
+
+        SwingUtilities.invokeLater(() -> {
+            AuditoriaLotesFrame frame = new AuditoriaLotesFrame();
             frame.setVisible(true);
         });
     }
