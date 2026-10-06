@@ -57,8 +57,8 @@ public class CatalogoService {
         descuentoVolumenDAO.updateDescuentosVolumenMap(dctosMap, fechaIni, fechaFin);
     }
 
-    public void actualizarDescuentosVolumenItems(List<ImportadorService.DescuentoDVImportItem> items, java.sql.Date fechaIni, java.sql.Date fechaFin) throws SQLException {
-        descuentoVolumenDAO.updateDescuentosVolumenItems(items, fechaIni, fechaFin);
+    public int actualizarDescuentosVolumenItems(List<ImportadorService.DescuentoDVImportItem> items, java.sql.Date fechaIni, java.sql.Date fechaFin) throws SQLException {
+        return descuentoVolumenDAO.updateDescuentosVolumenItems(items, fechaIni, fechaFin);
     }
 
     public List<DescuentoProductoRow> obtenerDescuentosProducto() throws SQLException {
@@ -107,8 +107,8 @@ public class CatalogoService {
         descuentoAdicionalDAO.updateDescuentosAdicionalesMap(dctosMap, fechaDesde, fechaHasta);
     }
 
-    public void actualizarDescuentosAdicionalesItems(List<ImportadorService.DescuentoDAImportItem> items, java.sql.Date fechaDesde, java.sql.Date fechaHasta) throws SQLException {
-        descuentoAdicionalDAO.updateDescuentosAdicionalesItems(items, fechaDesde, fechaHasta);
+    public int actualizarDescuentosAdicionalesItems(List<ImportadorService.DescuentoDAImportItem> items, java.sql.Date fechaDesde, java.sql.Date fechaHasta) throws SQLException {
+        return descuentoAdicionalDAO.updateDescuentosAdicionalesItems(items, fechaDesde, fechaHasta);
     }
 
     public List<ArticuloRow> obtenerCatalogo() throws SQLException {

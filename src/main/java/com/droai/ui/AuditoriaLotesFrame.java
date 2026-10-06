@@ -16,6 +16,7 @@ import javax.swing.table.DefaultTableCellRenderer;
 import javax.swing.table.DefaultTableModel;
 import java.awt.*;
 import java.text.DecimalFormat;
+import java.time.LocalDate;
 import java.util.List;
 import java.util.Set;
 
@@ -43,6 +44,7 @@ public class AuditoriaLotesFrame extends JFrame {
 
     // Filtros y KPIs
     private JTextField txtFiltro;
+    private JCheckBox chkExcluirMermas;
     private JLabel lblKpiTotal;
     private JLabel lblKpiFaltante;
     private JLabel lblKpiExceso;
@@ -188,7 +190,7 @@ public class AuditoriaLotesFrame extends JFrame {
         bar.setBorder(BorderFactory.createLineBorder(tm.border(), 1));
 
         // Izquierda: Filtro de búsqueda
-        JPanel searchBox = new JPanel(new MigLayout("insets 0, gap 8", "[grow][][]", "[]"));
+        JPanel searchBox = new JPanel(new MigLayout("insets 0, gap 8", "[grow][][][]", "[]"));
         searchBox.setOpaque(false);
 
         txtFiltro = new JTextField();
@@ -213,6 +215,16 @@ public class AuditoriaLotesFrame extends JFrame {
             cargarDiscrepancias();
         });
         searchBox.add(btnLimpiar);
+
+        chkExcluirMermas = new JCheckBox("Excluir Averías / Venc. (VC, AV, VP)", true);
+        chkExcluirMermas.setFont(new Font("Segoe UI", Font.PLAIN, 12));
+        chkExcluirMermas.setForeground(tm.textPrimary());
+        chkExcluirMermas.setOpaque(false);
+        chkExcluirMermas.setFocusable(false);
+        chkExcluirMermas.setCursor(Cursor.getPredefinedCursor(Cursor.HAND_CURSOR));
+        chkExcluirMermas.setToolTipText("Excluye almacenes de avería y vencimientos (VC, AV, VP)");
+        chkExcluirMermas.addActionListener(e -> cargarDiscrepancias());
+        searchBox.add(chkExcluirMermas, "gapleft 6");
 
         bar.add(searchBox);
 
@@ -389,13 +401,29 @@ public class AuditoriaLotesFrame extends JFrame {
         lblLotesTitle.setForeground(tm.textPrimary());
         lotesActionBar.add(lblLotesTitle);
 
+        JPanel lotesActionsGroup = new JPanel(new MigLayout("insets 0, gap 8", "[][]", "[]"));
+        lotesActionsGroup.setOpaque(false);
+
+        JButton btnCrearLote = new JButton("➕ Asignar / Crear Lote");
+        btnCrearLote.setFont(new Font("Segoe UI", Font.BOLD, 12));
+        btnCrearLote.setBackground(new Color(16, 185, 129)); // Verde Esmeralda
+        btnCrearLote.setForeground(Color.WHITE);
+        btnCrearLote.setFocusPainted(false);
+        btnCrearLote.setCursor(Cursor.getPredefinedCursor(Cursor.HAND_CURSOR));
+        btnCrearLote.setToolTipText("Crea o asigna un lote y vencimiento real a este artículo para nivelar el descuadre");
+        btnCrearLote.addActionListener(e -> abrirModalCrearLote());
+        lotesActionsGroup.add(btnCrearLote);
+
         JButton btnModificarLote = new JButton("✏️ Modificar Lote / Vencimiento");
         btnModificarLote.setFont(new Font("Segoe UI", Font.BOLD, 12));
         btnModificarLote.setBackground(tm.accent());
         btnModificarLote.setForeground(Color.WHITE);
+        btnModificarLote.setFocusPainted(false);
         btnModificarLote.setCursor(Cursor.getPredefinedCursor(Cursor.HAND_CURSOR));
         btnModificarLote.addActionListener(e -> abrirModalModificarLote());
-        lotesActionBar.add(btnModificarLote, "right");
+        lotesActionsGroup.add(btnModificarLote);
+
+        lotesActionBar.add(lotesActionsGroup, "right");
         tabLotes.add(lotesActionBar, "growx");
 
         String[] colsLotes = {"Lote", "Vencimiento", "Inicial", "Disponible", "Tipo Doc.", "Fecha Ingreso"};
@@ -427,10 +455,11 @@ public class AuditoriaLotesFrame extends JFrame {
 
     private void cargarDiscrepancias() {
         String filtro = txtFiltro.getText();
+        boolean excluirMermas = chkExcluirMermas != null && chkExcluirMermas.isSelected();
         SwingWorker<List<DiscrepanciaLoteDTO>, Void> worker = new SwingWorker<>() {
             @Override
             protected List<DiscrepanciaLoteDTO> doInBackground() {
-                return dao.listarDiscrepancias(filtro);
+                return dao.listarDiscrepancias(filtro, excluirMermas);
             }
 
             @Override
@@ -530,6 +559,118 @@ public class AuditoriaLotesFrame extends JFrame {
         worker.execute();
     }
 
+    private void abrirModalCrearLote() {
+        int selRow = tblDiscrepancias.getSelectedRow();
+        if (selRow < 0) {
+            Toast.show("Selecciona un producto de la tabla izquierda para asignarle lote.", Toast.Type.WARNING);
+            return;
+        }
+
+        String coArt = tblDiscrepancias.getValueAt(selRow, 0).toString().trim();
+        String artDes = tblDiscrepancias.getValueAt(selRow, 1).toString().trim();
+        String coAlma = tblDiscrepancias.getValueAt(selRow, 2).toString().trim();
+        String strDiff = tblDiscrepancias.getValueAt(selRow, 5).toString().replace(".", "").replace(",", ".");
+        double diff = 0.0;
+        try {
+            diff = Double.parseDouble(strDiff);
+        } catch (Exception ignored) {}
+
+        double cantSugerida = diff > 0.0001 ? diff : 1.0;
+        String fechaSugerida = LocalDate.now().plusYears(3).toString();
+
+        JTextField txtNumeroLote = new JTextField();
+        txtNumeroLote.putClientProperty(FlatClientProperties.PLACEHOLDER_TEXT, "Ej: LOTE-1234 o N° del empaque");
+
+        JTextField txtFechaVenc = new JTextField(fechaSugerida);
+        txtFechaVenc.putClientProperty(FlatClientProperties.PLACEHOLDER_TEXT, "YYYY-MM-DD");
+
+        JTextField txtCantidad = new JTextField(NF.format(cantSugerida));
+
+        JPanel form = new JPanel(new MigLayout("insets 16, wrap 2, fillx", "[label]12[grow, fill]", "[]6[]12[]8[]8[]"));
+
+        JLabel lblInfoArt = new JLabel("<html><b>Artículo:</b> " + coArt + " — " + artDes + "</html>");
+        lblInfoArt.setForeground(tm.textPrimary());
+        form.add(lblInfoArt, "span 2");
+
+        JLabel lblInfoAlma = new JLabel("<html><b>Almacén:</b> " + coAlma + " &nbsp;|&nbsp; <b>Descuadre actual:</b> <span style='color: " + (diff > 0 ? "#ef4444" : "#10b981") + ";'>" + NF.format(diff) + "</span></html>");
+        lblInfoAlma.setForeground(tm.textSecondary());
+        form.add(lblInfoAlma, "span 2");
+
+        form.add(new JLabel("Número de Lote:"));
+        form.add(txtNumeroLote);
+
+        form.add(new JLabel("Vencimiento (YYYY-MM-DD):"));
+        form.add(txtFechaVenc);
+
+        form.add(new JLabel("Cantidad a ingresar:"));
+        form.add(txtCantidad);
+
+        int res = JOptionPane.showConfirmDialog(this, form,
+                "➕ Asignar / Crear Lote — " + coArt + " (" + coAlma + ")",
+                JOptionPane.OK_CANCEL_OPTION, JOptionPane.PLAIN_MESSAGE);
+
+        if (res == JOptionPane.OK_OPTION) {
+            String nuevoLote = txtNumeroLote.getText().trim();
+            String nuevaFecha = txtFechaVenc.getText().trim();
+            String cantRaw = txtCantidad.getText().trim();
+
+            if (nuevoLote.isBlank()) {
+                Toast.show("El número de lote es obligatorio.", Toast.Type.WARNING);
+                return;
+            }
+
+            if (!nuevaFecha.matches("^\\d{4}-\\d{2}-\\d{2}$")) {
+                Toast.show("La fecha debe tener formato válido YYYY-MM-DD (ej: 2027-12-31).", Toast.Type.WARNING);
+                return;
+            }
+
+            double cantidad;
+            try {
+                if (cantRaw.contains(",") && cantRaw.contains(".")) {
+                    cantRaw = cantRaw.replace(".", "").replace(",", ".");
+                } else if (cantRaw.contains(",")) {
+                    cantRaw = cantRaw.replace(",", ".");
+                }
+                cantidad = Double.parseDouble(cantRaw);
+                if (cantidad <= 0.0001) {
+                    Toast.show("La cantidad debe ser mayor a 0.", Toast.Type.WARNING);
+                    return;
+                }
+            } catch (NumberFormatException nfe) {
+                Toast.show("La cantidad ingresada no es un número válido.", Toast.Type.WARNING);
+                return;
+            }
+
+            setCursor(Cursor.getPredefinedCursor(Cursor.WAIT_CURSOR));
+            String coUsuario = SesionUsuario.isAutenticado() ? SesionUsuario.current().getCoUsuario() : "DROAI";
+
+            SwingWorker<Boolean, Void> worker = new SwingWorker<>() {
+                @Override
+                protected Boolean doInBackground() throws Exception {
+                    return dao.registrarNuevoLote(coArt, coAlma, nuevoLote, nuevaFecha, cantidad, coUsuario);
+                }
+
+                @Override
+                protected void done() {
+                    setCursor(Cursor.getDefaultCursor());
+                    try {
+                        boolean ok = get();
+                        if (ok) {
+                            Toast.show("¡Lote '" + nuevoLote + "' registrado exitosamente (" + NF.format(cantidad) + " unids)!", Toast.Type.SUCCESS);
+                            cargarDiscrepancias();
+                            cargarDetalleProducto(coArt, coAlma);
+                        } else {
+                            Toast.show("No se pudo registrar el lote.", Toast.Type.ERROR);
+                        }
+                    } catch (Exception ex) {
+                        Toast.show("Error al registrar lote: " + ex.getMessage(), Toast.Type.ERROR);
+                    }
+                }
+            };
+            worker.execute();
+        }
+    }
+
     private void abrirModalModificarLote() {
         int row = tblLotes.getSelectedRow();
         if (row < 0 || lotesActuales == null || row >= lotesActuales.size()) {
@@ -574,11 +715,17 @@ public class AuditoriaLotesFrame extends JFrame {
     }
 
     private void ejecutarAutoAjuste() {
+        boolean excluirMermas = chkExcluirMermas != null && chkExcluirMermas.isSelected();
+        String avisoFiltro = excluirMermas
+                ? "<li><b>Filtro activo:</b> Se excluirán los almacenes de mermas y vencimientos (<b>VC, AV, VP</b>).</li>"
+                : "";
+
         int confirm = JOptionPane.showConfirmDialog(this,
                 "<html><body style='width: 380px; font-family: sans-serif;'>"
                 + "<h3 style='color: #10b981; margin-bottom: 8px;'>⚡ Nivelación Automática de Lotes</h3>"
-                + "Se procederá a nivelar automáticamente todos los artículos con descuadre:<br>"
+                + "Se procederá a nivelar automáticamente los artículos con descuadre:<br>"
                 + "<ul>"
+                + avisoFiltro
                 + "<li>Los artículos sin lote o con lote insuficiente recibirán su respaldo en <b>saLoteEntrada</b>.</li>"
                 + "<li>Los lotes en exceso serán sincronizados con la existencia física real.</li>"
                 + "<li>Las recepciones pendientes serán marcadas como asignadas.</li>"
@@ -597,7 +744,7 @@ public class AuditoriaLotesFrame extends JFrame {
         SwingWorker<Integer, Void> worker = new SwingWorker<>() {
             @Override
             protected Integer doInBackground() throws Exception {
-                return dao.autoAjustarTodo(coUsuario);
+                return dao.autoAjustarTodo(coUsuario, excluirMermas);
             }
 
             @Override

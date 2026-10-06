@@ -441,18 +441,17 @@ public class MainFrame extends JFrame {
 
                     Toast.show("Actualizando descuentos adicionales en saArticulo...", Toast.Type.INFO);
 
-                    new SwingWorker<Void, Void>() {
+                    new SwingWorker<Integer, Void>() {
                         @Override
-                        protected Void doInBackground() throws Exception {
-                            service.actualizarDescuentosAdicionalesItems(items, fIni, fFin);
-                            return null;
+                        protected Integer doInBackground() throws Exception {
+                            return service.actualizarDescuentosAdicionalesItems(items, fIni, fFin);
                         }
 
                         @Override
                         protected void done() {
                             try {
-                                get();
-                                Toast.show("Se actualizaron " + items.size() + " descuentos DA correctamente.", Toast.Type.SUCCESS);
+                                int actualizados = get();
+                                Toast.show("Se actualizaron " + actualizados + " descuentos DA correctamente.", Toast.Type.SUCCESS);
                                 loadData();
                             } catch (Exception ex) {
                                 ex.printStackTrace();
@@ -607,18 +606,17 @@ public class MainFrame extends JFrame {
                     
                     Toast.show("Actualizando descuentos por volumen...", Toast.Type.INFO);
                     
-                    new SwingWorker<Void, Void>() {
+                    new SwingWorker<Integer, Void>() {
                         @Override
-                        protected Void doInBackground() throws Exception {
-                            service.actualizarDescuentosVolumenItems(items, fIni, fFin);
-                            return null;
+                        protected Integer doInBackground() throws Exception {
+                            return service.actualizarDescuentosVolumenItems(items, fIni, fFin);
                         }
                         
                         @Override
                         protected void done() {
                             try {
-                                get();
-                                Toast.show("Se actualizaron " + items.size() + " descuentos correctamente.", Toast.Type.SUCCESS);
+                                int actualizados = get();
+                                Toast.show("Se actualizaron " + actualizados + " descuentos por volumen correctamente.", Toast.Type.SUCCESS);
                                 loadData();
                             } catch (Exception ex) {
                                 ex.printStackTrace();

@@ -223,7 +223,15 @@ public class DescuentoAdicionalDAO {
         String coUsuario = SesionUsuario.isAutenticado()
                 ? SesionUsuario.current().getCoUsuario() : "SYSTEM";
 
-        String sql = """
+        String sqlCheckArticulo = """
+                SELECT co_art FROM saArticulo
+                WHERE LTRIM(RTRIM(co_art)) = ?
+                   OR (LEN(?) <= 6 AND ISNUMERIC(?) = 1 AND LTRIM(RTRIM(co_art)) = RIGHT('000000' + ?, 6))
+                   OR (LEN(?) <= 8 AND ISNUMERIC(?) = 1 AND LTRIM(RTRIM(co_art)) = RIGHT('00000000' + ?, 8))
+                   OR LTRIM(RTRIM(ref)) = ?
+                """;
+
+        String sqlUpdate = """
                 UPDATE saArticulo
                 SET lic_grado_al = ?,
                     fdesdesc = ?,
@@ -234,41 +242,87 @@ public class DescuentoAdicionalDAO {
                 WHERE co_art = ?
                 """;
 
-        try (Connection conn = DatabaseConfig.getDataSource().getConnection();
-             PreparedStatement ps = conn.prepareStatement(sql)) {
+        try (Connection conn = DatabaseConfig.getDataSource().getConnection()) {
+            conn.setAutoCommit(false);
+            try (PreparedStatement psCheck = conn.prepareStatement(sqlCheckArticulo);
+                 PreparedStatement psUpdate = conn.prepareStatement(sqlUpdate)) {
 
-            for (Map.Entry<String, Double> entry : dctosMap.entrySet()) {
-                ps.setDouble(1, entry.getValue());
-                if (fechaDesde != null) {
-                    ps.setTimestamp(2, new Timestamp(fechaDesde.getTime()));
-                } else {
-                    ps.setNull(2, Types.TIMESTAMP);
+                for (Map.Entry<String, Double> entry : dctosMap.entrySet()) {
+                    String rawCode = entry.getKey() != null ? entry.getKey().trim() : "";
+                    if (rawCode.isEmpty()) continue;
+                    if (rawCode.endsWith(".0")) {
+                        rawCode = rawCode.substring(0, rawCode.length() - 2).trim();
+                    }
+
+                    String matchedCoArt = null;
+                    psCheck.setString(1, rawCode);
+                    psCheck.setString(2, rawCode);
+                    psCheck.setString(3, rawCode);
+                    psCheck.setString(4, rawCode);
+                    psCheck.setString(5, rawCode);
+                    psCheck.setString(6, rawCode);
+                    psCheck.setString(7, rawCode);
+                    psCheck.setString(8, rawCode);
+
+                    try (ResultSet rs = psCheck.executeQuery()) {
+                        if (rs.next()) {
+                            matchedCoArt = rs.getString("co_art").trim();
+                        }
+                    }
+
+                    if (matchedCoArt == null) {
+                        System.out.println("Advertencia DA: Se omitió el artículo porque no existe en saArticulo: " + rawCode);
+                        continue;
+                    }
+
+                    double nuevoPorcentaje = entry.getValue();
+                    Date fDesde = (nuevoPorcentaje > 0.0001) ? fechaDesde : null;
+                    Date fHasta = (nuevoPorcentaje > 0.0001) ? fechaHasta : null;
+
+                    psUpdate.setDouble(1, nuevoPorcentaje);
+                    if (fDesde != null) {
+                        psUpdate.setTimestamp(2, new Timestamp(fDesde.getTime()));
+                    } else {
+                        psUpdate.setNull(2, Types.TIMESTAMP);
+                    }
+                    if (fHasta != null) {
+                        psUpdate.setTimestamp(3, new Timestamp(fHasta.getTime()));
+                        psUpdate.setTimestamp(4, new Timestamp(fHasta.getTime()));
+                    } else {
+                        psUpdate.setNull(3, Types.TIMESTAMP);
+                        psUpdate.setNull(4, Types.TIMESTAMP);
+                    }
+                    psUpdate.setString(5, coUsuario);
+                    psUpdate.setString(6, matchedCoArt);
+                    psUpdate.addBatch();
                 }
-                if (fechaHasta != null) {
-                    ps.setTimestamp(3, new Timestamp(fechaHasta.getTime()));
-                    ps.setTimestamp(4, new Timestamp(fechaHasta.getTime()));
-                } else {
-                    ps.setNull(3, Types.TIMESTAMP);
-                    ps.setNull(4, Types.TIMESTAMP);
-                }
-                ps.setString(5, coUsuario);
-                ps.setString(6, entry.getKey().trim());
-                ps.addBatch();
+
+                psUpdate.executeBatch();
+                conn.commit();
+            } catch (SQLException e) {
+                conn.rollback();
+                throw e;
             }
-
-            ps.executeBatch();
         }
     }
 
-    public void updateDescuentosAdicionalesItems(List<ImportadorService.DescuentoDAImportItem> items, Date fallbackFechaDesde, Date fallbackFechaHasta) throws SQLException {
+    public int updateDescuentosAdicionalesItems(List<ImportadorService.DescuentoDAImportItem> items, Date fallbackFechaDesde, Date fallbackFechaHasta) throws SQLException {
         if (items == null || items.isEmpty()) {
-            return;
+            return 0;
         }
 
         String coUsuario = SesionUsuario.isAutenticado()
                 ? SesionUsuario.current().getCoUsuario() : "SYSTEM";
 
-        String sql = """
+        String sqlCheckArticulo = """
+                SELECT co_art FROM saArticulo
+                WHERE LTRIM(RTRIM(co_art)) = ?
+                   OR (LEN(?) <= 6 AND ISNUMERIC(?) = 1 AND LTRIM(RTRIM(co_art)) = RIGHT('000000' + ?, 6))
+                   OR (LEN(?) <= 8 AND ISNUMERIC(?) = 1 AND LTRIM(RTRIM(co_art)) = RIGHT('00000000' + ?, 8))
+                   OR LTRIM(RTRIM(ref)) = ?
+                """;
+
+        String sqlUpdate = """
                 UPDATE saArticulo
                 SET lic_grado_al = ?,
                     fdesdesc = ?,
@@ -279,33 +333,74 @@ public class DescuentoAdicionalDAO {
                 WHERE co_art = ?
                 """;
 
-        try (Connection conn = DatabaseConfig.getDataSource().getConnection();
-             PreparedStatement ps = conn.prepareStatement(sql)) {
+        int totalActualizados = 0;
+        try (Connection conn = DatabaseConfig.getDataSource().getConnection()) {
+            conn.setAutoCommit(false);
+            try (PreparedStatement psCheck = conn.prepareStatement(sqlCheckArticulo);
+                 PreparedStatement psUpdate = conn.prepareStatement(sqlUpdate)) {
 
-            for (ImportadorService.DescuentoDAImportItem item : items) {
-                ps.setDouble(1, item.getPorcentaje());
+                for (ImportadorService.DescuentoDAImportItem item : items) {
+                    String rawCode = item.getCodigoArticulo() != null ? item.getCodigoArticulo().trim() : "";
+                    if (rawCode.isEmpty()) continue;
+                    if (rawCode.endsWith(".0")) {
+                        rawCode = rawCode.substring(0, rawCode.length() - 2).trim();
+                    }
 
-                Date fDesde = item.getFechaDesde() != null ? item.getFechaDesde() : fallbackFechaDesde;
-                Date fHasta = item.getFechaHasta() != null ? item.getFechaHasta() : fallbackFechaHasta;
+                    String matchedCoArt = null;
+                    psCheck.setString(1, rawCode);
+                    psCheck.setString(2, rawCode);
+                    psCheck.setString(3, rawCode);
+                    psCheck.setString(4, rawCode);
+                    psCheck.setString(5, rawCode);
+                    psCheck.setString(6, rawCode);
+                    psCheck.setString(7, rawCode);
+                    psCheck.setString(8, rawCode);
 
-                if (fDesde != null) {
-                    ps.setTimestamp(2, new Timestamp(fDesde.getTime()));
-                } else {
-                    ps.setNull(2, Types.TIMESTAMP);
+                    try (ResultSet rs = psCheck.executeQuery()) {
+                        if (rs.next()) {
+                            matchedCoArt = rs.getString("co_art").trim();
+                        }
+                    }
+
+                    if (matchedCoArt == null) {
+                        System.out.println("Advertencia DA: Se omitió el artículo porque no existe en saArticulo: " + rawCode);
+                        continue;
+                    }
+
+                    double nuevoPorcentaje = item.getPorcentaje();
+                    Date fDesde = (nuevoPorcentaje > 0.0001)
+                            ? (item.getFechaDesde() != null ? item.getFechaDesde() : fallbackFechaDesde)
+                            : null;
+                    Date fHasta = (nuevoPorcentaje > 0.0001)
+                            ? (item.getFechaHasta() != null ? item.getFechaHasta() : fallbackFechaHasta)
+                            : null;
+
+                    psUpdate.setDouble(1, nuevoPorcentaje);
+                    if (fDesde != null) {
+                        psUpdate.setTimestamp(2, new Timestamp(fDesde.getTime()));
+                    } else {
+                        psUpdate.setNull(2, Types.TIMESTAMP);
+                    }
+                    if (fHasta != null) {
+                        psUpdate.setTimestamp(3, new Timestamp(fHasta.getTime()));
+                        psUpdate.setTimestamp(4, new Timestamp(fHasta.getTime()));
+                    } else {
+                        psUpdate.setNull(3, Types.TIMESTAMP);
+                        psUpdate.setNull(4, Types.TIMESTAMP);
+                    }
+                    psUpdate.setString(5, coUsuario);
+                    psUpdate.setString(6, matchedCoArt);
+                    psUpdate.addBatch();
+                    totalActualizados++;
                 }
-                if (fHasta != null) {
-                    ps.setTimestamp(3, new Timestamp(fHasta.getTime()));
-                    ps.setTimestamp(4, new Timestamp(fHasta.getTime()));
-                } else {
-                    ps.setNull(3, Types.TIMESTAMP);
-                    ps.setNull(4, Types.TIMESTAMP);
-                }
-                ps.setString(5, coUsuario);
-                ps.setString(6, item.getCodigoArticulo().trim());
-                ps.addBatch();
+
+                psUpdate.executeBatch();
+                conn.commit();
+            } catch (SQLException e) {
+                conn.rollback();
+                throw e;
             }
-
-            ps.executeBatch();
         }
+        return totalActualizados;
     }
 }

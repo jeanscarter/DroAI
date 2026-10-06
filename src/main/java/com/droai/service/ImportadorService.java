@@ -504,6 +504,27 @@ public class ImportadorService {
         public java.sql.Date getFechaHasta() { return fechaHasta; }
     }
 
+    private double parseCellDouble(Cell cell) {
+        if (cell == null) return 0.0;
+        try {
+            if (cell.getCellType() == CellType.NUMERIC) {
+                return cell.getNumericCellValue();
+            } else if (cell.getCellType() == CellType.STRING) {
+                String str = cell.getStringCellValue().trim().replace("%", "").replace(",", ".").trim();
+                return Double.parseDouble(str);
+            } else if (cell.getCellType() == CellType.FORMULA) {
+                try {
+                    return cell.getNumericCellValue();
+                } catch (Exception e) {
+                    String str = cell.getStringCellValue().trim().replace("%", "").replace(",", ".").trim();
+                    return Double.parseDouble(str);
+                }
+            }
+        } catch (Exception ignored) {
+        }
+        return 0.0;
+    }
+
     private java.sql.Date parseCellDate(Cell cell) {
         if (cell == null) return null;
         try {
@@ -516,6 +537,10 @@ public class ImportadorService {
                 String str = cell.getStringCellValue().trim();
                 if (str.isEmpty()) return null;
 
+                if (str.contains(" ")) {
+                    str = str.split(" ")[0].trim();
+                }
+
                 if (str.matches("\\d{4}-\\d{2}-\\d{2}")) {
                     return java.sql.Date.valueOf(str);
                 }
@@ -526,6 +551,28 @@ public class ImportadorService {
                     int year = Integer.parseInt(parts[2]);
                     return java.sql.Date.valueOf(String.format("%04d-%02d-%02d", year, month, day));
                 }
+            } else if (cell.getCellType() == CellType.FORMULA) {
+                try {
+                    if (DateUtil.isCellDateFormatted(cell)) {
+                        java.util.Date date = cell.getDateCellValue();
+                        if (date != null) {
+                            return new java.sql.Date(date.getTime());
+                        }
+                    }
+                } catch (Exception e) {
+                    String str = cell.getStringCellValue().trim();
+                    if (str.contains(" ")) str = str.split(" ")[0].trim();
+                    if (str.matches("\\d{4}-\\d{2}-\\d{2}")) {
+                        return java.sql.Date.valueOf(str);
+                    }
+                    if (str.matches("\\d{1,2}[/-]\\d{1,2}[/-]\\d{4}")) {
+                        String[] parts = str.split("[/-]");
+                        int day = Integer.parseInt(parts[0]);
+                        int month = Integer.parseInt(parts[1]);
+                        int year = Integer.parseInt(parts[2]);
+                        return java.sql.Date.valueOf(String.format("%04d-%02d-%02d", year, month, day));
+                    }
+                }
             }
         } catch (Exception ignored) {
         }
@@ -535,7 +582,7 @@ public class ImportadorService {
     public List<DescuentoDVImportItem> leerExcelDescuentoDVItems(File file) throws IOException {
         List<DescuentoDVImportItem> items = new ArrayList<>();
         try (FileInputStream fis = new FileInputStream(file);
-             Workbook wb = new XSSFWorkbook(fis)) {
+             Workbook wb = WorkbookFactory.create(fis)) {
 
             Sheet sheet = wb.getSheetAt(0);
             if (sheet == null) {
@@ -553,33 +600,92 @@ public class ImportadorService {
                 Row row = sheet.getRow(r);
                 if (row == null) continue;
 
+                int foundCod = -1;
+                int foundDcto = -1;
+                int currentPriority = 0;
+                int foundIni = -1;
+                int foundFin = -1;
+
                 for (int c = 0; c < row.getLastCellNum(); c++) {
                     String val = getCellString(row, c);
-                    if (val != null) {
-                        String norm = val.trim().toLowerCase();
-                        if (norm.contains("cod int") || norm.equals("codigo") || norm.equals("co_art") || norm.equals("cod_int") || norm.equals("ref")) {
-                            colCodInt = c;
+                    if (val == null) continue;
+
+                    String norm = val.trim().toLowerCase()
+                            .replace("á", "a")
+                            .replace("é", "e")
+                            .replace("í", "i")
+                            .replace("ó", "o")
+                            .replace("ú", "u");
+
+                    // Detección de columna de Código
+                    if (norm.contains("cod int") || norm.contains("cod_int") || norm.contains("codigo int")
+                            || norm.equals("codigo") || norm.equals("co_art") || norm.equals("cod_art")
+                            || norm.equals("cod art") || norm.equals("cod. art") || norm.equals("articulo")
+                            || norm.equals("cod") || norm.equals("ref") || norm.equals("referencia")
+                            || norm.contains("codigo de barra") || norm.contains("cod barra")
+                            || norm.equals("barcode") || norm.equals("barra")) {
+                        foundCod = c;
+                    }
+
+                    // Detección de columna de Descuento para DV:
+                    // Prioridad 3: Específica de Descuento por Volumen (DV)
+                    if (norm.equals("dv") || norm.equals("% dv") || norm.contains("descuento dv")
+                            || norm.contains("dcto dv") || norm.contains("descuento volumen")
+                            || norm.contains("descuento por volumen") || norm.equals("volumen") || norm.equals("porc1")) {
+                        if (currentPriority < 3) {
+                            foundDcto = c;
+                            currentPriority = 3;
                         }
-                        if (norm.contains("descuento") || norm.contains("dcto") || norm.equals("dv") || norm.equals("porc1") || norm.equals("flash")) {
-                            colDescuento = c;
+                    }
+                    // Prioridad 2: Descuento genérico
+                    else if (norm.equals("descuento") || norm.equals("dcto") || norm.equals("%")
+                            || norm.equals("porcentaje") || norm.equals("porc") || norm.equals("flash")
+                            || norm.contains("descuento %") || norm.contains("% descuento")
+                            || norm.contains("dcto %") || norm.contains("% dcto")) {
+                        if (currentPriority < 2) {
+                            foundDcto = c;
+                            currentPriority = 2;
                         }
-                        if (norm.contains("fecha inicial") || norm.contains("fecha inicio") || norm.contains("fecha desde") || norm.equals("fecha_ini") || norm.equals("desde") || norm.equals("f. inicio") || norm.equals("f. desde")) {
-                            colFechaIni = c;
+                    }
+                    // Prioridad 1: DA fallback
+                    else if (norm.equals("da") || norm.equals("% da") || norm.contains("descuento da")
+                            || norm.contains("dcto da") || norm.contains("descuento adicional")
+                            || norm.contains("dcto adicional") || norm.equals("adicional") || norm.equals("lic_grado_al")) {
+                        if (currentPriority < 1) {
+                            foundDcto = c;
+                            currentPriority = 1;
                         }
-                        if (norm.contains("fecha final") || norm.contains("fecha fin") || norm.contains("fecha hasta") || norm.equals("fecha_fin") || norm.equals("hasta") || norm.equals("f. fin") || norm.equals("f. hasta")) {
-                            colFechaFin = c;
-                        }
+                    }
+
+                    // Detección de Fechas
+                    if (norm.contains("fecha inicial") || norm.contains("fecha inicio") || norm.contains("fecha desde")
+                            || norm.equals("fecha_ini") || norm.equals("fecha_desde") || norm.equals("desde")
+                            || norm.equals("inicio") || norm.equals("f. inicio") || norm.equals("f. desde")
+                            || norm.equals("fdesdesc") || norm.contains("vigencia desde") || norm.equals("f.ini")
+                            || norm.equals("desde fecha")) {
+                        foundIni = c;
+                    }
+                    if (norm.contains("fecha final") || norm.contains("fecha fin") || norm.contains("fecha hasta")
+                            || norm.equals("fecha_fin") || norm.equals("fecha_hasta") || norm.equals("hasta")
+                            || norm.equals("fin") || norm.equals("f. fin") || norm.equals("f. hasta")
+                            || norm.equals("fhasdesc") || norm.equals("fvendesc") || norm.contains("vigencia hasta")
+                            || norm.equals("f.fin") || norm.equals("hasta fecha")) {
+                        foundFin = c;
                     }
                 }
 
-                if (colCodInt != -1 && colDescuento != -1) {
+                if (foundCod != -1 && foundDcto != -1) {
                     headerRowIdx = r;
+                    colCodInt = foundCod;
+                    colDescuento = foundDcto;
+                    colFechaIni = foundIni;
+                    colFechaFin = foundFin;
                     break;
                 }
             }
 
             if (headerRowIdx == -1 || colCodInt == -1 || colDescuento == -1) {
-                throw new IOException("No se pudo identificar las columnas 'COD INT' y 'DESCUENTO' en el archivo Excel.");
+                throw new IOException("No se pudo identificar las columnas de Código y Descuento en el archivo Excel.");
             }
 
             // 2. Leer las filas de datos desde la fila posterior al encabezado
@@ -591,33 +697,17 @@ public class ImportadorService {
                 if (cod == null || cod.isBlank()) {
                     continue;
                 }
+                cod = cod.trim();
+                if (cod.endsWith(".0")) {
+                    cod = cod.substring(0, cod.length() - 2).trim();
+                }
 
                 Cell cellDcto = row.getCell(colDescuento);
                 if (cellDcto == null) {
                     continue;
                 }
 
-                double valDcto = 0.0;
-                if (cellDcto.getCellType() == CellType.NUMERIC) {
-                    valDcto = cellDcto.getNumericCellValue();
-                } else if (cellDcto.getCellType() == CellType.STRING) {
-                    try {
-                        valDcto = Double.parseDouble(cellDcto.getStringCellValue().trim().replace("%", ""));
-                    } catch (NumberFormatException ignored) {
-                        continue;
-                    }
-                } else if (cellDcto.getCellType() == CellType.FORMULA) {
-                    try {
-                        valDcto = cellDcto.getNumericCellValue();
-                    } catch (Exception e) {
-                        try {
-                            valDcto = Double.parseDouble(cellDcto.getStringCellValue().trim().replace("%", ""));
-                        } catch (Exception ignored) {
-                            continue;
-                        }
-                    }
-                }
-
+                double valDcto = parseCellDouble(cellDcto);
                 if (valDcto > 0.0 && valDcto <= 1.0) {
                     valDcto = valDcto * 100.0;
                 }
@@ -625,7 +715,7 @@ public class ImportadorService {
                 java.sql.Date fechaIni = (colFechaIni != -1) ? parseCellDate(row.getCell(colFechaIni)) : null;
                 java.sql.Date fechaFin = (colFechaFin != -1) ? parseCellDate(row.getCell(colFechaFin)) : null;
 
-                items.add(new DescuentoDVImportItem(cod.trim(), valDcto, fechaIni, fechaFin));
+                items.add(new DescuentoDVImportItem(cod, valDcto, fechaIni, fechaFin));
             }
         }
         return items;
@@ -643,7 +733,7 @@ public class ImportadorService {
     public List<DescuentoDAImportItem> leerExcelDescuentoDAItems(File file) throws IOException {
         List<DescuentoDAImportItem> items = new ArrayList<>();
         try (FileInputStream fis = new FileInputStream(file);
-             Workbook wb = new XSSFWorkbook(fis)) {
+             Workbook wb = WorkbookFactory.create(fis)) {
 
             Sheet sheet = wb.getSheetAt(0);
             if (sheet == null) {
@@ -661,33 +751,92 @@ public class ImportadorService {
                 Row row = sheet.getRow(r);
                 if (row == null) continue;
 
+                int foundCod = -1;
+                int foundDcto = -1;
+                int currentPriority = 0;
+                int foundIni = -1;
+                int foundFin = -1;
+
                 for (int c = 0; c < row.getLastCellNum(); c++) {
                     String val = getCellString(row, c);
-                    if (val != null) {
-                        String norm = val.trim().toLowerCase();
-                        if (norm.contains("cod int") || norm.equals("codigo") || norm.equals("co_art") || norm.equals("cod_int") || norm.equals("ref")) {
-                            colCodInt = c;
+                    if (val == null) continue;
+
+                    String norm = val.trim().toLowerCase()
+                            .replace("á", "a")
+                            .replace("é", "e")
+                            .replace("í", "i")
+                            .replace("ó", "o")
+                            .replace("ú", "u");
+
+                    // Detección de columna de Código
+                    if (norm.contains("cod int") || norm.contains("cod_int") || norm.contains("codigo int")
+                            || norm.equals("codigo") || norm.equals("co_art") || norm.equals("cod_art")
+                            || norm.equals("cod art") || norm.equals("cod. art") || norm.equals("articulo")
+                            || norm.equals("cod") || norm.equals("ref") || norm.equals("referencia")
+                            || norm.contains("codigo de barra") || norm.contains("cod barra")
+                            || norm.equals("barcode") || norm.equals("barra")) {
+                        foundCod = c;
+                    }
+
+                    // Detección de columna de Descuento para DA:
+                    // Prioridad 3: Específica de Descuento Adicional (DA)
+                    if (norm.equals("da") || norm.equals("% da") || norm.contains("descuento da")
+                            || norm.contains("dcto da") || norm.contains("descuento adicional")
+                            || norm.contains("dcto adicional") || norm.equals("adicional") || norm.equals("lic_grado_al")) {
+                        if (currentPriority < 3) {
+                            foundDcto = c;
+                            currentPriority = 3;
                         }
-                        if (norm.contains("descuento") || norm.contains("dcto") || norm.equals("da") || norm.equals("lic_grado_al") || norm.equals("volumen") || norm.equals("porc1") || norm.equals("flash")) {
-                            colDescuento = c;
+                    }
+                    // Prioridad 2: Descuento genérico
+                    else if (norm.equals("descuento") || norm.equals("dcto") || norm.equals("%")
+                            || norm.equals("porcentaje") || norm.equals("porc") || norm.equals("flash")
+                            || norm.contains("descuento %") || norm.contains("% descuento")
+                            || norm.contains("dcto %") || norm.contains("% dcto")) {
+                        if (currentPriority < 2) {
+                            foundDcto = c;
+                            currentPriority = 2;
                         }
-                        if (norm.contains("fecha inicial") || norm.contains("fecha inicio") || norm.contains("fecha desde") || norm.equals("fecha_ini") || norm.equals("desde") || norm.equals("f. inicio") || norm.equals("f. desde") || norm.equals("fdesdesc")) {
-                            colFechaIni = c;
+                    }
+                    // Prioridad 1: Estructura proveniente de Descuentos por Volumen (DV)
+                    else if (norm.equals("dv") || norm.equals("% dv") || norm.contains("descuento dv")
+                            || norm.contains("dcto dv") || norm.contains("descuento volumen")
+                            || norm.contains("descuento por volumen") || norm.equals("volumen") || norm.equals("porc1")) {
+                        if (currentPriority < 1) {
+                            foundDcto = c;
+                            currentPriority = 1;
                         }
-                        if (norm.contains("fecha final") || norm.contains("fecha fin") || norm.contains("fecha hasta") || norm.equals("fecha_fin") || norm.equals("hasta") || norm.equals("f. fin") || norm.equals("f. hasta") || norm.equals("fhasdesc")) {
-                            colFechaFin = c;
-                        }
+                    }
+
+                    // Detección de Fechas
+                    if (norm.contains("fecha inicial") || norm.contains("fecha inicio") || norm.contains("fecha desde")
+                            || norm.equals("fecha_ini") || norm.equals("fecha_desde") || norm.equals("desde")
+                            || norm.equals("inicio") || norm.equals("f. inicio") || norm.equals("f. desde")
+                            || norm.equals("fdesdesc") || norm.contains("vigencia desde") || norm.equals("f.ini")
+                            || norm.equals("desde fecha")) {
+                        foundIni = c;
+                    }
+                    if (norm.contains("fecha final") || norm.contains("fecha fin") || norm.contains("fecha hasta")
+                            || norm.equals("fecha_fin") || norm.equals("fecha_hasta") || norm.equals("hasta")
+                            || norm.equals("fin") || norm.equals("f. fin") || norm.equals("f. hasta")
+                            || norm.equals("fhasdesc") || norm.equals("fvendesc") || norm.contains("vigencia hasta")
+                            || norm.equals("f.fin") || norm.equals("hasta fecha")) {
+                        foundFin = c;
                     }
                 }
 
-                if (colCodInt != -1 && colDescuento != -1) {
+                if (foundCod != -1 && foundDcto != -1) {
                     headerRowIdx = r;
+                    colCodInt = foundCod;
+                    colDescuento = foundDcto;
+                    colFechaIni = foundIni;
+                    colFechaFin = foundFin;
                     break;
                 }
             }
 
             if (headerRowIdx == -1 || colCodInt == -1 || colDescuento == -1) {
-                throw new IOException("No se pudo identificar las columnas 'COD INT' y 'DESCUENTO' en el archivo Excel.");
+                throw new IOException("No se pudo identificar las columnas de Código y Descuento en el archivo Excel.");
             }
 
             // 2. Leer las filas de datos desde la fila posterior al encabezado
@@ -699,33 +848,17 @@ public class ImportadorService {
                 if (cod == null || cod.isBlank()) {
                     continue;
                 }
+                cod = cod.trim();
+                if (cod.endsWith(".0")) {
+                    cod = cod.substring(0, cod.length() - 2).trim();
+                }
 
                 Cell cellDcto = row.getCell(colDescuento);
                 if (cellDcto == null) {
                     continue;
                 }
 
-                double valDcto = 0.0;
-                if (cellDcto.getCellType() == CellType.NUMERIC) {
-                    valDcto = cellDcto.getNumericCellValue();
-                } else if (cellDcto.getCellType() == CellType.STRING) {
-                    try {
-                        valDcto = Double.parseDouble(cellDcto.getStringCellValue().trim().replace("%", ""));
-                    } catch (NumberFormatException ignored) {
-                        continue;
-                    }
-                } else if (cellDcto.getCellType() == CellType.FORMULA) {
-                    try {
-                        valDcto = cellDcto.getNumericCellValue();
-                    } catch (Exception e) {
-                        try {
-                            valDcto = Double.parseDouble(cellDcto.getStringCellValue().trim().replace("%", ""));
-                        } catch (Exception ignored) {
-                            continue;
-                        }
-                    }
-                }
-
+                double valDcto = parseCellDouble(cellDcto);
                 if (valDcto > 0.0 && valDcto <= 1.0) {
                     valDcto = valDcto * 100.0;
                 }
@@ -733,7 +866,7 @@ public class ImportadorService {
                 java.sql.Date fechaIni = (colFechaIni != -1) ? parseCellDate(row.getCell(colFechaIni)) : null;
                 java.sql.Date fechaFin = (colFechaFin != -1) ? parseCellDate(row.getCell(colFechaFin)) : null;
 
-                items.add(new DescuentoDAImportItem(cod.trim(), valDcto, fechaIni, fechaFin));
+                items.add(new DescuentoDAImportItem(cod, valDcto, fechaIni, fechaFin));
             }
         }
         return items;

@@ -279,14 +279,15 @@ public class DescuentoVolumenDAO {
         }
     }
 
-    public void updateDescuentosVolumenItems(List<com.droai.service.ImportadorService.DescuentoDVImportItem> items, Date fallbackIni, Date fallbackFin) throws SQLException {
+    public int updateDescuentosVolumenItems(List<com.droai.service.ImportadorService.DescuentoDVImportItem> items, Date fallbackIni, Date fallbackFin) throws SQLException {
         if (items == null || items.isEmpty()) {
-            return;
+            return 0;
         }
 
         String coUsuario = SesionUsuario.isAutenticado()
                 ? SesionUsuario.current().getCoUsuario() : "SYSTEM";
 
+        int totalActualizados = 0;
         try (Connection conn = DatabaseConfig.getDataSource().getConnection()) {
             conn.setAutoCommit(false);
             try {
@@ -305,7 +306,13 @@ public class DescuentoVolumenDAO {
                     }
                 }
 
-                String sqlCheckArticulo = "SELECT co_art FROM saArticulo WHERE co_art = ?";
+                String sqlCheckArticulo = """
+                        SELECT co_art FROM saArticulo
+                        WHERE LTRIM(RTRIM(co_art)) = ?
+                           OR (LEN(?) <= 6 AND ISNUMERIC(?) = 1 AND LTRIM(RTRIM(co_art)) = RIGHT('000000' + ?, 6))
+                           OR (LEN(?) <= 8 AND ISNUMERIC(?) = 1 AND LTRIM(RTRIM(co_art)) = RIGHT('00000000' + ?, 8))
+                           OR LTRIM(RTRIM(ref)) = ?
+                        """;
                 String sqlDelete = "DELETE FROM saDescArticulo WHERE co_art = ? AND tip_cli = ?";
                 String sqlInsert = "INSERT INTO saDescArticulo (co_desc, des_des, co_art, tip_cli, hasta1, hasta2, hasta3, hasta4, hasta5, porc1, porc2, porc3, porc4, porc5, porc6, fecha_ini, fecha_fin, co_us_in, fe_us_in, co_us_mo, fe_us_mo, rowguid) " +
                                    "VALUES (?, 'Descuento por Volumen', ?, ?, 99999999.99, 99999999.99, 99999999.99, 0.0, 0.0, ?, 0.0, 0.0, 0.0, 0.0, 0.0, ?, ?, ?, GETDATE(), ?, GETDATE(), ?)";
@@ -315,34 +322,38 @@ public class DescuentoVolumenDAO {
                      PreparedStatement psInsert = conn.prepareStatement(sqlInsert)) {
 
                     for (com.droai.service.ImportadorService.DescuentoDVImportItem item : items) {
-                        String coArt = item.getCodigoArticulo().trim();
+                        String rawCode = item.getCodigoArticulo() != null ? item.getCodigoArticulo().trim() : "";
+                        if (rawCode.isEmpty()) continue;
+                        if (rawCode.endsWith(".0")) {
+                            rawCode = rawCode.substring(0, rawCode.length() - 2).trim();
+                        }
+
                         double nuevoPorcentaje = item.getPorcentaje();
-                        Date itemIni = (item.getFechaIni() != null) ? item.getFechaIni() : fallbackIni;
-                        Date itemFin = (item.getFechaFin() != null) ? item.getFechaFin() : fallbackFin;
+                        Date itemIni = (nuevoPorcentaje > 0.0001)
+                                ? ((item.getFechaIni() != null) ? item.getFechaIni() : fallbackIni)
+                                : null;
+                        Date itemFin = (nuevoPorcentaje > 0.0001)
+                                ? ((item.getFechaFin() != null) ? item.getFechaFin() : fallbackFin)
+                                : null;
 
                         String matchedCoArt = null;
-                        psCheckArticulo.setString(1, coArt);
+                        psCheckArticulo.setString(1, rawCode);
+                        psCheckArticulo.setString(2, rawCode);
+                        psCheckArticulo.setString(3, rawCode);
+                        psCheckArticulo.setString(4, rawCode);
+                        psCheckArticulo.setString(5, rawCode);
+                        psCheckArticulo.setString(6, rawCode);
+                        psCheckArticulo.setString(7, rawCode);
+                        psCheckArticulo.setString(8, rawCode);
+
                         try (ResultSet rs = psCheckArticulo.executeQuery()) {
                             if (rs.next()) {
                                 matchedCoArt = rs.getString("co_art").trim();
                             }
                         }
 
-                        if (matchedCoArt == null && coArt.matches("\\d+")) {
-                            try {
-                                String padded = String.format("%06d", Integer.parseInt(coArt));
-                                psCheckArticulo.setString(1, padded);
-                                try (ResultSet rs = psCheckArticulo.executeQuery()) {
-                                    if (rs.next()) {
-                                        matchedCoArt = rs.getString("co_art").trim();
-                                    }
-                                }
-                            } catch (NumberFormatException ignored) {
-                            }
-                        }
-
                         if (matchedCoArt == null) {
-                            System.out.println("Advertencia: Se omitió el artículo porque no existe en la tabla saArticulo: " + coArt);
+                            System.out.println("Advertencia DV: Se omitió el artículo porque no existe en saArticulo: " + rawCode);
                             continue;
                         }
 
@@ -369,6 +380,7 @@ public class DescuentoVolumenDAO {
                             psInsert.setString(9, guid.toString());
                             psInsert.executeUpdate();
                         }
+                        totalActualizados++;
                     }
                 }
 
@@ -378,5 +390,6 @@ public class DescuentoVolumenDAO {
                 throw e;
             }
         }
+        return totalActualizados;
     }
 }

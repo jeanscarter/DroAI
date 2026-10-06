@@ -22,6 +22,14 @@ public class AuditoriaLotesDAO {
      * Obtiene el listado de todos los artículos con discrepancia entre existencia macro y lotes.
      */
     public List<DiscrepanciaLoteDTO> listarDiscrepancias(String filtro) {
+        return listarDiscrepancias(filtro, false);
+    }
+
+    /**
+     * Obtiene el listado de todos los artículos con discrepancia entre existencia macro y lotes,
+     * permitiendo opcionalmente excluir almacenes de avería y vencimientos (VC, AV, VP).
+     */
+    public List<DiscrepanciaLoteDTO> listarDiscrepancias(String filtro, boolean excluirMermas) {
         List<DiscrepanciaLoteDTO> lista = new ArrayList<>();
         String sql = """
             WITH StockLotes AS (
@@ -59,6 +67,10 @@ public class AuditoriaLotesDAO {
               AND (ISNULL(alm.stock_almacen, 0) <> 0 OR ISNULL(lot.stock_lotes, 0) <> 0)
               AND ABS(ISNULL(alm.stock_almacen, 0) - ISNULL(lot.stock_lotes, 0)) > 0.0001
         """;
+
+        if (excluirMermas) {
+            sql += " AND almas.co_alma NOT IN ('VC', 'AV', 'VP') ";
+        }
 
         if (filtro != null && !filtro.isBlank()) {
             sql += " AND (a.co_art LIKE ? OR a.art_des LIKE ?) ";
@@ -244,11 +256,140 @@ public class AuditoriaLotesDAO {
     }
 
     /**
+     * Registra y asigna un nuevo lote para un artículo y almacén específico,
+     * vinculándolo si existe a la recepción de compra (NREC) pendiente de asignación
+     * o generando un asiento de ajuste técnico para nivelar la existencia.
+     */
+    public boolean registrarNuevoLote(String coArt, String coAlma, String numeroLote, String fechaVenc, double cantidad, String coUsuario) throws SQLException {
+        if (coArt == null || coArt.isBlank() || coAlma == null || coAlma.isBlank() || numeroLote == null || numeroLote.isBlank()) {
+            throw new IllegalArgumentException("Artículo, almacén y número de lote son obligatorios.");
+        }
+        if (cantidad <= 0.0001) {
+            throw new IllegalArgumentException("La cantidad debe ser mayor a 0.");
+        }
+
+        String user = (coUsuario != null && !coUsuario.isBlank()) ? coUsuario.trim() : "DROAI";
+        String vencClean = fechaVenc.trim();
+        if (!vencClean.contains(" ")) {
+            vencClean += " 00:00:00";
+        }
+
+        try (Connection conn = DatabaseConfig.getConnection()) {
+            conn.setAutoCommit(false);
+            try {
+                // 1. Buscar si hay una recepción de compra pendiente de asignar lote
+                String sqlNrec = """
+                    SELECT TOP 1 CAST(r.rowguid AS VARCHAR(36)) AS rowguid, r.reng_num
+                    FROM saNotaRecepcionCompraReng r
+                    JOIN saNotaRecepcionCompra c ON r.doc_num = c.doc_num
+                    WHERE RTRIM(r.co_art) = ? AND r.lote_asignado = 0 AND c.anulado = 0
+                    ORDER BY c.fec_emis DESC
+                """;
+                String rowguidReng = null;
+                int rengNum = 1;
+                String tipoDoc = "AJUS";
+
+                try (PreparedStatement psN = conn.prepareStatement(sqlNrec)) {
+                    psN.setString(1, coArt.trim());
+                    try (ResultSet rsN = psN.executeQuery()) {
+                        if (rsN.next()) {
+                            rowguidReng = rsN.getString("rowguid");
+                            rengNum = rsN.getInt("reng_num");
+                            tipoDoc = "NREC";
+                        }
+                    }
+                }
+
+                // 2. Insertar en saLoteEntrada
+                if (rowguidReng != null) {
+                    String sqlIns = """
+                        INSERT INTO saLoteEntrada (
+                            rowguid_reng, reng_num, tipo_doc, co_art, co_alma, numero_lote,
+                            fecha_inicio, fecha_expiracion, cantidad, stock_actual, precio,
+                            co_us_in, co_sucu_in, fe_us_in, co_us_mo, co_sucu_mo, fe_us_mo,
+                            revisado, trasnfe, rowguid
+                        ) VALUES (
+                            CAST(? AS UNIQUEIDENTIFIER), ?, ?, ?, ?, ?,
+                            GETDATE(), ?, ?, ?, 0,
+                            ?, '01', GETDATE(), ?, '01', GETDATE(),
+                            NULL, NULL, NEWID()
+                        )
+                    """;
+                    try (PreparedStatement psI = conn.prepareStatement(sqlIns)) {
+                        psI.setString(1, rowguidReng);
+                        psI.setInt(2, rengNum);
+                        psI.setString(3, tipoDoc);
+                        psI.setString(4, coArt.trim());
+                        psI.setString(5, coAlma.trim());
+                        psI.setString(6, numeroLote.trim());
+                        psI.setString(7, vencClean);
+                        psI.setDouble(8, cantidad);
+                        psI.setDouble(9, cantidad);
+                        psI.setString(10, user);
+                        psI.setString(11, user);
+                        psI.executeUpdate();
+                    }
+
+                    // 3. Marcar la recepción como asignada
+                    String sqlUpdNrec = "UPDATE saNotaRecepcionCompraReng SET lote_asignado = 1 WHERE rowguid = CAST(? AS UNIQUEIDENTIFIER)";
+                    try (PreparedStatement psU = conn.prepareStatement(sqlUpdNrec)) {
+                        psU.setString(1, rowguidReng);
+                        psU.executeUpdate();
+                    }
+                } else {
+                    String sqlIns = """
+                        INSERT INTO saLoteEntrada (
+                            rowguid_reng, reng_num, tipo_doc, co_art, co_alma, numero_lote,
+                            fecha_inicio, fecha_expiracion, cantidad, stock_actual, precio,
+                            co_us_in, co_sucu_in, fe_us_in, co_us_mo, co_sucu_mo, fe_us_mo,
+                            revisado, trasnfe, rowguid
+                        ) VALUES (
+                            NEWID(), ?, ?, ?, ?, ?,
+                            GETDATE(), ?, ?, ?, 0,
+                            ?, '01', GETDATE(), ?, '01', GETDATE(),
+                            NULL, NULL, NEWID()
+                        )
+                    """;
+                    try (PreparedStatement psI = conn.prepareStatement(sqlIns)) {
+                        psI.setInt(1, rengNum);
+                        psI.setString(2, tipoDoc);
+                        psI.setString(3, coArt.trim());
+                        psI.setString(4, coAlma.trim());
+                        psI.setString(5, numeroLote.trim());
+                        psI.setString(6, vencClean);
+                        psI.setDouble(7, cantidad);
+                        psI.setDouble(8, cantidad);
+                        psI.setString(9, user);
+                        psI.setString(10, user);
+                        psI.executeUpdate();
+                    }
+                }
+
+                conn.commit();
+                logger.info("[AuditoriaLotesDAO] Nuevo lote {} registrado exitosamente para art={}, alma={}, cant={}, venc={}",
+                        numeroLote, coArt, coAlma, cantidad, fechaVenc);
+                return true;
+            } catch (SQLException ex) {
+                conn.rollback();
+                logger.error("[AuditoriaLotesDAO] Error al registrar nuevo lote (ROLLBACK): {}", ex.getMessage(), ex);
+                throw ex;
+            }
+        }
+    }
+
+    /**
      * Ejecuta el auto-ajuste y nivelación automática de todos los artículos con discrepancia en 1 solo clic.
      * Retorna la cantidad de artículos nivelados exitosamente.
      */
     public int autoAjustarTodo(String coUsuario) throws SQLException {
-        List<DiscrepanciaLoteDTO> discrepancias = listarDiscrepancias(null);
+        return autoAjustarTodo(coUsuario, false);
+    }
+
+    /**
+     * Ejecuta el auto-ajuste y nivelación automática respetando la exclusión opcional de almacenes (VC, AV, VP).
+     */
+    public int autoAjustarTodo(String coUsuario, boolean excluirMermas) throws SQLException {
+        List<DiscrepanciaLoteDTO> discrepancias = listarDiscrepancias(null, excluirMermas);
         if (discrepancias.isEmpty()) {
             return 0;
         }
