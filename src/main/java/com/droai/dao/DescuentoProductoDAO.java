@@ -141,14 +141,10 @@ public class DescuentoProductoDAO {
             conn.setAutoCommit(false);
             try {
                 // 1. Actualizar el DA en saArticulo (columna volumen)
-                // Se dejan fdesdesc, fhasdesc y fvendesc en NULL para que no caduquen por fecha,
-                // salgan de inmediato en la web y solo se eliminen cuando el usuario coloque 0 en DroAI.
+                // Solo se actualiza volumen sin alterar fdesdesc, fhasdesc ni fvendesc para no afectar DA2 ni otros descuentos.
                 String sqlUpdateArt = """
                         UPDATE saArticulo
                         SET volumen = ?,
-                            fdesdesc = NULL,
-                            fhasdesc = NULL,
-                            fvendesc = NULL,
                             co_us_mo = ?,
                             fe_us_mo = GETDATE()
                         WHERE co_art = ?
@@ -262,15 +258,11 @@ public class DescuentoProductoDAO {
         try (Connection conn = DatabaseConfig.getDataSource().getConnection()) {
             conn.setAutoCommit(false);
             try {
-                // Al asignar descuento en Descuento x Producto, se actualiza volumen
-                // y se limpian fdesdesc, fhasdesc y fvendesc (NULL) para que no tengan fecha de caducidad
-                // y salgan de inmediato en la web. Solo se eliminarán cuando el usuario coloque 0 en DroAI.
+                // Al asignar descuento en Descuento x Producto, se actualiza únicamente volumen.
+                // No se tocan fdesdesc ni fhasdesc para no alterar las fechas de vigencia de DA2 (lic_grado_al).
                 String sqlUpdateArt = """
                         UPDATE saArticulo
                         SET volumen = ?,
-                            fdesdesc = NULL,
-                            fhasdesc = NULL,
-                            fvendesc = NULL,
                             co_us_mo = ?,
                             fe_us_mo = GETDATE()
                         WHERE co_art = ?
@@ -325,9 +317,6 @@ public class DescuentoProductoDAO {
                 String sqlUpdateArt = """
                         UPDATE saArticulo
                         SET volumen = ?,
-                            fdesdesc = NULL,
-                            fhasdesc = NULL,
-                            fvendesc = NULL,
                             co_us_mo = ?,
                             fe_us_mo = GETDATE()
                         WHERE co_art = ?

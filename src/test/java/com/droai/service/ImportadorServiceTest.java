@@ -76,4 +76,53 @@ public class ImportadorServiceTest {
         assertEquals("102", dvItems.get(1).getCodigoArticulo());
         assertEquals(8.5, dvItems.get(1).getPorcentaje(), 0.001);
     }
+
+    @Test
+    public void testExactColumnsPromocionFlashValmorca() throws Exception {
+        File tempFile = File.createTempFile("test_valmorca_flash", ".xlsx");
+        tempFile.deleteOnExit();
+
+        try (Workbook wb = new XSSFWorkbook()) {
+            Sheet sheet = wb.createSheet("Sheet1");
+            // Encabezados exactos del usuario:
+            // COD INT, Descripcion de Articulo, Codigo de Barra, Descuento, Fecha ini, Fecha fin
+            Row header = sheet.createRow(0);
+            header.createCell(0).setCellValue("COD INT");
+            header.createCell(1).setCellValue("Descripcion de Articulo");
+            header.createCell(2).setCellValue("Codigo de Barra");
+            header.createCell(3).setCellValue("Descuento");
+            header.createCell(4).setCellValue("Fecha ini");
+            header.createCell(5).setCellValue("Fecha fin");
+
+            // Fila de prueba
+            Row r1 = sheet.createRow(1);
+            r1.createCell(0).setCellValue(6930.0); // Número de COD INT
+            r1.createCell(1).setCellValue("ACEITE DE ALMENDRAS 60ML");
+            r1.createCell(2).setCellValue(7.591020005296E12); // Codigo de Barra
+            r1.createCell(3).setCellValue(0.05); // 5% decimal
+            r1.createCell(4).setCellValue("2026-10-07");
+            r1.createCell(5).setCellValue("2026-10-08");
+
+            try (FileOutputStream fos = new FileOutputStream(tempFile)) {
+                wb.write(fos);
+            }
+        }
+
+        ImportadorService service = new ImportadorService();
+        List<ImportadorService.DescuentoDAImportItem> items = service.leerExcelDescuentoDAItems(tempFile);
+
+        assertNotNull(items);
+        assertEquals(1, items.size());
+
+        ImportadorService.DescuentoDAImportItem item = items.get(0);
+        // Debe priorizar COD INT (6930) sobre Codigo de Barra
+        assertEquals("6930", item.getCodigoArticulo());
+        assertEquals(5.0, item.getPorcentaje(), 0.001);
+        // Debe reconocer 'Fecha ini' y 'Fecha fin'
+        assertNotNull(item.getFechaDesde(), "Fecha ini debe ser reconocida");
+        assertNotNull(item.getFechaHasta(), "Fecha fin debe ser reconocida");
+        assertEquals(java.sql.Date.valueOf("2026-10-07"), item.getFechaDesde());
+        assertEquals(java.sql.Date.valueOf("2026-10-08"), item.getFechaHasta());
+    }
 }
+

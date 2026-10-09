@@ -217,7 +217,9 @@ public class CargaMasivaCostosPreciosDAO {
 
         String sqlUpdateCostoArticulo = """
                 UPDATE saArticulo
-                SET prec_om = 1, co_us_mo = ?, fe_us_mo = GETDATE()
+                SET prec_om = CASE WHEN RTRIM(ISNULL(cod_proc, '')) = 'NAC' THEN 0 ELSE 1 END,
+                    co_us_mo = ?,
+                    fe_us_mo = GETDATE()
                 WHERE co_art = ?
                 """;
 
@@ -303,7 +305,7 @@ public class CargaMasivaCostosPreciosDAO {
                             psInsPrecio.executeUpdate();
                         }
 
-                        // Asegurar prec_om = 1 en saArticulo para activar factor indexado
+                        // Actualizar prec_om en saArticulo según procedencia (NAC=0, FIN/IMP=1)
                         psUpdCostoArt.setString(1, usuario);
                         psUpdCostoArt.setString(2, coArt);
                         psUpdCostoArt.executeUpdate();

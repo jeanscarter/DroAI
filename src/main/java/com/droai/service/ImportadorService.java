@@ -602,7 +602,8 @@ public class ImportadorService {
 
                 int foundCod = -1;
                 int foundDcto = -1;
-                int currentPriority = 0;
+                int currentPriorityCod = 0;
+                int currentPriorityDcto = 0;
                 int foundIni = -1;
                 int foundFin = -1;
 
@@ -617,14 +618,26 @@ public class ImportadorService {
                             .replace("ó", "o")
                             .replace("ú", "u");
 
-                    // Detección de columna de Código
+                    // Detección de columna de Código (con prioridad: Código Interno > Código Genérico/Referencia > Código de Barra)
                     if (norm.contains("cod int") || norm.contains("cod_int") || norm.contains("codigo int")
-                            || norm.equals("codigo") || norm.equals("co_art") || norm.equals("cod_art")
-                            || norm.equals("cod art") || norm.equals("cod. art") || norm.equals("articulo")
-                            || norm.equals("cod") || norm.equals("ref") || norm.equals("referencia")
-                            || norm.contains("codigo de barra") || norm.contains("cod barra")
-                            || norm.equals("barcode") || norm.equals("barra")) {
-                        foundCod = c;
+                            || norm.equals("cod. int") || norm.equals("co_art") || norm.equals("cod_art")
+                            || norm.equals("cod art") || norm.equals("cod. art")) {
+                        if (currentPriorityCod < 3) {
+                            foundCod = c;
+                            currentPriorityCod = 3;
+                        }
+                    } else if (norm.equals("codigo") || norm.equals("articulo") || norm.equals("cod")
+                            || norm.equals("ref") || norm.equals("referencia") || norm.equals("item")) {
+                        if (currentPriorityCod < 2) {
+                            foundCod = c;
+                            currentPriorityCod = 2;
+                        }
+                    } else if (norm.contains("codigo de barra") || norm.contains("cod barra")
+                            || norm.equals("barcode") || norm.equals("barra") || norm.equals("ean")) {
+                        if (currentPriorityCod < 1) {
+                            foundCod = c;
+                            currentPriorityCod = 1;
+                        }
                     }
 
                     // Detección de columna de Descuento para DV:
@@ -632,9 +645,9 @@ public class ImportadorService {
                     if (norm.equals("dv") || norm.equals("% dv") || norm.contains("descuento dv")
                             || norm.contains("dcto dv") || norm.contains("descuento volumen")
                             || norm.contains("descuento por volumen") || norm.equals("volumen") || norm.equals("porc1")) {
-                        if (currentPriority < 3) {
+                        if (currentPriorityDcto < 3) {
                             foundDcto = c;
-                            currentPriority = 3;
+                            currentPriorityDcto = 3;
                         }
                     }
                     // Prioridad 2: Descuento genérico
@@ -642,23 +655,25 @@ public class ImportadorService {
                             || norm.equals("porcentaje") || norm.equals("porc") || norm.equals("flash")
                             || norm.contains("descuento %") || norm.contains("% descuento")
                             || norm.contains("dcto %") || norm.contains("% dcto")) {
-                        if (currentPriority < 2) {
+                        if (currentPriorityDcto < 2) {
                             foundDcto = c;
-                            currentPriority = 2;
+                            currentPriorityDcto = 2;
                         }
                     }
                     // Prioridad 1: DA fallback
                     else if (norm.equals("da") || norm.equals("% da") || norm.contains("descuento da")
                             || norm.contains("dcto da") || norm.contains("descuento adicional")
                             || norm.contains("dcto adicional") || norm.equals("adicional") || norm.equals("lic_grado_al")) {
-                        if (currentPriority < 1) {
+                        if (currentPriorityDcto < 1) {
                             foundDcto = c;
-                            currentPriority = 1;
+                            currentPriorityDcto = 1;
                         }
                     }
 
                     // Detección de Fechas
                     if (norm.contains("fecha inicial") || norm.contains("fecha inicio") || norm.contains("fecha desde")
+                            || norm.contains("fecha ini") || norm.equals("fecha ini") || norm.equals("fec ini")
+                            || norm.equals("fec. ini") || norm.equals("fec.ini") || norm.equals("fec_ini")
                             || norm.equals("fecha_ini") || norm.equals("fecha_desde") || norm.equals("desde")
                             || norm.equals("inicio") || norm.equals("f. inicio") || norm.equals("f. desde")
                             || norm.equals("fdesdesc") || norm.contains("vigencia desde") || norm.equals("f.ini")
@@ -666,6 +681,8 @@ public class ImportadorService {
                         foundIni = c;
                     }
                     if (norm.contains("fecha final") || norm.contains("fecha fin") || norm.contains("fecha hasta")
+                            || norm.equals("fecha fin") || norm.equals("fec fin") || norm.equals("fec. fin")
+                            || norm.equals("fec.fin") || norm.equals("fec_fin")
                             || norm.equals("fecha_fin") || norm.equals("fecha_hasta") || norm.equals("hasta")
                             || norm.equals("fin") || norm.equals("f. fin") || norm.equals("f. hasta")
                             || norm.equals("fhasdesc") || norm.equals("fvendesc") || norm.contains("vigencia hasta")
@@ -753,7 +770,8 @@ public class ImportadorService {
 
                 int foundCod = -1;
                 int foundDcto = -1;
-                int currentPriority = 0;
+                int currentPriorityCod = 0;
+                int currentPriorityDcto = 0;
                 int foundIni = -1;
                 int foundFin = -1;
 
@@ -768,14 +786,26 @@ public class ImportadorService {
                             .replace("ó", "o")
                             .replace("ú", "u");
 
-                    // Detección de columna de Código
+                    // Detección de columna de Código (con prioridad: Código Interno > Código Genérico/Referencia > Código de Barra)
                     if (norm.contains("cod int") || norm.contains("cod_int") || norm.contains("codigo int")
-                            || norm.equals("codigo") || norm.equals("co_art") || norm.equals("cod_art")
-                            || norm.equals("cod art") || norm.equals("cod. art") || norm.equals("articulo")
-                            || norm.equals("cod") || norm.equals("ref") || norm.equals("referencia")
-                            || norm.contains("codigo de barra") || norm.contains("cod barra")
-                            || norm.equals("barcode") || norm.equals("barra")) {
-                        foundCod = c;
+                            || norm.equals("cod. int") || norm.equals("co_art") || norm.equals("cod_art")
+                            || norm.equals("cod art") || norm.equals("cod. art")) {
+                        if (currentPriorityCod < 3) {
+                            foundCod = c;
+                            currentPriorityCod = 3;
+                        }
+                    } else if (norm.equals("codigo") || norm.equals("articulo") || norm.equals("cod")
+                            || norm.equals("ref") || norm.equals("referencia") || norm.equals("item")) {
+                        if (currentPriorityCod < 2) {
+                            foundCod = c;
+                            currentPriorityCod = 2;
+                        }
+                    } else if (norm.contains("codigo de barra") || norm.contains("cod barra")
+                            || norm.equals("barcode") || norm.equals("barra") || norm.equals("ean")) {
+                        if (currentPriorityCod < 1) {
+                            foundCod = c;
+                            currentPriorityCod = 1;
+                        }
                     }
 
                     // Detección de columna de Descuento para DA:
@@ -783,9 +813,9 @@ public class ImportadorService {
                     if (norm.equals("da") || norm.equals("% da") || norm.contains("descuento da")
                             || norm.contains("dcto da") || norm.contains("descuento adicional")
                             || norm.contains("dcto adicional") || norm.equals("adicional") || norm.equals("lic_grado_al")) {
-                        if (currentPriority < 3) {
+                        if (currentPriorityDcto < 3) {
                             foundDcto = c;
-                            currentPriority = 3;
+                            currentPriorityDcto = 3;
                         }
                     }
                     // Prioridad 2: Descuento genérico
@@ -793,23 +823,25 @@ public class ImportadorService {
                             || norm.equals("porcentaje") || norm.equals("porc") || norm.equals("flash")
                             || norm.contains("descuento %") || norm.contains("% descuento")
                             || norm.contains("dcto %") || norm.contains("% dcto")) {
-                        if (currentPriority < 2) {
+                        if (currentPriorityDcto < 2) {
                             foundDcto = c;
-                            currentPriority = 2;
+                            currentPriorityDcto = 2;
                         }
                     }
                     // Prioridad 1: Estructura proveniente de Descuentos por Volumen (DV)
                     else if (norm.equals("dv") || norm.equals("% dv") || norm.contains("descuento dv")
                             || norm.contains("dcto dv") || norm.contains("descuento volumen")
                             || norm.contains("descuento por volumen") || norm.equals("volumen") || norm.equals("porc1")) {
-                        if (currentPriority < 1) {
+                        if (currentPriorityDcto < 1) {
                             foundDcto = c;
-                            currentPriority = 1;
+                            currentPriorityDcto = 1;
                         }
                     }
 
                     // Detección de Fechas
                     if (norm.contains("fecha inicial") || norm.contains("fecha inicio") || norm.contains("fecha desde")
+                            || norm.contains("fecha ini") || norm.equals("fecha ini") || norm.equals("fec ini")
+                            || norm.equals("fec. ini") || norm.equals("fec.ini") || norm.equals("fec_ini")
                             || norm.equals("fecha_ini") || norm.equals("fecha_desde") || norm.equals("desde")
                             || norm.equals("inicio") || norm.equals("f. inicio") || norm.equals("f. desde")
                             || norm.equals("fdesdesc") || norm.contains("vigencia desde") || norm.equals("f.ini")
@@ -817,6 +849,8 @@ public class ImportadorService {
                         foundIni = c;
                     }
                     if (norm.contains("fecha final") || norm.contains("fecha fin") || norm.contains("fecha hasta")
+                            || norm.equals("fecha fin") || norm.equals("fec fin") || norm.equals("fec. fin")
+                            || norm.equals("fec.fin") || norm.equals("fec_fin")
                             || norm.equals("fecha_fin") || norm.equals("fecha_hasta") || norm.equals("hasta")
                             || norm.equals("fin") || norm.equals("f. fin") || norm.equals("f. hasta")
                             || norm.equals("fhasdesc") || norm.equals("fvendesc") || norm.contains("vigencia hasta")

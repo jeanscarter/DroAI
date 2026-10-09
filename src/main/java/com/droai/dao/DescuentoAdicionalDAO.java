@@ -109,7 +109,6 @@ public class DescuentoAdicionalDAO {
                 SET lic_grado_al = ?,
                     fdesdesc = ?,
                     fhasdesc = ?,
-                    fvendesc = ?,
                     co_us_mo = ?,
                     fe_us_mo = GETDATE()
                 WHERE co_art = ?
@@ -127,13 +126,11 @@ public class DescuentoAdicionalDAO {
                 }
                 if (fechaHasta != null) {
                     ps.setTimestamp(3, new Timestamp(fechaHasta.getTime()));
-                    ps.setTimestamp(4, new Timestamp(fechaHasta.getTime()));
                 } else {
                     ps.setNull(3, Types.TIMESTAMP);
-                    ps.setNull(4, Types.TIMESTAMP);
                 }
-                ps.setString(5, coUsuario);
-                ps.setString(6, coArt.trim());
+                ps.setString(4, coUsuario);
+                ps.setString(5, coArt.trim());
                 ps.addBatch();
             }
 
@@ -154,7 +151,6 @@ public class DescuentoAdicionalDAO {
                 SET lic_grado_al = ?,
                     fdesdesc = ?,
                     fhasdesc = ?,
-                    fvendesc = ?,
                     co_us_mo = ?,
                     fe_us_mo = GETDATE()
                 WHERE co_art = ?
@@ -170,13 +166,11 @@ public class DescuentoAdicionalDAO {
             }
             if (fechaHasta != null) {
                 ps.setTimestamp(3, new Timestamp(fechaHasta.getTime()));
-                ps.setTimestamp(4, new Timestamp(fechaHasta.getTime()));
             } else {
                 ps.setNull(3, Types.TIMESTAMP);
-                ps.setNull(4, Types.TIMESTAMP);
             }
-            ps.setString(5, coUsuario);
-            ps.setString(6, codigo.trim());
+            ps.setString(4, coUsuario);
+            ps.setString(5, codigo.trim());
             ps.executeUpdate();
         }
     }
@@ -189,7 +183,6 @@ public class DescuentoAdicionalDAO {
                 UPDATE saArticulo
                 SET fdesdesc = ?,
                     fhasdesc = ?,
-                    fvendesc = ?,
                     co_us_mo = ?,
                     fe_us_mo = GETDATE()
                 WHERE co_art = ?
@@ -204,13 +197,11 @@ public class DescuentoAdicionalDAO {
             }
             if (fechaHasta != null) {
                 ps.setTimestamp(2, new Timestamp(fechaHasta.getTime()));
-                ps.setTimestamp(3, new Timestamp(fechaHasta.getTime()));
             } else {
                 ps.setNull(2, Types.TIMESTAMP);
-                ps.setNull(3, Types.TIMESTAMP);
             }
-            ps.setString(4, coUsuario);
-            ps.setString(5, codigo.trim());
+            ps.setString(3, coUsuario);
+            ps.setString(4, codigo.trim());
             ps.executeUpdate();
         }
     }
@@ -236,7 +227,6 @@ public class DescuentoAdicionalDAO {
                 SET lic_grado_al = ?,
                     fdesdesc = ?,
                     fhasdesc = ?,
-                    fvendesc = ?,
                     co_us_mo = ?,
                     fe_us_mo = GETDATE()
                 WHERE co_art = ?
@@ -287,13 +277,11 @@ public class DescuentoAdicionalDAO {
                     }
                     if (fHasta != null) {
                         psUpdate.setTimestamp(3, new Timestamp(fHasta.getTime()));
-                        psUpdate.setTimestamp(4, new Timestamp(fHasta.getTime()));
                     } else {
                         psUpdate.setNull(3, Types.TIMESTAMP);
-                        psUpdate.setNull(4, Types.TIMESTAMP);
                     }
-                    psUpdate.setString(5, coUsuario);
-                    psUpdate.setString(6, matchedCoArt);
+                    psUpdate.setString(4, coUsuario);
+                    psUpdate.setString(5, matchedCoArt);
                     psUpdate.addBatch();
                 }
 
@@ -327,7 +315,6 @@ public class DescuentoAdicionalDAO {
                 SET lic_grado_al = ?,
                     fdesdesc = ?,
                     fhasdesc = ?,
-                    fvendesc = ?,
                     co_us_mo = ?,
                     fe_us_mo = GETDATE()
                 WHERE co_art = ?
@@ -383,13 +370,11 @@ public class DescuentoAdicionalDAO {
                     }
                     if (fHasta != null) {
                         psUpdate.setTimestamp(3, new Timestamp(fHasta.getTime()));
-                        psUpdate.setTimestamp(4, new Timestamp(fHasta.getTime()));
                     } else {
                         psUpdate.setNull(3, Types.TIMESTAMP);
-                        psUpdate.setNull(4, Types.TIMESTAMP);
                     }
-                    psUpdate.setString(5, coUsuario);
-                    psUpdate.setString(6, matchedCoArt);
+                    psUpdate.setString(4, coUsuario);
+                    psUpdate.setString(5, matchedCoArt);
                     psUpdate.addBatch();
                     totalActualizados++;
                 }

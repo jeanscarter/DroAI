@@ -1,6 +1,7 @@
 package com.droai.ui;
 
 import com.droai.model.SesionUsuario;
+import com.droai.service.AutoUpdateService;
 import com.droai.ui.components.RoundedPanel;
 import com.droai.ui.components.Toast;
 import com.droai.ui.dialog.ComisionesPasswordDialog;
@@ -128,6 +129,23 @@ public class AdminDashboardFrame extends JFrame {
         JPanel rightPanel = new JPanel(new MigLayout("insets 0, wrap, gap 0, alignx right", "[right]", "[]8[]"));
         rightPanel.setOpaque(false);
 
+        // Botones de acción en encabezado
+        JPanel topActions = new JPanel(new FlowLayout(FlowLayout.RIGHT, 8, 0));
+        topActions.setOpaque(false);
+
+        JButton btnUpdate = new JButton("🔄 Actualizaciones");
+        btnUpdate.setFont(new Font("Segoe UI Emoji", Font.PLAIN, 11));
+        btnUpdate.setFocusPainted(false);
+        btnUpdate.setCursor(Cursor.getPredefinedCursor(Cursor.HAND_CURSOR));
+        btnUpdate.setBackground(tm.cardBg());
+        btnUpdate.setForeground(tm.textPrimary());
+        btnUpdate.setToolTipText("Comprobar si hay una versión más reciente en el servidor");
+        btnUpdate.setBorder(BorderFactory.createCompoundBorder(
+                BorderFactory.createLineBorder(tm.border(), 1),
+                BorderFactory.createEmptyBorder(6, 12, 6, 12)));
+        btnUpdate.addActionListener(e -> AutoUpdateService.checkAndUpdate(true));
+        topActions.add(btnUpdate);
+
         // Botón de cambio de tema
         JButton btnTema = new JButton(tm.isDark() ? "☀ Claro" : "🌙 Oscuro");
         btnTema.setFont(new Font("Segoe UI Emoji", Font.BOLD, 11));
@@ -139,7 +157,9 @@ public class AdminDashboardFrame extends JFrame {
                 BorderFactory.createLineBorder(tm.border(), 1),
                 BorderFactory.createEmptyBorder(6, 14, 6, 14)));
         btnTema.addActionListener(e -> tm.toggleTheme());
-        rightPanel.add(btnTema);
+        topActions.add(btnTema);
+
+        rightPanel.add(topActions);
 
         JPanel sessionInfo = new JPanel(new MigLayout("insets 0, wrap, gap 0, alignx right", "[right]", "[]2[]2[]"));
         sessionInfo.setOpaque(false);
@@ -246,6 +266,14 @@ public class AdminDashboardFrame extends JFrame {
                 "Discrepancias Almacén vs. Lotes, historial Kardex,\nedición de vencimientos y nivelación en 1-Clic.",
                 tm.purpleAccent(),
                 this::abrirAuditoriaLotes), "grow");
+
+        // ── Tarjeta 10: Auditoría Pedidos Web vs. Facturación SIAD ──
+        content.add(createModuleCard(
+                "📑",
+                "Auditoría Pedidos vs. Facturación",
+                "Control de pedidos web enviados al SIAD,\nauditoría de renglones facturados, faltantes y notas 'B'.",
+                tm.accent(),
+                this::abrirAuditoriaPedidosFacturacion), "grow");
 
         JScrollPane scrollPane = new JScrollPane(content);
         scrollPane.setBorder(null);
@@ -501,6 +529,16 @@ public class AdminDashboardFrame extends JFrame {
 
         SwingUtilities.invokeLater(() -> {
             AuditoriaLotesFrame frame = new AuditoriaLotesFrame();
+            frame.setVisible(true);
+        });
+    }
+
+    /**
+     * Abre el módulo de Auditoría de Pedidos Web vs. Facturación SIAD.
+     */
+    private void abrirAuditoriaPedidosFacturacion() {
+        SwingUtilities.invokeLater(() -> {
+            AuditoriaPedidosFacturacionFrame frame = new AuditoriaPedidosFacturacionFrame();
             frame.setVisible(true);
         });
     }

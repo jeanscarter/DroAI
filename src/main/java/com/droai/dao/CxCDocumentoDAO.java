@@ -52,7 +52,7 @@ public class CxCDocumentoDAO {
                 ISNULL(RTRIM(cli.rif), '') AS rif_cliente,
                 ISNULL(RTRIM(sg.seg_des), ISNULL(RTRIM(cli.co_seg), '')) AS grupo_cliente,
                 ISNULL(RTRIM(cli.cli_des), '') AS nom_cliente,
-                CAST(CAST(RTRIM(d.nro_doc) AS int) AS varchar) AS num_factura,
+                ISNULL(CAST(TRY_CAST(RTRIM(d.nro_doc) AS bigint) AS varchar), RTRIM(d.nro_doc)) AS num_factura,
                 RTRIM(d.co_tipo_doc) AS tipo_doc,
                 ISNULL(RTRIM(t.tipo_mov), 'DE') AS tipo_mov,
                 d.fec_emis,
@@ -192,6 +192,7 @@ public class CxCDocumentoDAO {
             }
         } catch (SQLException e) {
             logger.error("Error al consultar documentos de CxC en {}: {}", targetDb, e.getMessage(), e);
+            throw new RuntimeException("Error en base de datos al consultar CxC: " + e.getMessage(), e);
         }
 
         // Orden por defecto: 1° Vencimiento (antiguo a nuevo), 2° Factura (A-Z)

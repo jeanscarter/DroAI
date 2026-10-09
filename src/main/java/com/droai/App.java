@@ -5,6 +5,7 @@ import com.droai.ui.AdminDashboardFrame;
 import com.droai.ui.ThemeManager;
 import com.droai.ui.dialog.LoginAuditoriaDialog;
 
+import com.droai.service.AutoUpdateService;
 import com.droai.ui.util.IconHelper;
 
 import javax.swing.*;
@@ -20,6 +21,11 @@ public class App {
 
         // ── Inicializar tema DroAI (Dark por defecto) ──
         ThemeManager.get().initialize();
+
+        // ── Comprobar y aplicar actualización automática desde el servidor ──
+        if (AutoUpdateService.checkAndUpdate()) {
+            return;
+        }
 
         UIManager.put("Component.arc", 12);
         UIManager.put("Button.arc", 14);
