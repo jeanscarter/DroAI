@@ -275,6 +275,14 @@ public class AdminDashboardFrame extends JFrame {
                 tm.accent(),
                 this::abrirAuditoriaPedidosFacturacion), "grow");
 
+        // ── Tarjeta 11: Valuación de Inventario y Kárdex (Exclusivo NB, JR, ND, JG, CN) ──
+        content.add(createModuleCard(
+                "🏷️",
+                "Valuación de Inventario y Kárdex",
+                "Existencia al corte, capas FIFO de compra,\ncosto promedio en Bs/USD, consignación y Kárdex.",
+                tm.greenAccent(),
+                this::abrirValuacionInventario), "grow");
+
         JScrollPane scrollPane = new JScrollPane(content);
         scrollPane.setBorder(null);
         scrollPane.setOpaque(false);
@@ -539,6 +547,41 @@ public class AdminDashboardFrame extends JFrame {
     private void abrirAuditoriaPedidosFacturacion() {
         SwingUtilities.invokeLater(() -> {
             AuditoriaPedidosFacturacionFrame frame = new AuditoriaPedidosFacturacionFrame();
+            frame.setVisible(true);
+        });
+    }
+
+    /**
+     * Usuarios autorizados exclusivamente para acceder a Valuación de Inventario y Kárdex.
+     * NB = Nicolás Brooks, JR = Jhonny Ríos, ND = Nelson Dática, JG = Jean Gutiérrez, CN = Carla Navarro.
+     */
+    private static final java.util.Set<String> USUARIOS_AUTORIZADOS_VALUACION = java.util.Set.of("NB", "JR", "ND", "JG", "CN");
+
+    /**
+     * Abre el módulo de Valuación de Inventario con validación de usuarios autorizados.
+     */
+    private void abrirValuacionInventario() {
+        if (!SesionUsuario.isAutenticado()) {
+            Toast.show("Debes iniciar sesión para acceder a este módulo", Toast.Type.WARNING);
+            return;
+        }
+
+        String coUsuario = SesionUsuario.current().getCoUsuario().trim().toUpperCase();
+        int nivel = SesionUsuario.current().getNivel();
+
+        if (!USUARIOS_AUTORIZADOS_VALUACION.contains(coUsuario) && nivel > 0) {
+            JOptionPane.showMessageDialog(this,
+                    "<html><body style='width: 320px; font-family: sans-serif;'>"
+                    + "<h3 style='color: #ef4444; margin-bottom: 8px;'>🔒 Acceso Restringido</h3>"
+                    + "El usuario <b>" + coUsuario + "</b> no tiene autorización para acceder a la Valuación de Inventario.<br><br>"
+                    + "<span style='color: #64748b;'>Usuarios autorizados:</span> <b>NB, JR, ND, JG, CN</b>.</body></html>",
+                    "Seguridad — Control de Acceso",
+                    JOptionPane.WARNING_MESSAGE);
+            return;
+        }
+
+        SwingUtilities.invokeLater(() -> {
+            InventarioValoradoFrame frame = new InventarioValoradoFrame();
             frame.setVisible(true);
         });
     }

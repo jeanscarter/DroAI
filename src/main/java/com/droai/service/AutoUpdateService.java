@@ -302,8 +302,10 @@ public final class AutoUpdateService {
             }
 
             // Generar script .bat en la carpeta temporal de Windows (%TEMP%)
+            // NOTA: NO usar tempBat.deleteOnExit() porque el shutdown hook de la JVM borra
+            // el archivo temporal inmediatamente al hacer System.exit(0), antes de que cmd.exe
+            // termine de arrancar y lo lea. El script se autoelimina al terminar con: (goto) 2>nul & del "%~f0"
             File tempBat = File.createTempFile("droai_update_", ".bat");
-            tempBat.deleteOnExit();
 
             try (PrintWriter pw = new PrintWriter(new FileWriter(tempBat, StandardCharsets.UTF_8))) {
                 pw.println("@echo off");
