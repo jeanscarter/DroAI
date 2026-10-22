@@ -5,6 +5,8 @@ import java.util.List;
 
 /**
  * Fila de datos para el reporte de Inventario Valorado a fecha determinada.
+ * Soporta valuación dual: Costo Histórico en Bs. (Capas FIFO de compra)
+ * y Valor Valorado / Reposición en Bs. (USD * Tasa al corte), más Diferencial Cambiario.
  */
 public class InventarioValoradoRow {
 
@@ -26,7 +28,9 @@ public class InventarioValoradoRow {
     private double costoProveedorUSD;
     private double costoProveedorBS;
     private double totalValorizadoUSD;
-    private double totalValorizadoBS;
+    private double totalValorizadoBS; // Histórico en Bs.
+    private double totalReposicionBS;  // Reposición en Bs. (USD * Tasa al corte)
+    private double diferencialCambiarioBS; // totalReposicionBS - totalValorizadoBS
     private List<CapaCostoDTO> capas = new ArrayList<>();
 
     public InventarioValoradoRow() {}
@@ -87,6 +91,12 @@ public class InventarioValoradoRow {
 
     public double getTotalValorizadoBS() { return totalValorizadoBS; }
     public void setTotalValorizadoBS(double totalValorizadoBS) { this.totalValorizadoBS = totalValorizadoBS; }
+
+    public double getTotalReposicionBS() { return totalReposicionBS; }
+    public void setTotalReposicionBS(double totalReposicionBS) { this.totalReposicionBS = totalReposicionBS; }
+
+    public double getDiferencialCambiarioBS() { return diferencialCambiarioBS; }
+    public void setDiferencialCambiarioBS(double diferencialCambiarioBS) { this.diferencialCambiarioBS = diferencialCambiarioBS; }
 
     public List<CapaCostoDTO> getCapas() { return capas; }
     public void setCapas(List<CapaCostoDTO> capas) {

@@ -415,15 +415,20 @@ public class ComisionesFrame extends JFrame {
                     lblStatBase.setText(CURRENCY_FMT.format(tot.getTotalBaseComision()) + " Bs.");
                     lblStatComision.setText(CURRENCY_FMT.format(tot.getTotalMontoComision()) + " Bs.");
 
-                    // Verificar facturas abiertas y mostrar advertencia
-                    long facturasAbiertas = service.contarFacturasAbiertas(currentData);
-                    if (facturasAbiertas > 0) {
-                        Toast.showWarning("⚠️ Hay " + facturasAbiertas + " registro(s) con facturas ABIERTAS (no cerradas).");
+                    // Verificar resultados y facturas abiertas
+                    if (currentData == null || currentData.isEmpty()) {
+                        Toast.showWarning("⚠️ No se encontraron cobros ni comisiones en el rango seleccionado.");
                     } else {
-                        Toast.showSuccess("✅ Todas las facturas están CERRADAS. " + currentData.size() + " registros encontrados.");
+                        long facturasAbiertas = service.contarFacturasAbiertas(currentData);
+                        if (facturasAbiertas > 0) {
+                            Toast.showWarning("⚠️ Hay " + facturasAbiertas + " registro(s) con facturas ABIERTAS (no cerradas). Total: " + currentData.size() + " registros.");
+                        } else {
+                            Toast.showSuccess("✅ Todas las facturas están CERRADAS. " + currentData.size() + " registros procesados con éxito.");
+                        }
                     }
                 } catch (Exception e) {
-                    Toast.showError("Error al consultar comisiones: " + e.getMessage());
+                    String msg = e.getCause() != null ? e.getCause().getMessage() : e.getMessage();
+                    Toast.showError("Error al consultar comisiones: " + msg);
                 }
             }
         };

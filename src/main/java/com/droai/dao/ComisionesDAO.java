@@ -172,7 +172,7 @@ public class ComisionesDAO {
                         WHEN RTRIM(r.co_tipo_doc) = 'AJNA' THEN 'DPP'
                         ELSE RTRIM(r.co_tipo_doc)
                     END AS tipo_doc,
-                    CAST(CAST(RTRIM(r.nro_doc) AS int) AS varchar) AS numero_doc,
+                    COALESCE(CAST(TRY_CAST(RTRIM(r.nro_doc) AS int) AS varchar), RTRIM(r.nro_doc)) AS numero_doc,
                     RTRIM(r.nro_doc) AS nro_doc_raw,
                     ISNULL(RTRIM(d.n_control), '01') AS clase,
                     d.fec_emis, 
@@ -190,8 +190,8 @@ public class ComisionesDAO {
                              AND (r.monto_retencion_iva > 0 OR r.monto_retencion > 0 
                                   OR EXISTS (SELECT 1 FROM saCobroDocReng rx WHERE rx.cob_num = c.cob_num AND rx.co_tipo_doc IN ('IVAN', 'ISLR', 'IVAP', 'IMUN')))
                              AND COALESCE(prev_com.prev_cob_num, prev_com_hist.prev_cob_num) IS NOT NULL
-                        THEN CAST(CAST(RTRIM(COALESCE(prev_com.prev_cob_num, prev_com_hist.prev_cob_num)) AS int) AS varchar)
-                        ELSE CAST(CAST(RTRIM(c.cob_num) AS int) AS varchar)
+                        THEN COALESCE(CAST(TRY_CAST(RTRIM(COALESCE(prev_com.prev_cob_num, prev_com_hist.prev_cob_num)) AS int) AS varchar), RTRIM(COALESCE(prev_com.prev_cob_num, prev_com_hist.prev_cob_num)))
+                        ELSE COALESCE(CAST(TRY_CAST(RTRIM(c.cob_num) AS int) AS varchar), RTRIM(c.cob_num))
                     END AS num_cobro,
                     DATEDIFF(day, d.fec_venc, 
                         CASE 
@@ -255,7 +255,7 @@ public class ComisionesDAO {
                                OR EXISTS (SELECT 1 FROM DROA2_A.dbo.saCobroDocReng rx WHERE rx.cob_num = c_prev2.cob_num AND rx.co_tipo_doc IN ('IVAN', 'ISLR', 'IVAP', 'IMUN')))
                     ORDER BY ISNULL(t_prev2.fecha_che, c_prev2.fecha) DESC, c_prev2.cob_num DESC
                 ) prev_com_hist
-                WHERE c.fecha BETWEEN ? AND ?
+                WHERE c.fecha >= ? AND c.fecha < ?
                   AND ISNULL(c.anulado, 0) = 0
                   AND RTRIM(r.co_tipo_doc) IN ('FACT', 'N/CR', 'DPP', 'AJNA')
                   AND RTRIM(ISNULL(v.ven_des, '')) NOT IN ('EMPLEADOS', 'OFICINA')
@@ -270,21 +270,22 @@ public class ComisionesDAO {
                         ORDER BY 
                             es_retencion ASC,
                             fec_cobro DESC,
-                            CAST(num_cobro AS int) DESC
+                            ISNULL(TRY_CAST(num_cobro AS int), 0) DESC,
+                            num_cobro DESC
                     ) AS rn
                 FROM CobrosCandidatos
             )
             SELECT 
                 r.*,
                 ISNULL((
-                    SELECT TOP 1 CAST(CAST(RTRIM(dr.doc_num) AS int) AS varchar)
+                    SELECT TOP 1 COALESCE(CAST(TRY_CAST(RTRIM(dr.doc_num) AS int) AS varchar), RTRIM(dr.doc_num))
                     FROM saFacturaVentaReng dr
                     JOIN saArticulo a ON dr.co_art = a.co_art
                     WHERE RTRIM(dr.doc_num) = r.nro_doc_raw
                       AND r.tipo_doc = 'FACT'
                       AND RTRIM(a.co_lin) BETWEEN '000007' AND '000010'
                 ), ISNULL((
-                    SELECT TOP 1 CAST(CAST(RTRIM(dr2.doc_num) AS int) AS varchar)
+                    SELECT TOP 1 COALESCE(CAST(TRY_CAST(RTRIM(dr2.doc_num) AS int) AS varchar), RTRIM(dr2.doc_num))
                     FROM DROA2_A.dbo.saFacturaVentaReng dr2
                     JOIN DROA2_A.dbo.saArticulo a2 ON dr2.co_art = a2.co_art
                     WHERE RTRIM(dr2.doc_num) = r.nro_doc_raw
@@ -298,13 +299,13 @@ public class ComisionesDAO {
         if (coVenFiltro != null && !coVenFiltro.isBlank() && !"TODOS".equalsIgnoreCase(coVenFiltro)) {
             sql += " AND RTRIM(r.co_ven) = ? ";
         }
-        sql += " ORDER BY r.fec_cobro, CAST(r.num_cobro AS int), r.numero_doc";
+        sql += " ORDER BY r.fec_cobro, ISNULL(TRY_CAST(r.num_cobro AS int), 0), r.num_cobro, r.numero_doc";
 
         try (Connection conn = DatabaseConfig.getConnection(targetDb);
              PreparedStatement ps = conn.prepareStatement(sql)) {
 
             ps.setDate(1, java.sql.Date.valueOf(desde));
-            ps.setDate(2, java.sql.Date.valueOf(hasta));
+            ps.setDate(2, java.sql.Date.valueOf(hasta.plusDays(1)));
 
             if (coVenFiltro != null && !coVenFiltro.isBlank() && !"TODOS".equalsIgnoreCase(coVenFiltro)) {
                 ps.setString(3, coVenFiltro.trim());
@@ -430,6 +431,7 @@ public class ComisionesDAO {
             }
         } catch (SQLException e) {
             logger.error("Error al consultar comisiones en {}: {}", targetDb, e.getMessage(), e);
+            throw new RuntimeException("Error en BD " + targetDb + ": " + e.getMessage(), e);
         }
 
         logger.info("Obtenidos {} registros de comisiones desde {}", result.size(), targetDb);

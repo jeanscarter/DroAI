@@ -225,9 +225,15 @@ public final class AutoUpdateService {
                     return true;
                 }
                 String lVerText = Files.readString(localVer.toPath(), StandardCharsets.UTF_8).trim();
-                if (!sVerText.isEmpty() && !sVerText.equals(lVerText)) {
-                    logger.info("[AutoUpdate] Marca de versión diferente. Servidor: [{}], Local: [{}]", sVerText, lVerText);
-                    return true;
+                if (!sVerText.isEmpty()) {
+                    if (!sVerText.equals(lVerText)) {
+                        logger.info("[AutoUpdate] Marca de versión diferente. Servidor: [{}], Local: [{}]", sVerText, lVerText);
+                        return true;
+                    } else {
+                        // Versiones idénticas: DroAI ya está actualizado. Evita falsas alarmas por desfase de reloj entre PCs.
+                        logger.debug("[AutoUpdate] version.txt coincide [{}]. No requiere actualización.", sVerText);
+                        return false;
+                    }
                 }
             }
 
@@ -317,8 +323,9 @@ public final class AutoUpdateService {
                 pw.println("echo ======================================================================");
                 pw.println("echo.");
                 pw.println("echo [1/3] Esperando que la aplicacion anterior libere los archivos...");
-                pw.println("timeout /t 2 /nobreak >nul");
                 pw.println("taskkill /f /im DroAI.exe >nul 2>&1");
+                pw.println("taskkill /f /im javaw.exe >nul 2>&1");
+                pw.println("timeout /t 2 /nobreak >nul");
                 pw.println();
                 pw.println("echo [2/3] Descargando componentes actualizados desde el servidor:");
                 pw.println("echo       " + serverDir.getAbsolutePath());

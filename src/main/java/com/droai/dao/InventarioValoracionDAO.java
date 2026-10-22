@@ -4,6 +4,8 @@ import com.droai.config.DatabaseConfig;
 import com.droai.model.CapaCostoDTO;
 import com.droai.model.InventarioValoradoRow;
 import com.droai.model.KardexMovimientoValoradoRow;
+import com.droai.model.CostoVentaRow;
+import com.droai.model.CostoVentasPeriodoResult;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -213,6 +215,7 @@ public class InventarioValoracionDAO {
                 RTRIM(ISNULL(ap.co_prov, '')) AS co_prov,
                 RTRIM(ISNULL(p.prov_des, '')) AS nom_prov,
                 CAST(a.rowguid AS VARCHAR(36)) AS art_rowguid,
+                RTRIM(ISNULL(a.campo8, '')) AS campo8,
                 (ISNULL(stk.stock_actual, 0) - ISNULL(ent.total_ent, 0) + ISNULL(sal.total_sal, 0)) AS stock_al_corte
             FROM TodosArtAlma t
             JOIN saArticulo a ON t.co_art = a.co_art
@@ -246,10 +249,10 @@ public class InventarioValoracionDAO {
 
         try (Connection conn = DatabaseConfig.getConnection(targetDb)) {
             // Pre-cargar mapa de compras anteriores al corte para Venta Firme
-            Map<String, List<CapaCompraRaw>> comprasPorArticulo = cargarComprasPrevias(conn, sqlFechaCorte);
+            Map<String, List<CapaCompraRaw>> comprasPorArticulo = cargarComprasPrevias(conn, targetDb, fechaCorte);
 
             // Pre-cargar mapa de último costo de compras para Consignación (saCostoHistoricoEntrada)
-            Map<String, Double> ultimosCostosHistoricos = cargarCostosHistoricosConsignacion(conn, sqlFechaCorte);
+            Map<String, Double> ultimosCostosHistoricos = cargarCostosHistoricosConsignacion(conn, targetDb, fechaCorte);
 
             try (PreparedStatement ps = conn.prepareStatement(sqlStockCorte)) {
                 for (int i = 1; i <= 9; i++) {
@@ -296,6 +299,14 @@ public class InventarioValoracionDAO {
 
                         double costoProvUsd = ultimosCostosHistoricos.getOrDefault(coArt.toUpperCase(),
                                               ultimosCostosHistoricos.getOrDefault(artRowguid != null ? artRowguid.toUpperCase() : "", 0.0));
+                        if (costoProvUsd <= 0.0) {
+                            String c8 = rs.getString("campo8");
+                            if (c8 != null && !c8.isBlank()) {
+                                try {
+                                    costoProvUsd = Double.parseDouble(c8.trim().replace(",", "."));
+                                } catch (Exception ignored) {}
+                            }
+                        }
                         row.setCostoProveedorUSD(costoProvUsd);
                         row.setCostoProveedorBS(costoProvUsd * tasaCorte);
 
@@ -316,8 +327,12 @@ public class InventarioValoracionDAO {
                             row.setCostoPromedioBS(costoBs);
                             row.setUltimoCostoUSD(costoUsd);
                             row.setUltimoCostoBS(costoBs);
-                            row.setTotalValorizadoUSD(existencia * costoUsd);
-                            row.setTotalValorizadoBS(existencia * costoBs);
+                            double totUsd = existencia * costoUsd;
+                            double totBs = existencia * costoBs;
+                            row.setTotalValorizadoUSD(totUsd);
+                            row.setTotalValorizadoBS(totBs);
+                            row.setTotalReposicionBS(totBs);
+                            row.setDiferencialCambiarioBS(0.0);
                         } else {
                             // ── CASO VENTA FIRME (CAPAS FIFO) ──
                             List<CapaCompraRaw> compras = comprasPorArticulo.get(coArt);
@@ -369,15 +384,18 @@ public class InventarioValoracionDAO {
                                 if (ultimoCostoBS <= 0) ultimoCostoBS = costoFallbackBs;
                             }
 
-                            double costoPromUSD = sumaPonderadaUSD / existencia;
-                            double costoPromBS = costoPromUSD * tasaCorte; // Valuado a la tasa oficial del corte
+                            double costoPromUSD = existencia > 0 ? (sumaPonderadaUSD / existencia) : 0.0;
+                            double costoPromBS = existencia > 0 ? (sumaPonderadaBS / existencia) : 0.0;
 
                             row.setCostoPromedioUSD(costoPromUSD);
                             row.setCostoPromedioBS(costoPromBS);
                             row.setUltimoCostoUSD(ultimoCostoUSD);
-                            row.setUltimoCostoBS(ultimoCostoUSD * tasaCorte);
-                            row.setTotalValorizadoUSD(existencia * costoPromUSD);
-                            row.setTotalValorizadoBS(existencia * costoPromBS);
+                            row.setUltimoCostoBS(ultimoCostoBS);
+                            row.setTotalValorizadoUSD(sumaPonderadaUSD);
+                            row.setTotalValorizadoBS(sumaPonderadaBS);
+                            double reposicionBs = sumaPonderadaUSD * tasaCorte;
+                            row.setTotalReposicionBS(reposicionBs);
+                            row.setDiferencialCambiarioBS(reposicionBs - sumaPonderadaBS);
                             row.setCapas(capasUtilizadas);
                         }
 
@@ -392,183 +410,129 @@ public class InventarioValoracionDAO {
         return resultado;
     }
 
+    public static class KardexConsultaResult {
+        private List<KardexMovimientoValoradoRow> movimientos = new ArrayList<>();
+        private String coArt = "";
+        private String artDes = "";
+        private double existenciaFecha = 0.0;
+        private double costoPromedioUSD = 0.0;
+        private double costoPromedioBS = 0.0;
+        private double totalValorizadoUSD = 0.0;
+        private double totalValorizadoBS = 0.0;
+        private double totalCompradoPeriodo = 0.0;
+        private double tasaCorte = 1.0;
+
+        public KardexConsultaResult() {}
+
+        public List<KardexMovimientoValoradoRow> getMovimientos() { return movimientos; }
+        public void setMovimientos(List<KardexMovimientoValoradoRow> movimientos) { this.movimientos = movimientos; }
+
+        public String getCoArt() { return coArt; }
+        public void setCoArt(String coArt) { this.coArt = coArt; }
+
+        public String getArtDes() { return artDes; }
+        public void setArtDes(String artDes) { this.artDes = artDes; }
+
+        public double getExistenciaFecha() { return existenciaFecha; }
+        public void setExistenciaFecha(double existenciaFecha) { this.existenciaFecha = existenciaFecha; }
+
+        public double getCostoPromedioUSD() { return costoPromedioUSD; }
+        public void setCostoPromedioUSD(double costoPromedioUSD) { this.costoPromedioUSD = costoPromedioUSD; }
+
+        public double getCostoPromedioBS() { return costoPromedioBS; }
+        public void setCostoPromedioBS(double costoPromedioBS) { this.costoPromedioBS = costoPromedioBS; }
+
+        public double getTotalValorizadoUSD() { return totalValorizadoUSD; }
+        public void setTotalValorizadoUSD(double totalValorizadoUSD) { this.totalValorizadoUSD = totalValorizadoUSD; }
+
+        public double getTotalValorizadoBS() { return totalValorizadoBS; }
+        public void setTotalValorizadoBS(double totalValorizadoBS) { this.totalValorizadoBS = totalValorizadoBS; }
+
+        public double getTotalCompradoPeriodo() { return totalCompradoPeriodo; }
+        public void setTotalCompradoPeriodo(double totalCompradoPeriodo) { this.totalCompradoPeriodo = totalCompradoPeriodo; }
+
+        public double getTasaCorte() { return tasaCorte; }
+        public void setTasaCorte(double tasaCorte) { this.tasaCorte = tasaCorte; }
+    }
+
     /**
-     * Consulta el Kárdex de movimiento de un artículo específico en un rango de fechas.
-     * Si el rango comprende fechas <= 27/07/2026, consulta DROA2_A.
-     * Si comprende fechas > 27/07/2026, consulta DROA_A.
-     * Si cruza la fecha de corte, combina de forma secuencial y continua ambas bases de datos.
+     * Consulta el Kárdex de compras (entradas NREC) de un artículo específico en un rango de fechas
+     * y calcula su existencia y valuación al corte (costo promedio y costo total en Bs y USD).
      */
-    public List<KardexMovimientoValoradoRow> consultarKardexProducto(String coArt,
-                                                                    LocalDate desde,
-                                                                    LocalDate hasta,
-                                                                    String coAlma) {
-        List<KardexMovimientoValoradoRow> movimientos = new ArrayList<>();
+    public KardexConsultaResult consultarKardexProducto(String coArt,
+                                                        LocalDate desde,
+                                                        LocalDate hasta,
+                                                        String coAlma) {
+        KardexConsultaResult result = new KardexConsultaResult();
         if (coArt == null || coArt.isBlank() || desde == null || hasta == null) {
-            return movimientos;
+            return result;
         }
+        result.setCoArt(coArt.trim());
 
         double tasaCorte = obtenerTasaUSD(hasta);
-        double saldoInicial = obtenerSaldoInicial(coArt, desde, coAlma);
+        result.setTasaCorte(tasaCorte);
 
-        // Fila 0: Saldo inicial
-        movimientos.add(new KardexMovimientoValoradoRow(
-                desde.minusDays(1).toString(),
-                "SALDO-INICIAL",
-                "-",
-                (coAlma != null && !coAlma.isBlank() && !"TODOS".equalsIgnoreCase(coAlma)) ? coAlma : "TODOS",
-                "Existencia inicial previa al periodo",
-                "-",
-                saldoInicial >= 0 ? saldoInicial : 0,
-                0,
-                saldoInicial,
-                0, 0, 0, 0
-        ));
-
-        double runningSaldo = saldoInicial;
+        List<KardexMovimientoValoradoRow> compras = new ArrayList<>();
         boolean d1Hist = !desde.isAfter(FECHA_CORTE_MIGRACION);
         boolean d2Hist = !hasta.isAfter(FECHA_CORTE_MIGRACION);
 
+        double runningTotal = 0.0;
         if (d1Hist && d2Hist) {
-            consultarMovimientosEnBd(DB_HISTORICA, coArt, desde, hasta, coAlma, tasaCorte, runningSaldo, movimientos);
+            runningTotal = consultarComprasEnBd(DB_HISTORICA, coArt, desde, hasta, coAlma, tasaCorte, runningTotal, compras);
         } else if (!d1Hist && !d2Hist) {
-            consultarMovimientosEnBd(DB_ACTUAL, coArt, desde, hasta, coAlma, tasaCorte, runningSaldo, movimientos);
+            runningTotal = consultarComprasEnBd(DB_ACTUAL, coArt, desde, hasta, coAlma, tasaCorte, runningTotal, compras);
         } else {
-            // Rango transicional que atraviesa la migración
-            runningSaldo = consultarMovimientosEnBd(DB_HISTORICA, coArt, desde, FECHA_CORTE_MIGRACION, coAlma, tasaCorte, runningSaldo, movimientos);
-            consultarMovimientosEnBd(DB_ACTUAL, coArt, FECHA_CORTE_MIGRACION.plusDays(1), hasta, coAlma, tasaCorte, runningSaldo, movimientos);
+            runningTotal = consultarComprasEnBd(DB_HISTORICA, coArt, desde, FECHA_CORTE_MIGRACION, coAlma, tasaCorte, runningTotal, compras);
+            runningTotal = consultarComprasEnBd(DB_ACTUAL, coArt, FECHA_CORTE_MIGRACION.plusDays(1), hasta, coAlma, tasaCorte, runningTotal, compras);
         }
 
-        return movimientos;
+        result.setMovimientos(compras);
+        result.setTotalCompradoPeriodo(runningTotal);
+
+        // Calcular existencia a la fecha 'hasta' y la valuación exacta (Costo promedio y costo total en Bs y $)
+        String targetDb = resolverBaseDatos(hasta);
+        calcularValuacionArticuloAlCorte(targetDb, coArt.trim(), hasta, coAlma, tasaCorte, result);
+
+        return result;
     }
 
-    private double consultarMovimientosEnBd(String targetDb, String coArt, LocalDate dInicio, LocalDate dFin,
-                                            String coAlma, double tasaCorte, double saldoBase,
-                                            List<KardexMovimientoValoradoRow> salidaMovs) {
-        if (dInicio.isAfter(dFin)) return saldoBase;
+    private double consultarComprasEnBd(String targetDb, String coArt, LocalDate dInicio, LocalDate dFin,
+                                        String coAlma, double tasaCorte, double runningBase,
+                                        List<KardexMovimientoValoradoRow> salidaMovs) {
+        if (dInicio.isAfter(dFin)) return runningBase;
 
-        String sqlMovs = """
-            SELECT tipo_doc, RTRIM(doc_num) AS doc_num, CONVERT(VARCHAR(10), fecha, 120) AS fecha,
-                   RTRIM(co_alma) AS co_alma, RTRIM(ISNULL(origen, '')) AS origen,
-                   RTRIM(ISNULL(numero_lote, '')) AS numero_lote,
-                   entrada, salida, cost_unit, cost_unit_om, tasa
-            FROM (
-                -- Compras NREC (Entradas)
-                SELECT 'NREC' AS tipo_doc, r.doc_num, c.fec_emis AS fecha, r.co_alma,
-                       ISNULL(p.prov_des, c.co_prov) AS origen,
-                       ISNULL(r.lote_asignado, 0) AS lote_asignado,
-                       ISNULL(le.numero_lote, '') AS numero_lote,
-                       r.total_art AS entrada, 0 AS salida,
-                       r.cost_unit, r.cost_unit_om, c.tasa
-                FROM saNotaRecepcionCompraReng r
-                JOIN saNotaRecepcionCompra c ON r.doc_num = c.doc_num
-                LEFT JOIN saProveedor p ON c.co_prov = p.co_prov
-                LEFT JOIN saLoteEntrada le ON le.rowguid_reng = r.rowguid
-                WHERE RTRIM(r.co_art) = ? AND c.anulado = 0
-                  AND CAST(c.fec_emis AS DATE) BETWEEN ? AND ?
-
-                UNION ALL
-                -- Ajustes EA (Entradas)
-                SELECT 'AJUS-EA' AS tipo_doc, r.ajue_num, a.fecha, r.co_alma,
-                       ISNULL(a.motivo, 'Ajuste de Entrada') AS origen,
-                       r.lote_asignado, ISNULL(le.numero_lote, '') AS numero_lote,
-                       r.total_art AS entrada, 0 AS salida,
-                       r.cost_unit, 0 AS cost_unit_om, a.tasa
-                FROM saAjusteReng r
-                JOIN saAjuste a ON r.ajue_num = a.ajue_num
-                LEFT JOIN saLoteEntrada le ON le.rowguid_reng = r.rowguid
-                WHERE RTRIM(r.co_art) = ? AND a.anulado = 0 AND r.co_tipo = 'EA'
-                  AND CAST(a.fecha AS DATE) BETWEEN ? AND ?
-
-                UNION ALL
-                -- Devoluciones Cliente (Entradas)
-                SELECT 'DCLI' AS tipo_doc, r.doc_num, d.fec_emis AS fecha, r.co_alma,
-                       ISNULL(cli.cli_des, d.co_cli) AS origen,
-                       r.lote_asignado, ISNULL(le.numero_lote, '') AS numero_lote,
-                       r.total_art AS entrada, 0 AS salida,
-                       0 AS cost_unit, 0 AS cost_unit_om, d.tasa
-                FROM saDevolucionClienteReng r
-                JOIN saDevolucionCliente d ON r.doc_num = d.doc_num
-                LEFT JOIN saCliente cli ON d.co_cli = cli.co_cli
-                LEFT JOIN saLoteEntrada le ON le.rowguid_reng = r.rowguid
-                WHERE RTRIM(r.co_art) = ? AND d.anulado = 0
-                  AND CAST(d.fec_emis AS DATE) BETWEEN ? AND ?
-
-                UNION ALL
-                -- Notas de Entrega Venta (Salidas)
-                SELECT 'NENT' AS tipo_doc, r.doc_num, n.fec_emis AS fecha, r.co_alma,
-                       ISNULL(cli.cli_des, n.co_cli) AS origen,
-                       r.lote_asignado, '' AS numero_lote,
-                       0 AS entrada, r.total_art AS salida,
-                       0 AS cost_unit, 0 AS cost_unit_om, n.tasa
-                FROM saNotaEntregaVentaReng r
-                JOIN saNotaEntregaVenta n ON r.doc_num = n.doc_num
-                LEFT JOIN saCliente cli ON n.co_cli = cli.co_cli
-                WHERE RTRIM(r.co_art) = ? AND n.anulado = 0
-                  AND CAST(n.fec_emis AS DATE) BETWEEN ? AND ?
-
-                UNION ALL
-                -- Facturas Venta Directas (Salidas)
-                SELECT 'FACT' AS tipo_doc, r.doc_num, f.fec_emis AS fecha, r.co_alma,
-                       ISNULL(cli.cli_des, f.co_cli) AS origen,
-                       r.lote_asignado, '' AS numero_lote,
-                       0 AS entrada, r.total_art AS salida,
-                       0 AS cost_unit, 0 AS cost_unit_om, f.tasa
-                FROM saFacturaVentaReng r
-                JOIN saFacturaVenta f ON r.doc_num = f.doc_num
-                LEFT JOIN saCliente cli ON f.co_cli = cli.co_cli
-                WHERE RTRIM(r.co_art) = ? AND f.anulado = 0 AND (r.num_doc IS NULL OR RTRIM(r.num_doc) = '')
-                  AND CAST(f.fec_emis AS DATE) BETWEEN ? AND ?
-
-                UNION ALL
-                -- Ajustes SA (Salidas)
-                SELECT 'AJUS-SA' AS tipo_doc, r.ajue_num, a.fecha, r.co_alma,
-                       ISNULL(a.motivo, 'Ajuste de Salida') AS origen,
-                       r.lote_asignado, '' AS numero_lote,
-                       0 AS entrada, r.total_art AS salida,
-                       r.cost_unit, 0 AS cost_unit_om, a.tasa
-                FROM saAjusteReng r
-                JOIN saAjuste a ON r.ajue_num = a.ajue_num
-                WHERE RTRIM(r.co_art) = ? AND a.anulado = 0 AND r.co_tipo = 'SA'
-                  AND CAST(a.fecha AS DATE) BETWEEN ? AND ?
-
-                UNION ALL
-                -- Devoluciones Proveedor (Salidas)
-                SELECT 'DPRO' AS tipo_doc, r.doc_num, p.fec_emis AS fecha, r.co_alma,
-                       ISNULL(prov.prov_des, p.co_prov) AS origen,
-                       r.lote_asignado, '' AS numero_lote,
-                       0 AS entrada, r.total_art AS salida,
-                       0 AS cost_unit, 0 AS cost_unit_om, p.tasa
-                FROM saDevolucionProveedorReng r
-                JOIN saDevolucionProveedor p ON r.doc_num = p.doc_num
-                LEFT JOIN saProveedor prov ON p.co_prov = prov.co_prov
-                WHERE RTRIM(r.co_art) = ? AND p.anulado = 0
-                  AND CAST(p.fec_emis AS DATE) BETWEEN ? AND ?
-            ) t
+        String sql = """
+            SELECT 'NREC' AS tipo_doc,
+                   RTRIM(r.doc_num) AS doc_num,
+                   CONVERT(VARCHAR(10), c.fec_emis, 120) AS fecha,
+                   RTRIM(r.co_alma) AS co_alma,
+                   RTRIM(ISNULL(p.prov_des, c.co_prov)) AS origen,
+                   RTRIM(ISNULL(le.numero_lote, '')) AS numero_lote,
+                   r.total_art AS entrada,
+                   r.cost_unit,
+                   r.cost_unit_om,
+                   ISNULL(c.tasa, 1) AS tasa
+            FROM saNotaRecepcionCompraReng r
+            JOIN saNotaRecepcionCompra c ON r.doc_num = c.doc_num
+            LEFT JOIN saProveedor p ON c.co_prov = p.co_prov
+            LEFT JOIN saLoteEntrada le ON le.rowguid_reng = r.rowguid
+            WHERE RTRIM(r.co_art) = ? AND c.anulado = 0
+              AND CAST(c.fec_emis AS DATE) BETWEEN ? AND ?
             """;
 
         if (coAlma != null && !coAlma.isBlank() && !"TODOS".equalsIgnoreCase(coAlma.trim())) {
-            sqlMovs += " WHERE RTRIM(co_alma) = '" + coAlma.trim().replace("'", "") + "' ";
+            sql += " AND RTRIM(r.co_alma) = '" + coAlma.trim().replace("'", "") + "' ";
         }
+        sql += " ORDER BY c.fec_emis ASC, r.doc_num ASC ";
 
-        sqlMovs += " ORDER BY fecha ASC, doc_num ASC ";
-
-        double running = saldoBase;
+        double running = runningBase;
 
         try (Connection conn = DatabaseConfig.getConnection(targetDb);
-             PreparedStatement ps = conn.prepareStatement(sqlMovs)) {
+             PreparedStatement ps = conn.prepareStatement(sql)) {
 
-            double costoProveedorUsd = obtenerCostoProveedor(conn, coArt, dFin);
-
-            String art = coArt.trim();
-            java.sql.Date d1 = java.sql.Date.valueOf(dInicio);
-            java.sql.Date d2 = java.sql.Date.valueOf(dFin);
-
-            int pIdx = 1;
-            for (int i = 0; i < 7; i++) {
-                ps.setString(pIdx++, art);
-                ps.setDate(pIdx++, d1);
-                ps.setDate(pIdx++, d2);
-            }
+            ps.setString(1, coArt.trim());
+            ps.setDate(2, java.sql.Date.valueOf(dInicio));
+            ps.setDate(3, java.sql.Date.valueOf(dFin));
 
             try (ResultSet rs = ps.executeQuery()) {
                 while (rs.next()) {
@@ -579,7 +543,7 @@ public class InventarioValoracionDAO {
                     String origen = rs.getString("origen");
                     String lote = rs.getString("numero_lote");
                     double entrada = rs.getDouble("entrada");
-                    double salida = rs.getDouble("salida");
+                    double salida = 0.0;
                     double costUnitBs = rs.getDouble("cost_unit");
                     double costUnitUsd = rs.getDouble("cost_unit_om");
                     double docTasa = rs.getDouble("tasa");
@@ -589,16 +553,12 @@ public class InventarioValoracionDAO {
                         costUnitUsd = costUnitBs / docTasa;
                     } else if (costUnitBs <= 0 && costUnitUsd > 0 && docTasa > 0) {
                         costUnitBs = costUnitUsd * docTasa;
-                    } else if (costUnitUsd <= 0 && costUnitBs <= 0 && costoProveedorUsd > 0) {
-                        // Si el movimiento no registra costo unitario propio, toma el Costo Proveedor
-                        costUnitUsd = costoProveedorUsd;
-                        costUnitBs = costUnitUsd * docTasa;
                     }
 
-                    running = running + entrada - salida;
+                    running += entrada;
 
-                    double totalUsd = (entrada > 0 ? entrada : salida) * costUnitUsd;
-                    double totalBs = (entrada > 0 ? entrada : salida) * costUnitBs;
+                    double totalUsd = entrada * costUnitUsd;
+                    double totalBs = entrada * costUnitBs;
 
                     salidaMovs.add(new KardexMovimientoValoradoRow(
                             fecha, tipoDoc, docNum, alm, origen, lote,
@@ -607,10 +567,186 @@ public class InventarioValoracionDAO {
                 }
             }
         } catch (SQLException e) {
-            logger.error("[InventarioValoracionDAO] Error al consultar Kárdex de {} en BD [{}]: {}", coArt, targetDb, e.getMessage(), e);
+            logger.error("[InventarioValoracionDAO] Error al consultar compras de {} en BD [{}]: {}", coArt, targetDb, e.getMessage(), e);
         }
 
         return running;
+    }
+
+    private void calcularValuacionArticuloAlCorte(String targetDb, String coArt, LocalDate fechaCorte,
+                                                 String coAlma, double tasaCorte, KardexConsultaResult result) {
+        try (Connection conn = DatabaseConfig.getConnection(targetDb)) {
+            // 1. Obtener datos del artículo
+            String sqlArt = """
+                SELECT RTRIM(a.art_des) AS art_des, a.tipo,
+                       ISNULL(a.campo8, '') AS campo8,
+                       ISNULL(p.prov_des, '') AS nom_prov,
+                       ISNULL(ap.co_prov, '') AS co_prov
+                FROM saArticulo a
+                LEFT JOIN (SELECT co_art, co_prov FROM saArtProveedorReng WHERE reng_num = 1) ap ON a.co_art = ap.co_art
+                LEFT JOIN saProveedor p ON ap.co_prov = p.co_prov
+                WHERE RTRIM(a.co_art) = ?
+                """;
+            try (PreparedStatement ps = conn.prepareStatement(sqlArt)) {
+                ps.setString(1, coArt.trim());
+                try (ResultSet rs = ps.executeQuery()) {
+                    if (rs.next()) {
+                        result.setArtDes(rs.getString("art_des"));
+                    }
+                }
+            }
+
+            // 2. Reconstruir existencia a fechaCorte
+            double existencia = obtenerSaldoInicialEnBd(targetDb, coArt, fechaCorte, coAlma);
+            result.setExistenciaFecha(existencia);
+
+            if (existencia <= 0.0001) {
+                result.setCostoPromedioUSD(0.0);
+                result.setCostoPromedioBS(0.0);
+                result.setTotalValorizadoUSD(0.0);
+                result.setTotalValorizadoBS(0.0);
+                return;
+            }
+
+            // 3. Determinar tipo de mercancía (Consignación vs Venta Firme)
+            boolean esConsignacion = false;
+            if (coAlma != null && !coAlma.isBlank() && !"TODOS".equalsIgnoreCase(coAlma.trim())) {
+                esConsignacion = ALMACENES_CONSIGNACION.contains(coAlma.trim().toUpperCase());
+            } else {
+                String sqlCheckConsig = """
+                    SELECT TOP 1 co_alma FROM saStockAlmacen
+                    WHERE RTRIM(co_art) = ? AND stock > 0
+                    ORDER BY CASE WHEN RTRIM(co_alma) IN ('02', 'VC') THEN 1 ELSE 2 END
+                    """;
+                try (PreparedStatement ps = conn.prepareStatement(sqlCheckConsig)) {
+                    ps.setString(1, coArt.trim());
+                    try (ResultSet rs = ps.executeQuery()) {
+                        if (rs.next()) {
+                            String alm = rs.getString("co_alma");
+                            esConsignacion = alm != null && ALMACENES_CONSIGNACION.contains(alm.trim().toUpperCase());
+                        }
+                    }
+                }
+            }
+
+            if (esConsignacion) {
+                // Caso Consignación: Costo Proveedor
+                double costoProvUsd = obtenerCostoProveedor(conn, coArt, fechaCorte);
+                if (costoProvUsd <= 0) {
+                    String sqlCampo8 = "SELECT campo8 FROM saArticulo WHERE RTRIM(co_art) = ?";
+                    try (PreparedStatement ps = conn.prepareStatement(sqlCampo8)) {
+                        ps.setString(1, coArt.trim());
+                        try (ResultSet rs = ps.executeQuery()) {
+                            if (rs.next()) {
+                                String c8 = rs.getString("campo8");
+                                if (c8 != null && !c8.isBlank()) {
+                                    try {
+                                        costoProvUsd = Double.parseDouble(c8.trim().replace(",", "."));
+                                    } catch (Exception ignored) {}
+                                }
+                            }
+                        }
+                    }
+                }
+
+                double costoProvBs = costoProvUsd * tasaCorte;
+                double totUsd = existencia * costoProvUsd;
+                double totBs = existencia * costoProvBs;
+
+                result.setCostoPromedioUSD(costoProvUsd);
+                result.setCostoPromedioBS(costoProvBs);
+                result.setTotalValorizadoUSD(totUsd);
+                result.setTotalValorizadoBS(totBs);
+            } else {
+                // Caso Venta Firme: Capas FIFO
+                String sqlCompras = """
+                    SELECT r.total_art, r.cost_unit, r.cost_unit_om, ISNULL(c.tasa, 1) AS tasa
+                    FROM saNotaRecepcionCompraReng r
+                    JOIN saNotaRecepcionCompra c ON r.doc_num = c.doc_num
+                    WHERE RTRIM(r.co_art) = ? AND c.anulado = 0
+                      AND CAST(c.fec_emis AS DATE) <= ?
+                    ORDER BY c.fec_emis DESC, r.doc_num DESC
+                    """;
+
+                double cantFaltante = existencia;
+                double sumaUSD = 0.0;
+                double sumaBS = 0.0;
+                double ultimoCostoUsd = 0.0;
+
+                try (PreparedStatement ps = conn.prepareStatement(sqlCompras)) {
+                    ps.setString(1, coArt.trim());
+                    ps.setDate(2, java.sql.Date.valueOf(fechaCorte));
+
+                    try (ResultSet rs = ps.executeQuery()) {
+                        while (rs.next() && cantFaltante > 0.0001) {
+                            double totArt = rs.getDouble("total_art");
+                            double cBs = rs.getDouble("cost_unit");
+                            double cUsd = rs.getDouble("cost_unit_om");
+                            double tasa = rs.getDouble("tasa");
+
+                            if (cUsd <= 0 && cBs > 0 && tasa > 0) cUsd = cBs / tasa;
+                            else if (cBs <= 0 && cUsd > 0 && tasa > 0) cBs = cUsd * tasa;
+
+                            if (ultimoCostoUsd <= 0) ultimoCostoUsd = cUsd;
+
+                            double cantTomar = Math.min(cantFaltante, totArt);
+                            sumaUSD += (cantTomar * cUsd);
+                            sumaBS += (cantTomar * cBs);
+                            cantFaltante -= cantTomar;
+                        }
+                    }
+                }
+
+                // Si aún queda existencia sin cubrir por compras en DROA_A, continuar consumiendo capas de DROA2_A
+if (cantFaltante > 0.0001 && DB_ACTUAL.equalsIgnoreCase(targetDb)) {
+    LocalDate fechaCorteHist = fechaCorte.isAfter(FECHA_CORTE_MIGRACION) ? FECHA_CORTE_MIGRACION : fechaCorte;
+    try (Connection connHist = DatabaseConfig.getConnection(DB_HISTORICA);
+         PreparedStatement psHist = connHist.prepareStatement(sqlCompras)) {
+        psHist.setString(1, coArt.trim());
+        psHist.setDate(2, java.sql.Date.valueOf(fechaCorteHist));
+        try (ResultSet rsHist = psHist.executeQuery()) {
+            while (rsHist.next() && cantFaltante > 0.0001) {
+                double totArt = rsHist.getDouble("total_art");
+                double cBs = rsHist.getDouble("cost_unit");
+                double cUsd = rsHist.getDouble("cost_unit_om");
+                double tasa = rsHist.getDouble("tasa");
+
+                if (cUsd <= 0 && cBs > 0 && tasa > 0) cUsd = cBs / tasa;
+                else if (cBs <= 0 && cUsd > 0 && tasa > 0) cBs = cUsd * tasa;
+
+                if (ultimoCostoUsd <= 0) ultimoCostoUsd = cUsd;
+
+                double cantTomar = Math.min(cantFaltante, totArt);
+                sumaUSD += (cantTomar * cUsd);
+                sumaBS += (cantTomar * cBs);
+                cantFaltante -= cantTomar;
+            }
+        }
+    } catch (Exception e) {
+        logger.warn("[InventarioValoracionDAO] Error al consultar compras históricas en [{}] para {}: {}", DB_HISTORICA, coArt, e.getMessage());
+    }
+}
+
+if (cantFaltante > 0.0001) {
+                    double fallbackUsd = obtenerCostoProveedor(conn, coArt, fechaCorte);
+                    if (fallbackUsd <= 0) fallbackUsd = ultimoCostoUsd;
+                    double fallbackBs = fallbackUsd * tasaCorte;
+                    sumaUSD += (cantFaltante * fallbackUsd);
+                    sumaBS += (cantFaltante * fallbackBs);
+                }
+
+                double costoPromUSD = sumaUSD / existencia;
+                double costoPromBS = sumaBS / existencia;
+
+                result.setCostoPromedioUSD(costoPromUSD);
+                result.setCostoPromedioBS(costoPromBS);
+                result.setTotalValorizadoUSD(sumaUSD);
+                result.setTotalValorizadoBS(sumaBS);
+            }
+
+        } catch (SQLException e) {
+            logger.error("[InventarioValoracionDAO] Error al calcular valuación corte para {}: {}", coArt, e.getMessage(), e);
+        }
     }
 
     /**
@@ -708,9 +844,35 @@ public class InventarioValoracionDAO {
     /**
      * Carga en memoria todas las compras previas a la fecha de corte para armar las capas FIFO.
      */
-    private Map<String, List<CapaCompraRaw>> cargarComprasPrevias(Connection conn, java.sql.Date sqlFechaCorte) throws SQLException {
+    private Map<String, List<CapaCompraRaw>> cargarComprasPrevias(Connection conn, String targetDb, LocalDate fechaCorte) throws SQLException {
         Map<String, List<CapaCompraRaw>> map = new HashMap<>();
 
+        // 1. Cargar compras de la base principal (targetDb)
+        poblarComprasDesdeBd(conn, java.sql.Date.valueOf(fechaCorte), map);
+
+        // 2. Si la base actual es DROA_A (post-migración), cargar compras históricas de DROA2_A
+        if (DB_ACTUAL.equalsIgnoreCase(targetDb)) {
+            LocalDate fechaCorteHist = fechaCorte.isAfter(FECHA_CORTE_MIGRACION) ? FECHA_CORTE_MIGRACION : fechaCorte;
+            try (Connection connHist = DatabaseConfig.getConnection(DB_HISTORICA)) {
+                poblarComprasDesdeBd(connHist, java.sql.Date.valueOf(fechaCorteHist), map);
+            } catch (Exception e) {
+                logger.warn("[InventarioValoracionDAO] No se pudieron cargar compras históricas de [{}]: {}", DB_HISTORICA, e.getMessage());
+            }
+        }
+
+        // 3. Ordenar capas cronológicamente descendente (más reciente primero) para aplicar FIFO
+        for (List<CapaCompraRaw> list : map.values()) {
+            list.sort((c1, c2) -> {
+                int cmp = c2.fecha.compareTo(c1.fecha);
+                if (cmp != 0) return cmp;
+                return c2.docNum.compareTo(c1.docNum);
+            });
+        }
+
+        return map;
+    }
+
+    private void poblarComprasDesdeBd(Connection conn, java.sql.Date sqlFechaCorte, Map<String, List<CapaCompraRaw>> map) throws SQLException {
         String sql = """
             SELECT RTRIM(r.co_art) AS co_art,
                    'NREC' AS tipo_doc,
@@ -761,16 +923,32 @@ public class InventarioValoracionDAO {
                 }
             }
         }
-        return map;
     }
 
     /**
      * Carga los últimos costos vigentes en USD de saCostoHistoricoEntrada para los productos (Costo Proveedor).
      * Mapea tanto por co_art como por art_rowguid.
      */
-    private Map<String, Double> cargarCostosHistoricosConsignacion(Connection conn, java.sql.Date sqlFechaCorte) throws SQLException {
+    private Map<String, Double> cargarCostosHistoricosConsignacion(Connection conn, String targetDb, LocalDate fechaCorte) throws SQLException {
         Map<String, Double> map = new HashMap<>();
 
+        // Si targetDb es DROA_A, cargar primero de DROA2_A como base histórica
+        if (DB_ACTUAL.equalsIgnoreCase(targetDb)) {
+            LocalDate fechaCorteHist = fechaCorte.isAfter(FECHA_CORTE_MIGRACION) ? FECHA_CORTE_MIGRACION : fechaCorte;
+            try (Connection connHist = DatabaseConfig.getConnection(DB_HISTORICA)) {
+                poblarCostosHistoricos(connHist, java.sql.Date.valueOf(fechaCorteHist), map);
+            } catch (Exception e) {
+                logger.warn("[InventarioValoracionDAO] No se pudieron cargar costos consignación de [{}]: {}", DB_HISTORICA, e.getMessage());
+            }
+        }
+
+        // Cargar costos de targetDb (sobrescribirá con los costos más recientes si los hay)
+        poblarCostosHistoricos(conn, java.sql.Date.valueOf(fechaCorte), map);
+
+        return map;
+    }
+
+    private void poblarCostosHistoricos(Connection conn, java.sql.Date sqlFechaCorte, Map<String, Double> map) throws SQLException {
         String sql = """
             SELECT RTRIM(a.co_art) AS co_art,
                    CAST(ranked.cod_articulo_rowguid AS VARCHAR(36)) AS art_rowguid,
@@ -782,7 +960,7 @@ public class InventarioValoracionDAO {
                            ORDER BY CASE WHEN tipo_doc = 'PROV' THEN 1 ELSE 2 END, fecha_emision DESC
                        ) AS rn
                 FROM saCostoHistoricoEntrada
-                WHERE costo > 0
+                WHERE tipo_doc = 'PROV' AND costo > 0
                   AND CAST(fecha_emision AS DATE) <= ?
             ) ranked
             JOIN saArticulo a ON a.rowguid = ranked.cod_articulo_rowguid
@@ -805,7 +983,6 @@ public class InventarioValoracionDAO {
                 }
             }
         }
-        return map;
     }
 
     /**
@@ -832,12 +1009,23 @@ public class InventarioValoracionDAO {
         } catch (SQLException e) {
             logger.warn("[InventarioValoracionDAO] No se pudo obtener costo proveedor de {}: {}", coArt, e.getMessage());
         }
+
+        // Si no se encontró en la conexión actual (DROA_A), verificar en la base histórica DROA2_A
+        try (Connection connHist = DatabaseConfig.getConnection(DB_HISTORICA);
+             PreparedStatement psHist = connHist.prepareStatement(sql)) {
+            psHist.setString(1, coArt.trim());
+            LocalDate fechaCorteHist = (fechaCorte != null && fechaCorte.isAfter(FECHA_CORTE_MIGRACION)) ? FECHA_CORTE_MIGRACION : fechaCorte;
+            psHist.setDate(2, java.sql.Date.valueOf(fechaCorteHist));
+            try (ResultSet rsHist = psHist.executeQuery()) {
+                if (rsHist.next()) {
+                    return rsHist.getDouble("costo");
+                }
+            }
+        } catch (Exception ignored) {}
+
         return 0.0;
     }
 
-    /**
-     * Estructura interna para almacenar temporalmente una recepción de compra.
-     */
     private static class CapaCompraRaw {
         final String tipoDoc;
         final String docNum;
@@ -863,4 +1051,379 @@ public class InventarioValoracionDAO {
             this.nomProv = nomProv;
         }
     }
+
+    /**
+     * Consulta y calcula el Costo de Ventas y Margen para todas las ventas realizadas en un período.
+     * Reglas de costeo (según requerimiento contable):
+     * - Venta Firme: Costo promedio ponderado del producto para el momento de realizarse la venta.
+     * - Consignación: Último costo reportado por el proveedor (saCostoHistoricoEntrada tipo 'PROV')
+     *   a la fecha de la venta.
+     *
+     * @param targetDb Base de datos de consulta (por defecto DROA_A).
+     * @param desde Fecha de inicio del período.
+     * @param hasta Fecha de fin del período.
+     * @param filtroAlmacen Filtro opcional por almacén ("TODOS", "01", "02", etc.).
+     * @param filtroTipo Filtro opcional por tipo de mercancía ("TODOS", "VENTA_FIRME", "CONSIGNACION").
+     * @param filtroBusqueda Búsqueda opcional por código/nombre de artículo o cliente.
+     * @return Objeto CostoVentasPeriodoResult con todos los renglones y totales consolidados.
+     */
+    public CostoVentasPeriodoResult consultarCostoVentasPeriodo(
+            String targetDb,
+            LocalDate desde,
+            LocalDate hasta,
+            String filtroAlmacen,
+            String filtroTipo,
+            String filtroBusqueda) {
+
+        CostoVentasPeriodoResult result = new CostoVentasPeriodoResult();
+        if (desde == null || hasta == null) return result;
+        if (targetDb == null || targetDb.isBlank()) targetDb = DB_ACTUAL;
+
+        long t0 = System.currentTimeMillis();
+        logger.info("[InventarioValoracionDAO] Iniciando cálculo de Costo de Ventas del [{}] al [{}] en [{}]", desde, hasta, targetDb);
+
+        try (Connection conn = DatabaseConfig.getConnection(targetDb)) {
+            // 1. Cargar historial cronológico de costos reportados por proveedores (USD)
+            Map<String, NavigableMap<String, Double>> histCostoProv = new HashMap<>();
+            String sqlHist = """
+                SELECT RTRIM(a.co_art) AS co_art,
+                       CONVERT(VARCHAR(10), ce.fecha_emision, 120) AS fecha_emision,
+                       ce.costo
+                FROM saCostoHistoricoEntrada ce
+                JOIN saArticulo a ON ce.cod_articulo_rowguid = a.rowguid
+                WHERE ce.tipo_doc = 'PROV' AND ce.costo > 0
+                  AND CAST(ce.fecha_emision AS DATE) <= ?
+                ORDER BY a.co_art, ce.fecha_emision ASC
+            """;
+
+            if (DB_ACTUAL.equalsIgnoreCase(targetDb)) {
+    try (Connection connHist = DatabaseConfig.getConnection(DB_HISTORICA);
+         PreparedStatement psHist = connHist.prepareStatement(sqlHist)) {
+        LocalDate fechaHist = hasta.isAfter(FECHA_CORTE_MIGRACION) ? FECHA_CORTE_MIGRACION : hasta;
+        psHist.setDate(1, java.sql.Date.valueOf(fechaHist));
+        try (ResultSet rsHist = psHist.executeQuery()) {
+            while (rsHist.next()) {
+                String art = rsHist.getString("co_art");
+                String fec = rsHist.getString("fecha_emision");
+                double costo = rsHist.getDouble("costo");
+                histCostoProv.computeIfAbsent(art, k -> new TreeMap<>()).put(fec, costo);
+            }
+        }
+    } catch (Exception e) {
+        logger.warn("[InventarioValoracionDAO] Error al cargar histórico de costos proveedor de [{}]: {}", DB_HISTORICA, e.getMessage());
+    }
+}
+
+try (PreparedStatement ps = conn.prepareStatement(sqlHist)) {
+                ps.setDate(1, java.sql.Date.valueOf(hasta));
+                try (ResultSet rs = ps.executeQuery()) {
+                    while (rs.next()) {
+                        String art = rs.getString("co_art");
+                        String fec = rs.getString("fecha_emision");
+                        double costo = rs.getDouble("costo");
+                        histCostoProv.computeIfAbsent(art, k -> new TreeMap<>()).put(fec, costo);
+                    }
+                }
+            }
+
+            // 2. Cargar costos de fallback desde campo8 de saArticulo (USD)
+            Map<String, Double> campo8Map = new HashMap<>();
+            String sqlCampo8 = "SELECT RTRIM(co_art) AS co_art, ISNULL(campo8, '') AS campo8 FROM saArticulo";
+            try (Statement st = conn.createStatement(); ResultSet rs = st.executeQuery(sqlCampo8)) {
+                while (rs.next()) {
+                    String art = rs.getString("co_art");
+                    String c8 = rs.getString("campo8");
+                    if (c8 != null && !c8.isBlank()) {
+                        try {
+                            double c = Double.parseDouble(c8.trim().replace(",", "."));
+                            if (c > 0) campo8Map.put(art, c);
+                        } catch (Exception ignored) {}
+                    }
+                }
+            }
+
+            // 3. Cargar compras históricas (saNotaRecepcionCompra) hasta la fecha fin para Venta Firme
+            Map<String, List<CapaCompraRaw>> comprasMap = new HashMap<>();
+            String sqlCompras = """
+                SELECT RTRIM(r.co_art) AS co_art,
+                       CONVERT(VARCHAR(10), c.fec_emis, 120) AS fecha,
+                       r.total_art, r.cost_unit, r.cost_unit_om, ISNULL(c.tasa, 1) AS tasa,
+                       RTRIM(ISNULL(c.co_prov, '')) AS co_prov,
+                       RTRIM(ISNULL(p.prov_des, '')) AS nom_prov
+                FROM saNotaRecepcionCompraReng r
+                JOIN saNotaRecepcionCompra c ON r.doc_num = c.doc_num
+                LEFT JOIN saProveedor p ON c.co_prov = p.co_prov
+                WHERE c.anulado = 0 AND CAST(c.fec_emis AS DATE) <= ?
+                ORDER BY c.fec_emis ASC, r.doc_num ASC
+            """;
+
+            if (DB_ACTUAL.equalsIgnoreCase(targetDb)) {
+    try (Connection connHist = DatabaseConfig.getConnection(DB_HISTORICA);
+         PreparedStatement psHist = connHist.prepareStatement(sqlCompras)) {
+        LocalDate fechaHist = hasta.isAfter(FECHA_CORTE_MIGRACION) ? FECHA_CORTE_MIGRACION : hasta;
+        psHist.setDate(1, java.sql.Date.valueOf(fechaHist));
+        try (ResultSet rsHist = psHist.executeQuery()) {
+            while (rsHist.next()) {
+                String art = rsHist.getString("co_art");
+                String f = rsHist.getString("fecha");
+                double cant = rsHist.getDouble("total_art");
+                double cBs = rsHist.getDouble("cost_unit");
+                double cUsd = rsHist.getDouble("cost_unit_om");
+                double tasa = rsHist.getDouble("tasa");
+                if (cUsd <= 0 && cBs > 0 && tasa > 0) cUsd = cBs / tasa;
+                else if (cBs <= 0 && cUsd > 0 && tasa > 0) cBs = cUsd * tasa;
+
+                comprasMap.computeIfAbsent(art, k -> new ArrayList<>())
+                          .add(new CapaCompraRaw("NREC", "", f, cant, cUsd, cBs, tasa,
+                                                 rsHist.getString("co_prov"), rsHist.getString("nom_prov")));
+            }
+        }
+    } catch (Exception e) {
+        logger.warn("[InventarioValoracionDAO] Error al cargar compras históricas de [{}]: {}", DB_HISTORICA, e.getMessage());
+    }
+}
+
+try (PreparedStatement ps = conn.prepareStatement(sqlCompras)) {
+                ps.setDate(1, java.sql.Date.valueOf(hasta));
+                try (ResultSet rs = ps.executeQuery()) {
+                    while (rs.next()) {
+                        String art = rs.getString("co_art");
+                        String f = rs.getString("fecha");
+                        double cant = rs.getDouble("total_art");
+                        double cBs = rs.getDouble("cost_unit");
+                        double cUsd = rs.getDouble("cost_unit_om");
+                        double tasa = rs.getDouble("tasa");
+                        if (cUsd <= 0 && cBs > 0 && tasa > 0) cUsd = cBs / tasa;
+                        else if (cBs <= 0 && cUsd > 0 && tasa > 0) cBs = cUsd * tasa;
+
+                        comprasMap.computeIfAbsent(art, k -> new ArrayList<>())
+                                  .add(new CapaCompraRaw("NREC", "", f, cant, cUsd, cBs, tasa,
+                                                         rs.getString("co_prov"), rs.getString("nom_prov")));
+                    }
+                }
+            }
+
+            for (List<CapaCompraRaw> list : comprasMap.values()) {
+                list.sort((c1, c2) -> {
+                    int cmp = c1.fecha.compareTo(c2.fecha);
+                    if (cmp != 0) return cmp;
+                    return c1.docNum.compareTo(c2.docNum);
+                });
+            }
+
+
+            // 4. Consultar ventas del período (Notas de Entrega de Venta y Facturas de Venta directas)
+            String sqlVentas = """
+                SELECT 
+                    'NENT' AS tipo_doc, RTRIM(n.doc_num) AS doc_num, CONVERT(VARCHAR(10), n.fec_emis, 120) AS fec_emis,
+                    RTRIM(n.co_cli) AS co_cli, RTRIM(ISNULL(c.cli_des, '')) AS cli_des,
+                    RTRIM(r.co_art) AS co_art, RTRIM(r.des_art) AS art_des, RTRIM(r.co_alma) AS co_alma,
+                    r.total_art, r.prec_vta, r.prec_vta_om, ISNULL(n.tasa, 1) AS tasa
+                FROM saNotaEntregaVentaReng r
+                JOIN saNotaEntregaVenta n ON r.doc_num = n.doc_num
+                LEFT JOIN saCliente c ON n.co_cli = c.co_cli
+                WHERE n.anulado = 0 AND CAST(n.fec_emis AS DATE) BETWEEN ? AND ?
+
+                UNION ALL
+
+                SELECT 
+                    'FACT' AS tipo_doc, RTRIM(f.doc_num) AS doc_num, CONVERT(VARCHAR(10), f.fec_emis, 120) AS fec_emis,
+                    RTRIM(f.co_cli) AS co_cli, RTRIM(ISNULL(c.cli_des, '')) AS cli_des,
+                    RTRIM(r.co_art) AS co_art, RTRIM(r.des_art) AS art_des, RTRIM(r.co_alma) AS co_alma,
+                    r.total_art, r.prec_vta, r.prec_vta_om, ISNULL(f.tasa, 1) AS tasa
+                FROM saFacturaVentaReng r
+                JOIN saFacturaVenta f ON r.doc_num = f.doc_num
+                LEFT JOIN saCliente c ON f.co_cli = c.co_cli
+                WHERE f.anulado = 0 AND (r.num_doc IS NULL OR RTRIM(r.num_doc) = '')
+                  AND CAST(f.fec_emis AS DATE) BETWEEN ? AND ?
+                ORDER BY fec_emis ASC, doc_num ASC
+            """;
+
+            List<CostoVentaRow> items = new ArrayList<>();
+            double totVentaUSD = 0.0, totVentaBS = 0.0;
+            double totCostoUSD = 0.0, totCostoBS = 0.0;
+            double totCostoFirmeUSD = 0.0, totCostoFirmeBS = 0.0;
+            double totCostoConsigUSD = 0.0, totCostoConsigBS = 0.0;
+            double totUnidades = 0.0;
+
+            String busqUpper = (filtroBusqueda != null && !filtroBusqueda.isBlank()) ? filtroBusqueda.trim().toUpperCase() : null;
+            String almUpper = (filtroAlmacen != null && !filtroAlmacen.isBlank() && !filtroAlmacen.startsWith("TODOS"))
+                    ? filtroAlmacen.trim().substring(0, Math.min(2, filtroAlmacen.trim().length())).toUpperCase() : null;
+
+            try (PreparedStatement ps = conn.prepareStatement(sqlVentas)) {
+                ps.setDate(1, java.sql.Date.valueOf(desde));
+                ps.setDate(2, java.sql.Date.valueOf(hasta));
+                ps.setDate(3, java.sql.Date.valueOf(desde));
+                ps.setDate(4, java.sql.Date.valueOf(hasta));
+
+                try (ResultSet rs = ps.executeQuery()) {
+                    while (rs.next()) {
+                        String coArt = rs.getString("co_art");
+                        String artDes = rs.getString("art_des");
+                        String coCli = rs.getString("co_cli");
+                        String cliDes = rs.getString("cli_des");
+                        String coAlma = rs.getString("co_alma");
+                        String fecVenta = rs.getString("fec_emis");
+                        String tipoDoc = rs.getString("tipo_doc");
+                        String docNum = rs.getString("doc_num");
+                        double cant = rs.getDouble("total_art");
+                        double pUsd = rs.getDouble("prec_vta_om");
+                        double pBs = rs.getDouble("prec_vta");
+                        double tasa = rs.getDouble("tasa");
+
+                        if (cant <= 0.0001) continue;
+
+                        boolean esConsig = ALMACENES_CONSIGNACION.contains(coAlma.toUpperCase());
+                        String tipoMercancia = esConsig ? "CONSIGNACION" : "VENTA FIRME";
+
+                        // Filtro de almacén
+                        if (almUpper != null && !coAlma.toUpperCase().startsWith(almUpper)) {
+                            continue;
+                        }
+
+                        // Filtro de tipo mercancía
+                        if ("VENTA_FIRME".equalsIgnoreCase(filtroTipo) && esConsig) {
+                            continue;
+                        }
+                        if ("CONSIGNACION".equalsIgnoreCase(filtroTipo) && !esConsig) {
+                            continue;
+                        }
+
+                        // Filtro de texto de búsqueda
+                        if (busqUpper != null) {
+                            boolean match = (coArt != null && coArt.toUpperCase().contains(busqUpper))
+                                    || (artDes != null && artDes.toUpperCase().contains(busqUpper))
+                                    || (coCli != null && coCli.toUpperCase().contains(busqUpper))
+                                    || (cliDes != null && cliDes.toUpperCase().contains(busqUpper))
+                                    || (docNum != null && docNum.toUpperCase().contains(busqUpper));
+                            if (!match) continue;
+                        }
+
+                        if (pUsd <= 0 && pBs > 0 && tasa > 0) pUsd = pBs / tasa;
+                        else if (pBs <= 0 && pUsd > 0 && tasa > 0) pBs = pUsd * tasa;
+
+                        double costUnitUsd = 0.0;
+                        double costUnitBs = 0.0;
+
+                        if (esConsig) {
+                            // Regla Contable: Último costo reportado por el proveedor a la fecha de la venta
+                            NavigableMap<String, Double> artHist = histCostoProv.get(coArt);
+                            if (artHist != null) {
+                                Map.Entry<String, Double> entry = artHist.floorEntry(fecVenta);
+                                if (entry != null && entry.getValue() > 0) {
+                                    costUnitUsd = entry.getValue();
+                                }
+                            }
+                            if (costUnitUsd <= 0) {
+                                costUnitUsd = campo8Map.getOrDefault(coArt, 0.0);
+                            }
+                            costUnitBs = costUnitUsd * tasa;
+
+                            totCostoConsigUSD += (cant * costUnitUsd);
+                            totCostoConsigBS += (cant * costUnitBs);
+                        } else {
+                            // Regla Contable: Costo promedio ponderado a la fecha de la venta
+                            List<CapaCompraRaw> cList = comprasMap.get(coArt);
+                            double sumU = 0, sumB = 0, sumQ = 0;
+                            double lastU = 0, lastB = 0;
+                            if (cList != null) {
+                                for (CapaCompraRaw ci : cList) {
+                                    if (ci.fecha.compareTo(fecVenta) <= 0) {
+                                        sumU += (ci.totalArt * ci.costUnitUSD);
+                                        sumB += (ci.totalArt * ci.costUnitBS);
+                                        sumQ += ci.totalArt;
+                                        lastU = ci.costUnitUSD;
+                                        lastB = ci.costUnitBS;
+                                    } else {
+                                        break;
+                                    }
+                                }
+                            }
+                            if (sumQ > 0) {
+                                costUnitUsd = sumU / sumQ;
+                                costUnitBs = sumB / sumQ;
+                            } else if (lastU > 0) {
+                                costUnitUsd = lastU;
+                                costUnitBs = lastB;
+                            } else {
+                                costUnitUsd = campo8Map.getOrDefault(coArt, 0.0);
+                                costUnitBs = costUnitUsd * tasa;
+                            }
+
+                            totCostoFirmeUSD += (cant * costUnitUsd);
+                            totCostoFirmeBS += (cant * costUnitBs);
+                        }
+
+                        double totalVentaRengUSD = cant * pUsd;
+                        double totalVentaRengBS = cant * pBs;
+                        double totalCostoRengUSD = cant * costUnitUsd;
+                        double totalCostoRengBS = cant * costUnitBs;
+                        double utilRengUSD = totalVentaRengUSD - totalCostoRengUSD;
+                        double utilRengBS = totalVentaRengBS - totalCostoRengBS;
+                        double margenRengPct = totalVentaRengUSD > 0 ? (utilRengUSD / totalVentaRengUSD) * 100 : 0.0;
+
+                        CostoVentaRow row = new CostoVentaRow();
+                        row.setTipoDoc(tipoDoc);
+                        row.setDocNum(docNum);
+                        row.setFecha(fecVenta);
+                        row.setCoCli(coCli);
+                        row.setCliDes(cliDes);
+                        row.setCoArt(coArt);
+                        row.setArtDes(artDes);
+                        row.setCoAlma(coAlma);
+                        row.setTipoMercancia(tipoMercancia);
+                        row.setCantidad(cant);
+                        row.setPrecioVentaUSD(pUsd);
+                        row.setPrecioVentaBS(pBs);
+                        row.setTotalVentaUSD(totalVentaRengUSD);
+                        row.setTotalVentaBS(totalVentaRengBS);
+                        row.setCostoUnitUSD(costUnitUsd);
+                        row.setCostoUnitBS(costUnitBs);
+                        row.setTotalCostoUSD(totalCostoRengUSD);
+                        row.setTotalCostoBS(totalCostoRengBS);
+                        row.setUtilidadUSD(utilRengUSD);
+                        row.setUtilidadBS(utilRengBS);
+                        row.setMargenPct(margenRengPct);
+                        row.setTasaDoc(tasa);
+
+                        items.add(row);
+
+                        totUnidades += cant;
+                        totVentaUSD += totalVentaRengUSD;
+                        totVentaBS += totalVentaRengBS;
+                        totCostoUSD += totalCostoRengUSD;
+                        totCostoBS += totalCostoRengBS;
+                    }
+                }
+            }
+
+            double utilGlobalUSD = totVentaUSD - totCostoUSD;
+            double utilGlobalBS = totVentaBS - totCostoBS;
+            double margenGlobalPct = totVentaUSD > 0 ? (utilGlobalUSD / totVentaUSD) * 100 : 0.0;
+
+            result.setItems(items);
+            result.setTotalUnidades(totUnidades);
+            result.setTotalVentaUSD(totVentaUSD);
+            result.setTotalVentaBS(totVentaBS);
+            result.setTotalCostoUSD(totCostoUSD);
+            result.setTotalCostoBS(totCostoBS);
+            result.setTotalCostoFirmeUSD(totCostoFirmeUSD);
+            result.setTotalCostoFirmeBS(totCostoFirmeBS);
+            result.setTotalCostoConsigUSD(totCostoConsigUSD);
+            result.setTotalCostoConsigBS(totCostoConsigBS);
+            result.setUtilidadUSD(utilGlobalUSD);
+            result.setUtilidadBS(utilGlobalBS);
+            result.setMargenPct(margenGlobalPct);
+
+            long t1 = System.currentTimeMillis();
+            logger.info("[InventarioValoracionDAO] Costo de Ventas calculado en {} ms. Renglones: {}, Ventas: ${}, Costo: ${}, Margen: {}%",
+                    (t1 - t0), items.size(), String.format("%,.2f", totVentaUSD), String.format("%,.2f", totCostoUSD), String.format("%.2f", margenGlobalPct));
+
+        } catch (SQLException e) {
+            logger.error("[InventarioValoracionDAO] Error al consultar costo de ventas del período: {}", e.getMessage(), e);
+        }
+
+        return result;
+    }
+
 }
