@@ -2,7 +2,6 @@ package com.droai.ui;
 
 import com.droai.dao.InventarioValoracionDAO;
 import com.droai.export.InventarioValoracionExcelExporter;
-import com.droai.model.CapaCostoDTO;
 import com.droai.model.CostoVentaRow;
 import com.droai.model.CostoVentasPeriodoResult;
 import com.droai.model.InventarioValoradoRow;

@@ -38,6 +38,8 @@ public class AdminDashboardFrame extends JFrame {
 
     // ── Listener para repintar al cambiar tema ──
     private final Runnable themeListener;
+    private JLabel lblBadgeSiad;
+    private JLabel lblBadgeMonitorSiad;
 
     public AdminDashboardFrame() {
         setTitle("DroAI — Menú Principal Administrativo");
@@ -52,6 +54,7 @@ public class AdminDashboardFrame extends JFrame {
         Toast.setParentFrame(this);
 
         buildUI();
+        verificarAlertasSiad();
 
         // Registrar listener de tema
         themeListener = this::rebuildUI;
@@ -268,12 +271,18 @@ public class AdminDashboardFrame extends JFrame {
                 this::abrirAuditoriaLotes), "grow");
 
         // ── Tarjeta 10: Auditoría Pedidos Web vs. Facturación SIAD ──
+        lblBadgeSiad = new JLabel(" ");
+        lblBadgeSiad.setFont(new Font("Segoe UI", Font.BOLD, 11));
+        lblBadgeSiad.setForeground(new Color(239, 68, 68));
+        lblBadgeSiad.setVisible(false);
+
         content.add(createModuleCard(
                 "📑",
                 "Auditoría Pedidos vs. Facturación",
                 "Control de pedidos web enviados al SIAD,\nauditoría de renglones facturados, faltantes y notas 'B'.",
                 tm.accent(),
-                this::abrirAuditoriaPedidosFacturacion), "grow");
+                this::abrirAuditoriaPedidosFacturacion,
+                lblBadgeSiad), "grow");
 
         // ── Tarjeta 11: Valuación de Inventario y Kárdex (Exclusivo NB, JR, ND, JG, CN) ──
         content.add(createModuleCard(
@@ -282,6 +291,20 @@ public class AdminDashboardFrame extends JFrame {
                 "Existencia al corte, capas FIFO de compra,\ncosto promedio en Bs/USD, consignación y Kárdex.",
                 tm.greenAccent(),
                 this::abrirValuacionInventario), "grow");
+
+        // ── Tarjeta 12: Monitor y Recuperación de Pedidos SIAD ──
+        lblBadgeMonitorSiad = new JLabel(" ");
+        lblBadgeMonitorSiad.setFont(new Font("Segoe UI", Font.BOLD, 11));
+        lblBadgeMonitorSiad.setForeground(new Color(239, 68, 68));
+        lblBadgeMonitorSiad.setVisible(false);
+
+        content.add(createModuleCard(
+                "⚡",
+                "Monitor de Pedidos Web SIAD",
+                "Rastreo instantáneo de pedidos web, bandeja en vivo\nde rebotados, reasignación FEFO y reenvío a SIAD.",
+                new Color(234, 88, 12),
+                this::abrirMonitorPedidosSiad,
+                lblBadgeMonitorSiad), "grow");
 
         JScrollPane scrollPane = new JScrollPane(content);
         scrollPane.setBorder(null);
@@ -322,6 +345,11 @@ public class AdminDashboardFrame extends JFrame {
      */
     private JPanel createModuleCard(String icon, String title, String description,
             Color accentColor, Runnable onClickAction) {
+        return createModuleCard(icon, title, description, accentColor, onClickAction, null);
+    }
+
+    private JPanel createModuleCard(String icon, String title, String description,
+            Color accentColor, Runnable onClickAction, JComponent badge) {
         RoundedPanel card = new RoundedPanel(16, true);
         card.setBackground(tm.cardBg());
         card.setLayout(new MigLayout("insets 22 16 16 16, wrap, fillx", "[grow, center]", "[]6[]4[grow, center]push[]"));
@@ -355,6 +383,10 @@ public class AdminDashboardFrame extends JFrame {
         lblDesc.setForeground(tm.textSecondary());
         lblDesc.setHorizontalAlignment(SwingConstants.CENTER);
         card.add(lblDesc, "center, grow");
+
+        if (badge != null) {
+            card.add(badge, "center, gaptop 4, gapbottom 2");
+        }
 
         // Botón de acción
         if (onClickAction != null) {
@@ -584,5 +616,50 @@ public class AdminDashboardFrame extends JFrame {
             InventarioValoradoFrame frame = new InventarioValoradoFrame();
             frame.setVisible(true);
         });
+    }
+
+    /**
+     * Abre el módulo independiente de Monitor y Recuperación de Pedidos SIAD ("sesión aparte").
+     */
+    private void abrirMonitorPedidosSiad() {
+        SwingUtilities.invokeLater(() -> {
+            MonitorPedidosSiadFrame frame = new MonitorPedidosSiadFrame();
+            frame.setVisible(true);
+        });
+    }
+
+    /**
+     * Comprueba en segundo plano si existen pedidos rebotados en la carpeta de error de SIAD
+     * y actualiza las tarjetas correspondientes en el menú principal.
+     */
+    private void verificarAlertasSiad() {
+        SwingWorker<Integer, Void> worker = new SwingWorker<>() {
+            @Override
+            protected Integer doInBackground() {
+                return com.droai.dao.SiadPedidosDAO.contarPedidosEnError();
+            }
+
+            @Override
+            protected void done() {
+                try {
+                    int errCount = get();
+                    if (errCount > 0) {
+                        String txtAlerta = "🚨 " + errCount + " rebotado" + (errCount > 1 ? "s" : "") + " en SIAD";
+                        if (lblBadgeSiad != null) {
+                            lblBadgeSiad.setText(txtAlerta);
+                            lblBadgeSiad.setVisible(true);
+                        }
+                        if (lblBadgeMonitorSiad != null) {
+                            lblBadgeMonitorSiad.setText(txtAlerta);
+                            lblBadgeMonitorSiad.setVisible(true);
+                        }
+                    } else {
+                        if (lblBadgeSiad != null) lblBadgeSiad.setVisible(false);
+                        if (lblBadgeMonitorSiad != null) lblBadgeMonitorSiad.setVisible(false);
+                    }
+                } catch (Exception ignored) {}
+            }
+        };
+        worker.execute();
     }
 }

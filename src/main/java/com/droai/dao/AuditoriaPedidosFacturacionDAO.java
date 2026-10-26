@@ -34,13 +34,7 @@ public class AuditoriaPedidosFacturacionDAO {
      * Localiza la ruta activa para los archivos de pedidos SIAD.
      */
     private File getCarpetaSiadProcesados() {
-        for (String ruta : RUTA_SIAD_CANDIDATAS) {
-            File dir = new File(ruta);
-            if (dir.exists() && dir.isDirectory()) {
-                return dir;
-            }
-        }
-        return null;
+        return SiadPedidosDAO.getCarpetaSiadProcesados();
     }
 
     /**
@@ -188,22 +182,28 @@ public class AuditoriaPedidosFacturacionDAO {
             logger.error("Error al consultar notas y facturas en Profit Plus", e);
         }
 
-        // 3. Cargar y correlacionar archivos TXT de SIAD
+        // 3. Cargar y correlacionar archivos TXT de SIAD (Optimizado para VPN: solo en lotes pequeños)
         File dirSiad = getCarpetaSiadProcesados();
         Map<String, List<TxtItemInfo>> mapTxtPedidos = new HashMap<>();
 
-        if (dirSiad != null && dirSiad.exists()) {
-            File[] files = dirSiad.listFiles((d, name) -> name.toLowerCase().startsWith("pedido") && name.toLowerCase().endsWith(".txt"));
-            if (files != null) {
-                for (File f : files) {
-                    try {
-                        String pedId = f.getName().replace("pedido", "").replace(".txt", "").replace("PEDIDO", "").trim();
-                        List<TxtItemInfo> items = leerTxtPedido(f);
-                        if (!items.isEmpty()) {
-                            mapTxtPedidos.put(pedId, items);
+        if (dirSiad != null && dirSiad.exists() && mapNotas.size() <= 20) {
+            for (AuditoriaPedidoRow nota : mapNotas.values()) {
+                String pedKey = nota.getPedidoWeb();
+                if (pedKey != null && !pedKey.isEmpty()) {
+                    String cleanPedId = pedKey.replaceAll("[^0-9]", "");
+                    if (!cleanPedId.isEmpty() && !mapTxtPedidos.containsKey(cleanPedId)) {
+                        File f = new File(dirSiad, "pedido" + cleanPedId + ".txt");
+                        if (!f.exists()) f = new File(dirSiad, "PEDIDO" + cleanPedId + ".txt");
+                        if (f.exists()) {
+                            try {
+                                List<TxtItemInfo> items = leerTxtPedido(f);
+                                if (!items.isEmpty()) {
+                                    mapTxtPedidos.put(cleanPedId, items);
+                                }
+                            } catch (Exception ex) {
+                                logger.warn("Error leyendo archivo TXT de SIAD: {}", f.getName(), ex);
+                            }
                         }
-                    } catch (Exception ex) {
-                        logger.warn("Error leyendo archivo TXT de SIAD: {}", f.getName(), ex);
                     }
                 }
             }
@@ -359,6 +359,17 @@ public class AuditoriaPedidosFacturacionDAO {
             }
 
             pedidosConsolidados.put(docNum, nota);
+        }
+
+        // 5. Cargar pedidos rebotados en SIAD (carpeta error)
+        try {
+            SiadPedidosDAO siadDAO = new SiadPedidosDAO();
+            List<AuditoriaPedidoRow> pedidosError = siadDAO.listarPedidosEnError(desde, hasta);
+            if (!pedidosError.isEmpty()) {
+                resultado.addAll(pedidosError);
+            }
+        } catch (Exception ex) {
+            logger.warn("Error consultando pedidos en error de SIAD", ex);
         }
 
         resultado.addAll(pedidosConsolidados.values());

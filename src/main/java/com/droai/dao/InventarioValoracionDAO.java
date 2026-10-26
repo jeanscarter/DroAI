@@ -752,7 +752,7 @@ if (cantFaltante > 0.0001) {
     /**
      * Reconstruye el saldo inicial acumulado a la fecha anterior al periodo de consulta.
      */
-    private double obtenerSaldoInicial(String coArt, LocalDate desde, String coAlma) {
+    public double obtenerSaldoInicial(String coArt, LocalDate desde, String coAlma) {
         LocalDate fechaCortePrevia = desde.minusDays(1);
         String targetDb = resolverBaseDatos(fechaCortePrevia);
         return obtenerSaldoInicialEnBd(targetDb, coArt, fechaCortePrevia, coAlma);

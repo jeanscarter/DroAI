@@ -1,6 +1,7 @@
 package com.droai.ui;
 
 import com.droai.dao.AuditoriaPedidosFacturacionDAO;
+import com.droai.dao.SiadPedidosDAO;
 import com.droai.export.AuditoriaPedidosExporter;
 import com.droai.model.AuditoriaPedidoRenglonRow;
 import com.droai.model.AuditoriaPedidoRow;
@@ -59,11 +60,14 @@ public class AuditoriaPedidosFacturacionFrame extends JFrame {
 
     // KPI Labels
     private JLabel lblKpiTotalPedidos;
+    private JLabel lblKpiErrorSiad;
     private JLabel lblKpiCriticos;
     private JLabel lblKpiParciales;
     private JLabel lblKpiPendientes;
     private JLabel lblKpiCompletos;
     private JLabel lblKpiMonto;
+
+    private JButton btnResolverError;
 
     // Tablas
     private DefaultTableModel modelMaster;
@@ -195,7 +199,7 @@ public class AuditoriaPedidosFacturacionFrame extends JFrame {
         p.add(lblD);
 
         dateDesde = createDatePicker();
-        dateDesde.setDate(LocalDate.of(2026, 10, 1)); // Por defecto desde 01/10/2026 según solicitud
+        dateDesde.setDate(LocalDate.now()); // Por defecto HOY para carga instantánea sobre VPN
         p.add(dateDesde);
 
         JLabel lblH = new JLabel("Hasta:");
@@ -214,7 +218,8 @@ public class AuditoriaPedidosFacturacionFrame extends JFrame {
 
         cmbFiltroEstado = new JComboBox<>(new String[]{
                 "Todos los Pedidos",
-                "⚠️ Solo con Problemas / Alertas",
+                "⚠️ Solo con Problemas / Alertas (SIAD y Profit)",
+                "🚨 Rebotados en SIAD (Error de Importación)",
                 "🔴 Faltan Renglones en Nota (Tipo 101469)",
                 "🟠 Parcialmente Facturados",
                 "🟡 Pendientes por Facturar",
@@ -252,14 +257,29 @@ public class AuditoriaPedidosFacturacionFrame extends JFrame {
         btnExportar.addActionListener(e -> exportarExcel());
         p.add(btnExportar);
 
+        JButton btnMonitorSiad = new JButton("⚡ Monitor SIAD");
+        btnMonitorSiad.setFont(new Font("Segoe UI", Font.BOLD, 12));
+        btnMonitorSiad.setBackground(new Color(234, 88, 12));
+        btnMonitorSiad.setForeground(Color.WHITE);
+        btnMonitorSiad.setFocusPainted(false);
+        btnMonitorSiad.setCursor(Cursor.getPredefinedCursor(Cursor.HAND_CURSOR));
+        btnMonitorSiad.addActionListener(e -> {
+            SwingUtilities.invokeLater(() -> {
+                MonitorPedidosSiadFrame f = new MonitorPedidosSiadFrame();
+                f.setVisible(true);
+            });
+        });
+        p.add(btnMonitorSiad);
+
         return p;
     }
 
     private JPanel buildKpiBar() {
-        JPanel bar = new JPanel(new MigLayout("insets 0, fillx, gap 12", "[grow][grow][grow][grow][grow][grow]", "[]"));
+        JPanel bar = new JPanel(new MigLayout("insets 0, fillx, gap 10", "[grow][grow][grow][grow][grow][grow][grow]", "[]"));
         bar.setOpaque(false);
 
         lblKpiTotalPedidos = new JLabel("0");
+        lblKpiErrorSiad = new JLabel("0");
         lblKpiCriticos = new JLabel("0");
         lblKpiParciales = new JLabel("0");
         lblKpiPendientes = new JLabel("0");
@@ -267,7 +287,8 @@ public class AuditoriaPedidosFacturacionFrame extends JFrame {
         lblKpiMonto = new JLabel("$ 0,00");
 
         bar.add(createKpiCard("TOTAL PEDIDOS", lblKpiTotalPedidos, tm.textPrimary(), "📋"), "grow");
-        bar.add(createKpiCard("FALTAN RENGLONES (101469)", lblKpiCriticos, tm.redAccent(), "🔴"), "grow");
+        bar.add(createKpiCard("REBOTADOS SIAD", lblKpiErrorSiad, new Color(220, 38, 38), "🚨"), "grow");
+        bar.add(createKpiCard("FALTAN RENGLONES", lblKpiCriticos, tm.redAccent(), "🔴"), "grow");
         bar.add(createKpiCard("PARCIAL FACTURADOS", lblKpiParciales, tm.orangeAccent(), "🟠"), "grow");
         bar.add(createKpiCard("PENDIENTES FACTURA", lblKpiPendientes, new Color(234, 179, 8), "🟡"), "grow");
         bar.add(createKpiCard("FACTURADOS OK", lblKpiCompletos, tm.greenAccent(), "🟢"), "grow");
@@ -297,11 +318,29 @@ public class AuditoriaPedidosFacturacionFrame extends JFrame {
         JPanel p = new JPanel(new BorderLayout());
         p.setOpaque(false);
 
+        JPanel headerMaster = new JPanel(new MigLayout("insets 0 0 6 0, fillx", "[]push[]", "[]"));
+        headerMaster.setOpaque(false);
+
         JLabel lblSec = new JLabel("  Pedidos Web vs. Notas de Entrega Profit Plus");
         lblSec.setFont(new Font("Segoe UI", Font.BOLD, 13));
         lblSec.setForeground(tm.textPrimary());
-        lblSec.setBorder(new EmptyBorder(0, 0, 6, 0));
-        p.add(lblSec, BorderLayout.NORTH);
+        headerMaster.add(lblSec);
+
+        btnResolverError = new JButton("🔧 Resolver Pedido Rebotado en SIAD");
+        btnResolverError.setFont(new Font("Segoe UI", Font.BOLD, 11));
+        btnResolverError.setBackground(new Color(220, 38, 38));
+        btnResolverError.setForeground(Color.WHITE);
+        btnResolverError.setCursor(Cursor.getPredefinedCursor(Cursor.HAND_CURSOR));
+        btnResolverError.setEnabled(false);
+        btnResolverError.addActionListener(e -> {
+            int row = tblMaster.getSelectedRow();
+            if (row >= 0 && row < listaFiltrada.size()) {
+                abrirResolverPedidoError(listaFiltrada.get(row));
+            }
+        });
+        headerMaster.add(btnResolverError);
+
+        p.add(headerMaster, BorderLayout.NORTH);
 
         String[] cols = {
                 "Estado", "Pedido Web", "Nota Entrega", "Factura(s)", "Fecha Emisión",
@@ -337,7 +376,26 @@ public class AuditoriaPedidosFacturacionFrame extends JFrame {
             if (!e.getValueIsAdjusting()) {
                 int row = tblMaster.getSelectedRow();
                 if (row >= 0 && row < listaFiltrada.size()) {
-                    mostrarDetallePedido(listaFiltrada.get(row));
+                    AuditoriaPedidoRow ped = listaFiltrada.get(row);
+                    mostrarDetallePedido(ped);
+                    btnResolverError.setEnabled("ERROR_SIAD".equals(ped.getEstado()));
+                } else {
+                    btnResolverError.setEnabled(false);
+                }
+            }
+        });
+
+        tblMaster.addMouseListener(new java.awt.event.MouseAdapter() {
+            @Override
+            public void mouseClicked(java.awt.event.MouseEvent e) {
+                if (e.getClickCount() == 2) {
+                    int row = tblMaster.getSelectedRow();
+                    if (row >= 0 && row < listaFiltrada.size()) {
+                        AuditoriaPedidoRow ped = listaFiltrada.get(row);
+                        if ("ERROR_SIAD".equals(ped.getEstado())) {
+                            abrirResolverPedidoError(ped);
+                        }
+                    }
                 }
             }
         });
@@ -456,6 +514,7 @@ public class AuditoriaPedidosFacturacionFrame extends JFrame {
         int filtroIdx = cmbFiltroEstado.getSelectedIndex();
 
         listaFiltrada = new ArrayList<>();
+        int errSiad = 0;
         int criticos = 0;
         int parciales = 0;
         int pendientes = 0;
@@ -464,7 +523,8 @@ public class AuditoriaPedidosFacturacionFrame extends JFrame {
 
         for (AuditoriaPedidoRow p : listaTodos) {
             // Contadores globales
-            if ("CRITICO_FALTAN_RENGLONES".equals(p.getEstado())) criticos++;
+            if ("ERROR_SIAD".equals(p.getEstado())) errSiad++;
+            else if ("CRITICO_FALTAN_RENGLONES".equals(p.getEstado())) criticos++;
             else if ("PARCIALMENTE_FACTURADO".equals(p.getEstado())) parciales++;
             else if ("PENDIENTE_FACTURAR".equals(p.getEstado())) pendientes++;
             else if ("FACTURADO_TOTAL".equals(p.getEstado())) completos++;
@@ -472,11 +532,12 @@ public class AuditoriaPedidosFacturacionFrame extends JFrame {
 
             // Filtro por Estado
             boolean matchEstado = switch (filtroIdx) {
-                case 1 -> "CRITICO_FALTAN_RENGLONES".equals(p.getEstado()) || "PARCIALMENTE_FACTURADO".equals(p.getEstado());
-                case 2 -> "CRITICO_FALTAN_RENGLONES".equals(p.getEstado());
-                case 3 -> "PARCIALMENTE_FACTURADO".equals(p.getEstado());
-                case 4 -> "PENDIENTE_FACTURAR".equals(p.getEstado());
-                case 5 -> "FACTURADO_TOTAL".equals(p.getEstado());
+                case 1 -> "ERROR_SIAD".equals(p.getEstado()) || "CRITICO_FALTAN_RENGLONES".equals(p.getEstado()) || "PARCIALMENTE_FACTURADO".equals(p.getEstado());
+                case 2 -> "ERROR_SIAD".equals(p.getEstado());
+                case 3 -> "CRITICO_FALTAN_RENGLONES".equals(p.getEstado());
+                case 4 -> "PARCIALMENTE_FACTURADO".equals(p.getEstado());
+                case 5 -> "PENDIENTE_FACTURAR".equals(p.getEstado());
+                case 6 -> "FACTURADO_TOTAL".equals(p.getEstado());
                 default -> true;
             };
             if (!matchEstado) continue;
@@ -497,6 +558,7 @@ public class AuditoriaPedidosFacturacionFrame extends JFrame {
 
         // Actualizar KPIs
         lblKpiTotalPedidos.setText(DF_CANT.format(listaTodos.size()));
+        lblKpiErrorSiad.setText(DF_CANT.format(errSiad));
         lblKpiCriticos.setText(DF_CANT.format(criticos));
         lblKpiParciales.setText(DF_CANT.format(parciales));
         lblKpiPendientes.setText(DF_CANT.format(pendientes));
@@ -541,7 +603,9 @@ public class AuditoriaPedidosFacturacionFrame extends JFrame {
         lblBannerCliente.setText(p.getCliDes() + " (" + p.getCoCli() + ")");
         lblBannerDiagnostico.setText(p.getDiagnostico());
 
-        if ("CRITICO_FALTAN_RENGLONES".equals(p.getEstado())) {
+        if ("ERROR_SIAD".equals(p.getEstado())) {
+            lblBannerDiagnostico.setForeground(new Color(220, 38, 38));
+        } else if ("CRITICO_FALTAN_RENGLONES".equals(p.getEstado())) {
             lblBannerDiagnostico.setForeground(tm.redAccent());
         } else if ("PARCIALMENTE_FACTURADO".equals(p.getEstado())) {
             lblBannerDiagnostico.setForeground(tm.orangeAccent());
@@ -568,6 +632,33 @@ public class AuditoriaPedidosFacturacionFrame extends JFrame {
                         r.getFacturaDoc() != null && !r.getFacturaDoc().isEmpty() ? r.getFacturaDoc() : "—"
                 });
             }
+        }
+    }
+
+    private void abrirResolverPedidoError(AuditoriaPedidoRow p) {
+        if (p == null || !"ERROR_SIAD".equals(p.getEstado())) return;
+        File dirError = SiadPedidosDAO.getCarpetaSiadError();
+        if (dirError == null || !dirError.exists()) {
+            Toast.show("No se localizó la carpeta de error de SIAD", Toast.Type.ERROR);
+            return;
+        }
+
+        File archivoTxt = new File(dirError, "pedido" + p.getPedidoWeb() + ".txt");
+        if (!archivoTxt.exists()) {
+            archivoTxt = new File(dirError, "PEDIDO" + p.getPedidoWeb() + ".txt");
+        }
+        if (!archivoTxt.exists()) {
+            File[] files = dirError.listFiles((d, name) -> name.toLowerCase().contains(p.getPedidoWeb().toLowerCase()) && name.toLowerCase().endsWith(".txt") && !name.toLowerCase().endsWith(".error.txt"));
+            if (files != null && files.length > 0) {
+                archivoTxt = files[0];
+            }
+        }
+
+        if (archivoTxt != null && archivoTxt.exists()) {
+            ResolverPedidoSiadDialog dlg = new ResolverPedidoSiadDialog(this, archivoTxt, this::consultarEnSegundoPlano);
+            dlg.setVisible(true);
+        } else {
+            Toast.show("No se encontró el archivo físico del pedido en la carpeta de error", Toast.Type.WARNING);
         }
     }
 
@@ -605,7 +696,10 @@ public class AuditoriaPedidosFacturacionFrame extends JFrame {
             lbl.setHorizontalAlignment(SwingConstants.CENTER);
             lbl.setFont(new Font("Segoe UI", Font.BOLD, 11));
 
-            if ("CRITICO_FALTAN_RENGLONES".equals(st)) {
+            if ("ERROR_SIAD".equals(st)) {
+                lbl.setText("🚨 REBOTADO SIAD");
+                lbl.setForeground(new Color(220, 38, 38));
+            } else if ("CRITICO_FALTAN_RENGLONES".equals(st)) {
                 lbl.setText("🔴 FALTAN RENGLONES");
                 lbl.setForeground(new Color(239, 68, 68));
             } else if ("PARCIALMENTE_FACTURADO".equals(st)) {
@@ -638,6 +732,15 @@ public class AuditoriaPedidosFacturacionFrame extends JFrame {
             if ("FACTURADO".equals(st)) {
                 lbl.setText("🟢 FACTURADO");
                 lbl.setForeground(new Color(34, 197, 94));
+            } else if ("ERROR_LOTE_STOCK".equals(st)) {
+                lbl.setText("🔴 ERROR STOCK/LOTE");
+                lbl.setForeground(new Color(220, 38, 38));
+            } else if ("PENDIENTE_IMPORTAR".equals(st)) {
+                lbl.setText("⚪ PENDIENTE SIAD");
+                lbl.setForeground(Color.GRAY);
+            } else if ("NO_FACTURADO".equals(st)) {
+                lbl.setText("⚪ NO FACTURADO");
+                lbl.setForeground(Color.GRAY);
             } else if ("NO_VIAJO_A_NOTA".equals(st)) {
                 lbl.setText("🔴 NO VIAJÓ A NOTA");
                 lbl.setForeground(new Color(239, 68, 68));
