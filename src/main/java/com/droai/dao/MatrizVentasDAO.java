@@ -215,7 +215,50 @@ public class MatrizVentasDAO {
             row.setDa(0);
         }
 
+        applyOctober2026DiscountRule(row);
+
         row.setDescPct(row.getDp());
+    }
+
+    private static final LocalDate OCT_START_2026 = LocalDate.of(2026, 10, 1);
+    private static final LocalDate OCT_CUTOFF_2026 = LocalDate.of(2026, 10, 23);
+
+    /**
+     * Regla de negocio para el periodo de transicion (01 al 22 de Octubre de 2026):
+     * 1. Si fecha < 2026-10-01 o fecha >= 2026-10-23: no aplica ajuste (valores reales).
+     * 2. Si fecha esta entre el 01/10/2026 y el 22/10/2026:
+     *    - Si DV > 0:
+     *      - Si DA > 0: existe valor en DA y en DV (y son distintos). Si DCT == 0,
+     *        el porcentaje de DV corresponde a DCT (Centro de Transferencia) y DV queda en 0.
+     *      - Si DA == 0: el valor de DV pasa a DA y DV queda en 0.
+     */
+    private void applyOctober2026DiscountRule(MatrizVentasRow row) {
+        if (row.getFecha() == null || row.getFecha().isBlank()) {
+            return;
+        }
+        LocalDate date;
+        try {
+            date = LocalDate.parse(row.getFecha().trim());
+        } catch (Exception e) {
+            return;
+        }
+
+        if (!date.isBefore(OCT_START_2026) && date.isBefore(OCT_CUTOFF_2026)) {
+            if (row.getDv() > 0) {
+                if (row.getDa() > 0) {
+                    if (row.getDct() == 0) {
+                        row.setDct(row.getDv());
+                        row.setDv(0);
+                    } else {
+                        row.setDa(row.getDa() + row.getDv());
+                        row.setDv(0);
+                    }
+                } else {
+                    row.setDa(row.getDv());
+                    row.setDv(0);
+                }
+            }
+        }
     }
 
     private double parsePart(String[] parts, int index) {

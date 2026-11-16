@@ -92,7 +92,9 @@ public class NotaCreditoPrintRenderer implements Printable {
         int rY = topBoxY + 17;
 
         g2.setFont(fontBold);
-        g2.drawString("NOTA DE CREDITO Nº:", rX, rY);
+        String tituloDoc = "N/DB".equalsIgnoreCase(model.getCoTipoDoc() != null ? model.getCoTipoDoc().trim() : "") 
+                ? "NOTA DE DEBITO Nº:" : "NOTA DE CREDITO Nº:";
+        g2.drawString(tituloDoc, rX, rY);
         g2.setFont(fontLargeBold);
         drawRightAlignedString(g2, model.getNumeroImpresion(), vX, rY);
 
@@ -235,17 +237,25 @@ public class NotaCreditoPrintRenderer implements Printable {
         int tValX = totBoxX + totBoxW - 12;
         int tRowY = totBoxY + 17;
 
-        // Base Imponible
+        // 1. Monto Exento
+        g2.setFont(fontBold);
+        g2.drawString("Monto Exento:", tRowX, tRowY);
+        g2.setFont(fontRegular);
+        double exentoVal = enDolares ? model.getMontoExentoUsd() : model.getMontoExentoBs();
+        drawRightAlignedString(g2, DF.format(exentoVal), tValX, tRowY);
+
+        // 2. Base Imponible
+        tRowY += 14;
         g2.setFont(fontBold);
         g2.drawString("Base Imponible:", tRowX, tRowY);
         g2.setFont(fontRegular);
         double baseImp = enDolares ? model.getBaseImponibleUsd() : model.getBaseImponibleBs();
-        if (baseImp == 0.0 && (enDolares ? model.getMontoExentoUsd() : model.getMontoExentoBs()) > 0) {
-            baseImp = enDolares ? model.getMontoExentoUsd() : model.getMontoExentoBs();
+        if (baseImp == 0.0 && exentoVal > 0 && (enDolares ? model.getIvaUsd() : model.getIvaBs()) == 0.0) {
+            baseImp = 0.0;
         }
         drawRightAlignedString(g2, DF.format(baseImp), tValX, tRowY);
 
-        // I.V.A.
+        // 3. I.V.A.
         tRowY += 14;
         g2.setFont(fontBold);
         g2.drawString("I.V.A.:", tRowX, tRowY);
@@ -253,20 +263,15 @@ public class NotaCreditoPrintRenderer implements Printable {
         double ivaVal = enDolares ? model.getIvaUsd() : model.getIvaBs();
         drawRightAlignedString(g2, DF.format(ivaVal), tValX, tRowY);
 
-        // Monto Exento
-        tRowY += 14;
-        g2.setFont(fontBold);
-        g2.drawString("Monto Exento:", tRowX, tRowY);
-        g2.setFont(fontRegular);
-        double exentoVal = enDolares ? model.getMontoExentoUsd() : model.getMontoExentoBs();
-        drawRightAlignedString(g2, DF.format(exentoVal), tValX, tRowY);
-
-        // Neto
+        // 4. Neto (Fondo gris con borde redondeado inferior)
         tRowY += 15;
+        g2.setColor(new Color(228, 228, 228));
+        g2.fill(new RoundRectangle2D.Float(totBoxX, tRowY - 10, totBoxW, 16, 6, 6));
+        g2.setColor(Color.BLACK);
         g2.setFont(fontHeaderBold);
-        g2.drawString("Neto:", tRowX, tRowY);
+        g2.drawString("Neto:", tRowX, tRowY + 1);
         double netoVal = enDolares ? model.getMontoNetoUsd() : model.getMontoNetoBs();
-        drawRightAlignedString(g2, DF.format(netoVal), tValX, tRowY);
+        drawRightAlignedString(g2, DF.format(netoVal), tValX, tRowY + 1);
 
         // Marca de moneda si es USD
         if (enDolares) {

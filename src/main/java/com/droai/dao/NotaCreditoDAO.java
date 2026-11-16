@@ -10,7 +10,8 @@ import java.util.ArrayList;
 import java.util.List;
 
 /**
- * DAO para consulta, navegación y gestión de Notas de Crédito / Documentos de Venta (saDocumentoVenta).
+ * DAO para consulta, navegación y gestión de Notas de Crédito / Documentos de
+ * Venta (saDocumentoVenta).
  */
 public class NotaCreditoDAO {
 
@@ -18,139 +19,153 @@ public class NotaCreditoDAO {
     private static final String DB_PRODUCCION = "DROA_A";
 
     private static final String SQL_SELECT_DOC = """
-        SELECT
-            RTRIM(d.nro_doc) AS nro_doc,
-            RTRIM(d.co_tipo_doc) AS co_tipo_doc,
-            ISNULL(RTRIM(t.descrip), RTRIM(d.co_tipo_doc)) AS tipo_doc_desc,
-            ISNULL(RTRIM(t.tipo_mov), 'CR') AS tipo_mov,
-            d.fec_emis,
-            d.fec_venc,
-            d.fec_reg,
-            d.feccom AS fec_cheque,
-            ISNULL(RTRIM(d.n_control), '') AS n_control,
-            ISNULL(RTRIM(d.observa), '') AS descripcion,
-            ISNULL(d.impresa, 0) AS impresa,
-            ISNULL(d.anulado, 0) AS anulado,
-            
-            -- Cliente
-            ISNULL(RTRIM(cli.co_cli), RTRIM(d.co_cli)) AS co_cli,
-            ISNULL(RTRIM(cli.cli_des), '') AS cli_des,
-            ISNULL(RTRIM(cli.rif), '') AS rif,
-            ISNULL(RTRIM(cli.direc1), '') AS direccion,
-            ISNULL(RTRIM(cli.telefonos), '') AS telefonos,
-            ISNULL(RTRIM(cli.email), '') AS email,
-            
-            -- Vendedor
-            ISNULL(RTRIM(ven.co_ven), RTRIM(d.co_ven)) AS co_ven,
-            ISNULL(RTRIM(ven.ven_des), RTRIM(d.co_ven)) AS ven_des,
-            
-            -- Moneda
-            ISNULL(RTRIM(d.co_mone), 'USD') AS co_mone,
-            ISNULL(RTRIM(m.mone_des), 'DOLAR AMERICANO') AS mone_des,
-            ISNULL(d.tasa, 1.0) AS tasa,
-            ISNULL(RTRIM(d.tipo_imp), '7') AS tipo_imp,
-            
-            -- Documento origen / afectado
-            ISNULL(RTRIM(d.doc_orig), '') AS doc_orig_raw,
-            ISNULL(RTRIM(d.nro_orig), '') AS nro_orig_raw,
-            CASE 
-                WHEN RTRIM(d.doc_orig) = 'DEVO' THEN 'FACT'
-                ELSE ISNULL(RTRIM(d.doc_orig), '')
-            END AS doc_orig,
-            CASE 
-                WHEN RTRIM(d.doc_orig) = 'DEVO' THEN 
-                    ISNULL((SELECT TOP 1 RTRIM(reng.num_doc) FROM saDevolucionClienteReng reng WHERE reng.doc_num = d.nro_orig AND (reng.tipo_doc='FACT' OR reng.tipo_doc='NENT' OR reng.reng_num=1)), RTRIM(d.nro_orig))
-                ELSE ISNULL(RTRIM(d.nro_orig), '')
-            END AS nro_orig,
-            CASE 
-                WHEN RTRIM(d.doc_orig) = 'DEVO' THEN 
-                    (SELECT TOP 1 docV.fec_emis FROM saDocumentoVenta docV WHERE docV.nro_doc = (SELECT TOP 1 reng.num_doc FROM saDevolucionClienteReng reng WHERE reng.doc_num = d.nro_orig AND (reng.tipo_doc='FACT' OR reng.tipo_doc='NENT' OR reng.reng_num=1)) AND docV.co_tipo_doc='FACT')
-                ELSE orig.fec_emis
-            END AS fec_emis_orig,
-            CASE 
-                WHEN RTRIM(d.doc_orig) = 'DEVO' THEN 
-                    (SELECT TOP 1 RTRIM(docV.n_control) FROM saDocumentoVenta docV WHERE docV.nro_doc = (SELECT TOP 1 reng.num_doc FROM saDevolucionClienteReng reng WHERE reng.doc_num = d.nro_orig AND (reng.tipo_doc='FACT' OR reng.tipo_doc='NENT' OR reng.reng_num=1)) AND docV.co_tipo_doc='FACT')
-                ELSE ISNULL(RTRIM(orig.n_control), '')
-            END AS n_control_orig,
-            CASE 
-                WHEN RTRIM(d.doc_orig) = 'DEVO' THEN 
-                    (SELECT TOP 1 docV.total_bruto FROM saDocumentoVenta docV WHERE docV.nro_doc = (SELECT TOP 1 reng.num_doc FROM saDevolucionClienteReng reng WHERE reng.doc_num = d.nro_orig AND (reng.tipo_doc='FACT' OR reng.tipo_doc='NENT' OR reng.reng_num=1)) AND docV.co_tipo_doc='FACT')
-                ELSE ISNULL(orig.total_bruto, 0.0)
-            END AS subtotal_orig_bs,
-            CASE 
-                WHEN RTRIM(d.doc_orig) = 'DEVO' THEN 
-                    (SELECT TOP 1 docV.monto_imp FROM saDocumentoVenta docV WHERE docV.nro_doc = (SELECT TOP 1 reng.num_doc FROM saDevolucionClienteReng reng WHERE reng.doc_num = d.nro_orig AND (reng.tipo_doc='FACT' OR reng.tipo_doc='NENT' OR reng.reng_num=1)) AND docV.co_tipo_doc='FACT')
-                ELSE ISNULL(orig.monto_imp, 0.0)
-            END AS iva_orig_bs,
-            CASE 
-                WHEN RTRIM(d.doc_orig) = 'DEVO' THEN 
-                    (SELECT TOP 1 docV.total_neto FROM saDocumentoVenta docV WHERE docV.nro_doc = (SELECT TOP 1 reng.num_doc FROM saDevolucionClienteReng reng WHERE reng.doc_num = d.nro_orig AND (reng.tipo_doc='FACT' OR reng.tipo_doc='NENT' OR reng.reng_num=1)) AND docV.co_tipo_doc='FACT')
-                ELSE ISNULL(orig.total_neto, 0.0)
-            END AS total_orig_bs,
-            
-            -- Factura de respaldo si doc_orig='FACT' o saFacturaVenta
-            fac.fec_emis AS fac_fec_emis,
-            ISNULL(RTRIM(fac.n_control), '') AS fac_n_control,
-            ISNULL(fac.total_bruto, 0.0) AS fac_subtotal_bs,
-            ISNULL(fac.monto_imp, 0.0) AS fac_iva_bs,
-            ISNULL(fac.total_neto, 0.0) AS fac_total_bs,
-            
-            -- Montos
-            ISNULL(d.total_bruto, 0.0) AS total_bruto,
-            ISNULL(d.monto_desc_glob, 0.0) AS monto_desc_glob,
-            ISNULL(RTRIM(d.porc_desc_glob), '') AS porc_desc_glob,
-            ISNULL(d.monto_reca, 0.0) AS monto_reca,
-            ISNULL(RTRIM(d.porc_reca), '') AS porc_reca,
-            ISNULL(d.total_neto, 0.0) AS total_neto,
-            ISNULL(d.monto_imp, 0.0) AS monto_imp,
-            ISNULL(d.monto_imp2, 0.0) AS monto_imp2,
-            ISNULL(d.monto_imp3, 0.0) AS monto_imp3,
-            ISNULL(d.otros1, 0.0) AS otros1,
-            ISNULL(d.otros2, 0.0) AS otros2,
-            ISNULL(d.otros3, 0.0) AS otros3,
-            ISNULL(d.adicional, 0.0) AS adicional,
-            ISNULL(d.saldo, 0.0) AS saldo,
-            
-            -- Banco y Cheque
-            ISNULL(RTRIM(d.nro_che), '') AS nro_che,
-            ISNULL(RTRIM(d.mov_ban), '') AS mov_ban,
-            ISNULL(RTRIM(d.num_comprobante), '') AS num_comprobante,
-            
-            -- Campos Adicionales y Auditoría
-            ISNULL(RTRIM(d.campo1), '') AS campo1,
-            ISNULL(RTRIM(d.campo2), '') AS campo2,
-            ISNULL(RTRIM(d.campo3), '') AS campo3,
-            ISNULL(RTRIM(d.campo4), '') AS campo4,
-            ISNULL(RTRIM(d.campo5), '') AS campo5,
-            ISNULL(RTRIM(d.campo6), '') AS campo6,
-            ISNULL(RTRIM(d.campo7), '') AS campo7,
-            ISNULL(RTRIM(d.campo8), '') AS campo8,
-            ISNULL(RTRIM(d.co_us_in), '') AS co_us_in,
-            d.fe_us_in,
-            ISNULL(RTRIM(d.co_us_mo), '') AS co_us_mo,
-            d.fe_us_mo,
-            ISNULL(RTRIM(d.co_sucu_in), '') AS co_sucu_in,
-            ISNULL(RTRIM(d.co_sucu_mo), '') AS co_sucu_mo
-        FROM saDocumentoVenta d
-        LEFT JOIN saTipoDocumento t ON d.co_tipo_doc = t.co_tipo_doc
-        LEFT JOIN saCliente cli ON d.co_cli = cli.co_cli
-        LEFT JOIN saVendedor ven ON d.co_ven = ven.co_ven
-        LEFT JOIN saMoneda m ON d.co_mone = m.co_mone
-        LEFT JOIN saDocumentoVenta orig ON RTRIM(d.nro_orig) = RTRIM(orig.nro_doc) AND RTRIM(d.doc_orig) = RTRIM(orig.co_tipo_doc)
-        LEFT JOIN saFacturaVenta fac ON RTRIM(d.nro_orig) = RTRIM(fac.doc_num)
-        WHERE RTRIM(d.nro_doc) = ? AND RTRIM(d.co_tipo_doc) = ?
-    """;
+                SELECT
+                    RTRIM(d.nro_doc) AS nro_doc,
+                    RTRIM(d.co_tipo_doc) AS co_tipo_doc,
+                    ISNULL(RTRIM(t.descrip), RTRIM(d.co_tipo_doc)) AS tipo_doc_desc,
+                    ISNULL(RTRIM(t.tipo_mov), 'CR') AS tipo_mov,
+                    d.fec_emis,
+                    d.fec_venc,
+                    d.fec_reg,
+                    d.feccom AS fec_cheque,
+                    ISNULL(RTRIM(d.n_control), '') AS n_control,
+                    ISNULL(RTRIM(d.observa), '') AS descripcion,
+                    ISNULL(d.impresa, 0) AS impresa,
+                    ISNULL(d.anulado, 0) AS anulado,
+
+                    -- Cliente
+                    ISNULL(RTRIM(cli.co_cli), RTRIM(d.co_cli)) AS co_cli,
+                    ISNULL(RTRIM(cli.cli_des), '') AS cli_des,
+                    ISNULL(RTRIM(cli.rif), '') AS rif,
+                    ISNULL(RTRIM(cli.direc1), '') AS direccion,
+                    ISNULL(RTRIM(cli.telefonos), '') AS telefonos,
+                    ISNULL(RTRIM(cli.email), '') AS email,
+
+                    -- Vendedor
+                    ISNULL(RTRIM(ven.co_ven), RTRIM(d.co_ven)) AS co_ven,
+                    ISNULL(RTRIM(ven.ven_des), RTRIM(d.co_ven)) AS ven_des,
+
+                    -- Moneda
+                    ISNULL(RTRIM(d.co_mone), 'USD') AS co_mone,
+                    ISNULL(RTRIM(m.mone_des), 'DOLAR AMERICANO') AS mone_des,
+                    ISNULL(d.tasa, 1.0) AS tasa,
+                    ISNULL(RTRIM(d.tipo_imp), '7') AS tipo_imp,
+
+                    -- Documento origen / afectado
+                    ISNULL(RTRIM(d.doc_orig), '') AS doc_orig_raw,
+                    ISNULL(RTRIM(d.nro_orig), '') AS nro_orig_raw,
+                    CASE
+                        WHEN RTRIM(d.doc_orig) = 'DEVO' THEN 'FACT'
+                        WHEN RTRIM(d.co_tipo_doc) IN ('N/DB', 'N/CR') AND RTRIM(d.doc_orig) = 'COBRO' THEN 'FACT'
+                        ELSE ISNULL(RTRIM(d.doc_orig), '')
+                    END AS doc_orig,
+                    CASE
+                        WHEN RTRIM(d.doc_orig) = 'DEVO' THEN
+                            ISNULL((SELECT TOP 1 RTRIM(reng.num_doc) FROM saDevolucionClienteReng reng WHERE reng.doc_num = d.nro_orig AND (reng.tipo_doc='FACT' OR reng.tipo_doc='NENT' OR reng.reng_num=1)), RTRIM(d.nro_orig))
+                        WHEN RTRIM(d.co_tipo_doc) IN ('N/DB', 'N/CR') AND RTRIM(d.doc_orig) = 'COBRO' THEN
+                            ISNULL((SELECT TOP 1 RTRIM(PDC.nro_doc) FROM saCobroDocReng cd1 LEFT JOIN saCobroDocReng PDC ON cd1.rowguid_reng_ori = PDC.rowguid LEFT JOIN saCobro C ON cd1.cob_num = C.cob_num WHERE cd1.nro_doc = d.nro_doc AND cd1.co_tipo_doc = d.co_tipo_doc AND C.anulado = 0), RTRIM(d.nro_orig))
+                        ELSE ISNULL(RTRIM(d.nro_orig), '')
+                    END AS nro_orig,
+                    CASE
+                        WHEN RTRIM(d.doc_orig) = 'DEVO' THEN
+                            (SELECT TOP 1 docV.fec_emis FROM saDocumentoVenta docV WHERE docV.nro_doc = (SELECT TOP 1 reng.num_doc FROM saDevolucionClienteReng reng WHERE reng.doc_num = d.nro_orig AND (reng.tipo_doc='FACT' OR reng.tipo_doc='NENT' OR reng.reng_num=1)) AND docV.co_tipo_doc='FACT')
+                        WHEN RTRIM(d.co_tipo_doc) IN ('N/DB', 'N/CR') AND RTRIM(d.doc_orig) = 'COBRO' THEN
+                            (SELECT TOP 1 docV.fec_emis FROM saCobroDocReng cd1 LEFT JOIN saCobroDocReng PDC ON cd1.rowguid_reng_ori = PDC.rowguid LEFT JOIN saDocumentoVenta docV ON PDC.nro_doc = docV.nro_doc AND PDC.co_tipo_doc = docV.co_tipo_doc LEFT JOIN saCobro C ON cd1.cob_num = C.cob_num WHERE cd1.nro_doc = d.nro_doc AND cd1.co_tipo_doc = d.co_tipo_doc AND C.anulado = 0)
+                        ELSE orig.fec_emis
+                    END AS fec_emis_orig,
+                    CASE
+                        WHEN RTRIM(d.doc_orig) = 'DEVO' THEN
+                            (SELECT TOP 1 RTRIM(docV.n_control) FROM saDocumentoVenta docV WHERE docV.nro_doc = (SELECT TOP 1 reng.num_doc FROM saDevolucionClienteReng reng WHERE reng.doc_num = d.nro_orig AND (reng.tipo_doc='FACT' OR reng.tipo_doc='NENT' OR reng.reng_num=1)) AND docV.co_tipo_doc='FACT')
+                        WHEN RTRIM(d.co_tipo_doc) IN ('N/DB', 'N/CR') AND RTRIM(d.doc_orig) = 'COBRO' THEN
+                            (SELECT TOP 1 RTRIM(docV.n_control) FROM saCobroDocReng cd1 LEFT JOIN saCobroDocReng PDC ON cd1.rowguid_reng_ori = PDC.rowguid LEFT JOIN saDocumentoVenta docV ON PDC.nro_doc = docV.nro_doc AND PDC.co_tipo_doc = docV.co_tipo_doc LEFT JOIN saCobro C ON cd1.cob_num = C.cob_num WHERE cd1.nro_doc = d.nro_doc AND cd1.co_tipo_doc = d.co_tipo_doc AND C.anulado = 0)
+                        ELSE ISNULL(RTRIM(orig.n_control), '')
+                    END AS n_control_orig,
+                    CASE
+                        WHEN RTRIM(d.doc_orig) = 'DEVO' THEN
+                            (SELECT TOP 1 docV.total_bruto FROM saDocumentoVenta docV WHERE docV.nro_doc = (SELECT TOP 1 reng.num_doc FROM saDevolucionClienteReng reng WHERE reng.doc_num = d.nro_orig AND (reng.tipo_doc='FACT' OR reng.tipo_doc='NENT' OR reng.reng_num=1)) AND docV.co_tipo_doc='FACT')
+                        WHEN RTRIM(d.co_tipo_doc) IN ('N/DB', 'N/CR') AND RTRIM(d.doc_orig) = 'COBRO' THEN
+                            (SELECT TOP 1 docV.total_bruto FROM saCobroDocReng cd1 LEFT JOIN saCobroDocReng PDC ON cd1.rowguid_reng_ori = PDC.rowguid LEFT JOIN saDocumentoVenta docV ON PDC.nro_doc = docV.nro_doc AND PDC.co_tipo_doc = docV.co_tipo_doc LEFT JOIN saCobro C ON cd1.cob_num = C.cob_num WHERE cd1.nro_doc = d.nro_doc AND cd1.co_tipo_doc = d.co_tipo_doc AND C.anulado = 0)
+                        ELSE ISNULL(orig.total_bruto, 0.0)
+                    END AS subtotal_orig_bs,
+                    CASE
+                        WHEN RTRIM(d.doc_orig) = 'DEVO' THEN
+                            (SELECT TOP 1 docV.monto_imp FROM saDocumentoVenta docV WHERE docV.nro_doc = (SELECT TOP 1 reng.num_doc FROM saDevolucionClienteReng reng WHERE reng.doc_num = d.nro_orig AND (reng.tipo_doc='FACT' OR reng.tipo_doc='NENT' OR reng.reng_num=1)) AND docV.co_tipo_doc='FACT')
+                        WHEN RTRIM(d.co_tipo_doc) IN ('N/DB', 'N/CR') AND RTRIM(d.doc_orig) = 'COBRO' THEN
+                            (SELECT TOP 1 docV.monto_imp FROM saCobroDocReng cd1 LEFT JOIN saCobroDocReng PDC ON cd1.rowguid_reng_ori = PDC.rowguid LEFT JOIN saDocumentoVenta docV ON PDC.nro_doc = docV.nro_doc AND PDC.co_tipo_doc = docV.co_tipo_doc LEFT JOIN saCobro C ON cd1.cob_num = C.cob_num WHERE cd1.nro_doc = d.nro_doc AND cd1.co_tipo_doc = d.co_tipo_doc AND C.anulado = 0)
+                        ELSE ISNULL(orig.monto_imp, 0.0)
+                    END AS iva_orig_bs,
+                    CASE
+                        WHEN RTRIM(d.doc_orig) = 'DEVO' THEN
+                            (SELECT TOP 1 docV.total_neto FROM saDocumentoVenta docV WHERE docV.nro_doc = (SELECT TOP 1 reng.num_doc FROM saDevolucionClienteReng reng WHERE reng.doc_num = d.nro_orig AND (reng.tipo_doc='FACT' OR reng.tipo_doc='NENT' OR reng.reng_num=1)) AND docV.co_tipo_doc='FACT')
+                        WHEN RTRIM(d.co_tipo_doc) IN ('N/DB', 'N/CR') AND RTRIM(d.doc_orig) = 'COBRO' THEN
+                            (SELECT TOP 1 docV.total_neto FROM saCobroDocReng cd1 LEFT JOIN saCobroDocReng PDC ON cd1.rowguid_reng_ori = PDC.rowguid LEFT JOIN saDocumentoVenta docV ON PDC.nro_doc = docV.nro_doc AND PDC.co_tipo_doc = docV.co_tipo_doc LEFT JOIN saCobro C ON cd1.cob_num = C.cob_num WHERE cd1.nro_doc = d.nro_doc AND cd1.co_tipo_doc = d.co_tipo_doc AND C.anulado = 0)
+                        ELSE ISNULL(orig.total_neto, 0.0)
+                    END AS total_orig_bs,
+
+                    -- Factura de respaldo si doc_orig='FACT' o saFacturaVenta
+                    fac.fec_emis AS fac_fec_emis,
+                    ISNULL(RTRIM(fac.n_control), '') AS fac_n_control,
+                    ISNULL(fac.total_bruto, 0.0) AS fac_subtotal_bs,
+                    ISNULL(fac.monto_imp, 0.0) AS fac_iva_bs,
+                    ISNULL(fac.total_neto, 0.0) AS fac_total_bs,
+
+                    -- Montos
+                    ISNULL(d.total_bruto, 0.0) AS total_bruto,
+                    ISNULL(d.monto_desc_glob, 0.0) AS monto_desc_glob,
+                    ISNULL(RTRIM(d.porc_desc_glob), '') AS porc_desc_glob,
+                    ISNULL(d.monto_reca, 0.0) AS monto_reca,
+                    ISNULL(RTRIM(d.porc_reca), '') AS porc_reca,
+                    ISNULL(d.total_neto, 0.0) AS total_neto,
+                    ISNULL(d.monto_imp, 0.0) AS monto_imp,
+                    ISNULL(d.monto_imp2, 0.0) AS monto_imp2,
+                    ISNULL(d.monto_imp3, 0.0) AS monto_imp3,
+                    ISNULL(d.otros1, 0.0) AS otros1,
+                    ISNULL(d.otros2, 0.0) AS otros2,
+                    ISNULL(d.otros3, 0.0) AS otros3,
+                    ISNULL(d.adicional, 0.0) AS adicional,
+                    ISNULL(d.saldo, 0.0) AS saldo,
+
+                    -- Banco y Cheque
+                    ISNULL(RTRIM(d.nro_che), '') AS nro_che,
+                    ISNULL(RTRIM(d.mov_ban), '') AS mov_ban,
+                    ISNULL(RTRIM(d.num_comprobante), '') AS num_comprobante,
+
+                    -- Campos Adicionales y Auditoría
+                    ISNULL(RTRIM(d.campo1), '') AS campo1,
+                    ISNULL(RTRIM(d.campo2), '') AS campo2,
+                    ISNULL(RTRIM(d.campo3), '') AS campo3,
+                    ISNULL(RTRIM(d.campo4), '') AS campo4,
+                    ISNULL(RTRIM(d.campo5), '') AS campo5,
+                    ISNULL(RTRIM(d.campo6), '') AS campo6,
+                    ISNULL(RTRIM(d.campo7), '') AS campo7,
+                    ISNULL(RTRIM(d.campo8), '') AS campo8,
+                    ISNULL(RTRIM(d.co_us_in), '') AS co_us_in,
+                    d.fe_us_in,
+                    ISNULL(RTRIM(d.co_us_mo), '') AS co_us_mo,
+                    d.fe_us_mo,
+                    ISNULL(RTRIM(d.co_sucu_in), '') AS co_sucu_in,
+                    ISNULL(RTRIM(d.co_sucu_mo), '') AS co_sucu_mo
+                FROM saDocumentoVenta d
+                LEFT JOIN saTipoDocumento t ON d.co_tipo_doc = t.co_tipo_doc
+                LEFT JOIN saCliente cli ON d.co_cli = cli.co_cli
+                LEFT JOIN saVendedor ven ON d.co_ven = ven.co_ven
+                LEFT JOIN saMoneda m ON d.co_mone = m.co_mone
+                LEFT JOIN saDocumentoVenta orig ON RTRIM(d.nro_orig) = RTRIM(orig.nro_doc) AND RTRIM(d.doc_orig) = RTRIM(orig.co_tipo_doc)
+                LEFT JOIN saFacturaVenta fac ON RTRIM(d.nro_orig) = RTRIM(fac.doc_num)
+                WHERE RTRIM(d.nro_doc) = ? AND RTRIM(d.co_tipo_doc) = ?
+            """;
 
     /**
      * Consulta una Nota de Crédito / Documento de Venta específico.
      */
     public NotaCreditoModel consultarDocumento(String nroDoc, String coTipoDoc) {
-        if (nroDoc == null || nroDoc.isBlank()) return null;
+        if (nroDoc == null || nroDoc.isBlank())
+            return null;
         String tipo = (coTipoDoc != null && !coTipoDoc.isBlank()) ? coTipoDoc.trim() : "N/CR";
         String nroLimpio = nroDoc.trim();
 
         try (Connection conn = DatabaseConfig.getConnection(DB_PRODUCCION);
-             PreparedStatement ps = conn.prepareStatement(SQL_SELECT_DOC)) {
+                PreparedStatement ps = conn.prepareStatement(SQL_SELECT_DOC)) {
 
             ps.setString(1, nroLimpio);
             ps.setString(2, tipo);
@@ -172,117 +187,130 @@ public class NotaCreditoDAO {
     public List<NotaCreditoModel> buscarNotasCredito(String filtro, int limit) {
         List<NotaCreditoModel> list = new ArrayList<>();
         String sql = """
-            SELECT TOP (?)
-                RTRIM(d.nro_doc) AS nro_doc,
-                RTRIM(d.co_tipo_doc) AS co_tipo_doc,
-                ISNULL(RTRIM(t.descrip), RTRIM(d.co_tipo_doc)) AS tipo_doc_desc,
-                ISNULL(RTRIM(t.tipo_mov), 'CR') AS tipo_mov,
-                d.fec_emis,
-                d.fec_venc,
-                d.fec_reg,
-                d.feccom AS fec_cheque,
-                ISNULL(RTRIM(d.n_control), '') AS n_control,
-                ISNULL(RTRIM(d.observa), '') AS descripcion,
-                ISNULL(d.impresa, 0) AS impresa,
-                ISNULL(d.anulado, 0) AS anulado,
-                ISNULL(RTRIM(cli.co_cli), RTRIM(d.co_cli)) AS co_cli,
-                ISNULL(RTRIM(cli.cli_des), '') AS cli_des,
-                ISNULL(RTRIM(cli.rif), '') AS rif,
-                ISNULL(RTRIM(cli.direc1), '') AS direccion,
-                ISNULL(RTRIM(cli.telefonos), '') AS telefonos,
-                ISNULL(RTRIM(cli.email), '') AS email,
-                ISNULL(RTRIM(ven.co_ven), RTRIM(d.co_ven)) AS co_ven,
-                ISNULL(RTRIM(ven.ven_des), RTRIM(d.co_ven)) AS ven_des,
-                ISNULL(RTRIM(d.co_mone), 'USD') AS co_mone,
-                ISNULL(RTRIM(m.mone_des), 'DOLAR AMERICANO') AS mone_des,
-                ISNULL(d.tasa, 1.0) AS tasa,
-                ISNULL(RTRIM(d.tipo_imp), '7') AS tipo_imp,
-                ISNULL(RTRIM(d.doc_orig), '') AS doc_orig_raw,
-                ISNULL(RTRIM(d.nro_orig), '') AS nro_orig_raw,
-                CASE 
-                    WHEN RTRIM(d.doc_orig) = 'DEVO' THEN 'FACT'
-                    ELSE ISNULL(RTRIM(d.doc_orig), '')
-                END AS doc_orig,
-                CASE 
-                    WHEN RTRIM(d.doc_orig) = 'DEVO' THEN 
-                        ISNULL((SELECT TOP 1 RTRIM(reng.num_doc) FROM saDevolucionClienteReng reng WHERE reng.doc_num = d.nro_orig AND (reng.tipo_doc='FACT' OR reng.tipo_doc='NENT' OR reng.reng_num=1)), RTRIM(d.nro_orig))
-                    ELSE ISNULL(RTRIM(d.nro_orig), '')
-                END AS nro_orig,
-                CASE 
-                    WHEN RTRIM(d.doc_orig) = 'DEVO' THEN 
-                        (SELECT TOP 1 docV.fec_emis FROM saDocumentoVenta docV WHERE docV.nro_doc = (SELECT TOP 1 reng.num_doc FROM saDevolucionClienteReng reng WHERE reng.doc_num = d.nro_orig AND (reng.tipo_doc='FACT' OR reng.tipo_doc='NENT' OR reng.reng_num=1)) AND docV.co_tipo_doc='FACT')
-                    ELSE orig.fec_emis
-                END AS fec_emis_orig,
-                CASE 
-                    WHEN RTRIM(d.doc_orig) = 'DEVO' THEN 
-                        (SELECT TOP 1 RTRIM(docV.n_control) FROM saDocumentoVenta docV WHERE docV.nro_doc = (SELECT TOP 1 reng.num_doc FROM saDevolucionClienteReng reng WHERE reng.doc_num = d.nro_orig AND (reng.tipo_doc='FACT' OR reng.tipo_doc='NENT' OR reng.reng_num=1)) AND docV.co_tipo_doc='FACT')
-                    ELSE ISNULL(RTRIM(orig.n_control), '')
-                END AS n_control_orig,
-                CASE 
-                    WHEN RTRIM(d.doc_orig) = 'DEVO' THEN 
-                        (SELECT TOP 1 docV.total_bruto FROM saDocumentoVenta docV WHERE docV.nro_doc = (SELECT TOP 1 reng.num_doc FROM saDevolucionClienteReng reng WHERE reng.doc_num = d.nro_orig AND (reng.tipo_doc='FACT' OR reng.tipo_doc='NENT' OR reng.reng_num=1)) AND docV.co_tipo_doc='FACT')
-                    ELSE ISNULL(orig.total_bruto, 0.0)
-                END AS subtotal_orig_bs,
-                CASE 
-                    WHEN RTRIM(d.doc_orig) = 'DEVO' THEN 
-                        (SELECT TOP 1 docV.monto_imp FROM saDocumentoVenta docV WHERE docV.nro_doc = (SELECT TOP 1 reng.num_doc FROM saDevolucionClienteReng reng WHERE reng.doc_num = d.nro_orig AND (reng.tipo_doc='FACT' OR reng.tipo_doc='NENT' OR reng.reng_num=1)) AND docV.co_tipo_doc='FACT')
-                    ELSE ISNULL(orig.monto_imp, 0.0)
-                END AS iva_orig_bs,
-                CASE 
-                    WHEN RTRIM(d.doc_orig) = 'DEVO' THEN 
-                        (SELECT TOP 1 docV.total_neto FROM saDocumentoVenta docV WHERE docV.nro_doc = (SELECT TOP 1 reng.num_doc FROM saDevolucionClienteReng reng WHERE reng.doc_num = d.nro_orig AND (reng.tipo_doc='FACT' OR reng.tipo_doc='NENT' OR reng.reng_num=1)) AND docV.co_tipo_doc='FACT')
-                    ELSE ISNULL(orig.total_neto, 0.0)
-                END AS total_orig_bs,
-                fac.fec_emis AS fac_fec_emis,
-                ISNULL(RTRIM(fac.n_control), '') AS fac_n_control,
-                ISNULL(fac.total_bruto, 0.0) AS fac_subtotal_bs,
-                ISNULL(fac.monto_imp, 0.0) AS fac_iva_bs,
-                ISNULL(fac.total_neto, 0.0) AS fac_total_bs,
-                ISNULL(d.total_bruto, 0.0) AS total_bruto,
-                ISNULL(d.monto_desc_glob, 0.0) AS monto_desc_glob,
-                ISNULL(RTRIM(d.porc_desc_glob), '') AS porc_desc_glob,
-                ISNULL(d.monto_reca, 0.0) AS monto_reca,
-                ISNULL(RTRIM(d.porc_reca), '') AS porc_reca,
-                ISNULL(d.total_neto, 0.0) AS total_neto,
-                ISNULL(d.monto_imp, 0.0) AS monto_imp,
-                ISNULL(d.monto_imp2, 0.0) AS monto_imp2,
-                ISNULL(d.monto_imp3, 0.0) AS monto_imp3,
-                ISNULL(d.otros1, 0.0) AS otros1,
-                ISNULL(d.otros2, 0.0) AS otros2,
-                ISNULL(d.otros3, 0.0) AS otros3,
-                ISNULL(d.adicional, 0.0) AS adicional,
-                ISNULL(d.saldo, 0.0) AS saldo,
-                ISNULL(RTRIM(d.nro_che), '') AS nro_che,
-                ISNULL(RTRIM(d.mov_ban), '') AS mov_ban,
-                ISNULL(RTRIM(d.num_comprobante), '') AS num_comprobante,
-                ISNULL(RTRIM(d.campo1), '') AS campo1,
-                ISNULL(RTRIM(d.campo2), '') AS campo2,
-                ISNULL(RTRIM(d.campo3), '') AS campo3,
-                ISNULL(RTRIM(d.campo4), '') AS campo4,
-                ISNULL(RTRIM(d.campo5), '') AS campo5,
-                ISNULL(RTRIM(d.campo6), '') AS campo6,
-                ISNULL(RTRIM(d.campo7), '') AS campo7,
-                ISNULL(RTRIM(d.campo8), '') AS campo8,
-                ISNULL(RTRIM(d.co_us_in), '') AS co_us_in,
-                d.fe_us_in,
-                ISNULL(RTRIM(d.co_us_mo), '') AS co_us_mo,
-                d.fe_us_mo,
-                ISNULL(RTRIM(d.co_sucu_in), '') AS co_sucu_in,
-                ISNULL(RTRIM(d.co_sucu_mo), '') AS co_sucu_mo
-            FROM saDocumentoVenta d
-            LEFT JOIN saTipoDocumento t ON d.co_tipo_doc = t.co_tipo_doc
-            LEFT JOIN saCliente cli ON d.co_cli = cli.co_cli
-            LEFT JOIN saVendedor ven ON d.co_ven = ven.co_ven
-            LEFT JOIN saMoneda m ON d.co_mone = m.co_mone
-            LEFT JOIN saDocumentoVenta orig ON RTRIM(d.nro_orig) = RTRIM(orig.nro_doc) AND RTRIM(d.doc_orig) = RTRIM(orig.co_tipo_doc)
-            LEFT JOIN saFacturaVenta fac ON RTRIM(d.nro_orig) = RTRIM(fac.doc_num)
-            WHERE d.co_tipo_doc = 'N/CR'
-              AND (? = '' OR d.nro_doc LIKE ? OR d.n_control LIKE ? OR d.campo5 LIKE ? OR cli.cli_des LIKE ? OR d.observa LIKE ? OR d.nro_orig LIKE ?)
-            ORDER BY d.fec_emis DESC, d.nro_doc DESC
-        """;
+                    SELECT TOP (?)
+                        RTRIM(d.nro_doc) AS nro_doc,
+                        RTRIM(d.co_tipo_doc) AS co_tipo_doc,
+                        ISNULL(RTRIM(t.descrip), RTRIM(d.co_tipo_doc)) AS tipo_doc_desc,
+                        ISNULL(RTRIM(t.tipo_mov), 'CR') AS tipo_mov,
+                        d.fec_emis,
+                        d.fec_venc,
+                        d.fec_reg,
+                        d.feccom AS fec_cheque,
+                        ISNULL(RTRIM(d.n_control), '') AS n_control,
+                        ISNULL(RTRIM(d.observa), '') AS descripcion,
+                        ISNULL(d.impresa, 0) AS impresa,
+                        ISNULL(d.anulado, 0) AS anulado,
+                        ISNULL(RTRIM(cli.co_cli), RTRIM(d.co_cli)) AS co_cli,
+                        ISNULL(RTRIM(cli.cli_des), '') AS cli_des,
+                        ISNULL(RTRIM(cli.rif), '') AS rif,
+                        ISNULL(RTRIM(cli.direc1), '') AS direccion,
+                        ISNULL(RTRIM(cli.telefonos), '') AS telefonos,
+                        ISNULL(RTRIM(cli.email), '') AS email,
+                        ISNULL(RTRIM(ven.co_ven), RTRIM(d.co_ven)) AS co_ven,
+                        ISNULL(RTRIM(ven.ven_des), RTRIM(d.co_ven)) AS ven_des,
+                        ISNULL(RTRIM(d.co_mone), 'USD') AS co_mone,
+                        ISNULL(RTRIM(m.mone_des), 'DOLAR AMERICANO') AS mone_des,
+                        ISNULL(d.tasa, 1.0) AS tasa,
+                        ISNULL(RTRIM(d.tipo_imp), '7') AS tipo_imp,
+                        ISNULL(RTRIM(d.doc_orig), '') AS doc_orig_raw,
+                        ISNULL(RTRIM(d.nro_orig), '') AS nro_orig_raw,
+                        CASE
+                            WHEN RTRIM(d.doc_orig) = 'DEVO' THEN 'FACT'
+                            WHEN RTRIM(d.co_tipo_doc) IN ('N/DB', 'N/CR') AND RTRIM(d.doc_orig) = 'COBRO' THEN 'FACT'
+                            ELSE ISNULL(RTRIM(d.doc_orig), '')
+                        END AS doc_orig,
+                        CASE
+                            WHEN RTRIM(d.doc_orig) = 'DEVO' THEN
+                                ISNULL((SELECT TOP 1 RTRIM(reng.num_doc) FROM saDevolucionClienteReng reng WHERE reng.doc_num = d.nro_orig AND (reng.tipo_doc='FACT' OR reng.tipo_doc='NENT' OR reng.reng_num=1)), RTRIM(d.nro_orig))
+                            WHEN RTRIM(d.co_tipo_doc) IN ('N/DB', 'N/CR') AND RTRIM(d.doc_orig) = 'COBRO' THEN
+                                ISNULL((SELECT TOP 1 RTRIM(PDC.nro_doc) FROM saCobroDocReng cd1 LEFT JOIN saCobroDocReng PDC ON cd1.rowguid_reng_ori = PDC.rowguid LEFT JOIN saCobro C ON cd1.cob_num = C.cob_num WHERE cd1.nro_doc = d.nro_doc AND cd1.co_tipo_doc = d.co_tipo_doc AND C.anulado = 0), RTRIM(d.nro_orig))
+                            ELSE ISNULL(RTRIM(d.nro_orig), '')
+                        END AS nro_orig,
+                        CASE
+                            WHEN RTRIM(d.doc_orig) = 'DEVO' THEN
+                                (SELECT TOP 1 docV.fec_emis FROM saDocumentoVenta docV WHERE docV.nro_doc = (SELECT TOP 1 reng.num_doc FROM saDevolucionClienteReng reng WHERE reng.doc_num = d.nro_orig AND (reng.tipo_doc='FACT' OR reng.tipo_doc='NENT' OR reng.reng_num=1)) AND docV.co_tipo_doc='FACT')
+                            WHEN RTRIM(d.co_tipo_doc) IN ('N/DB', 'N/CR') AND RTRIM(d.doc_orig) = 'COBRO' THEN
+                                (SELECT TOP 1 docV.fec_emis FROM saCobroDocReng cd1 LEFT JOIN saCobroDocReng PDC ON cd1.rowguid_reng_ori = PDC.rowguid LEFT JOIN saDocumentoVenta docV ON PDC.nro_doc = docV.nro_doc AND PDC.co_tipo_doc = docV.co_tipo_doc LEFT JOIN saCobro C ON cd1.cob_num = C.cob_num WHERE cd1.nro_doc = d.nro_doc AND cd1.co_tipo_doc = d.co_tipo_doc AND C.anulado = 0)
+                            ELSE orig.fec_emis
+                        END AS fec_emis_orig,
+                        CASE
+                            WHEN RTRIM(d.doc_orig) = 'DEVO' THEN
+                                (SELECT TOP 1 RTRIM(docV.n_control) FROM saDocumentoVenta docV WHERE docV.nro_doc = (SELECT TOP 1 reng.num_doc FROM saDevolucionClienteReng reng WHERE reng.doc_num = d.nro_orig AND (reng.tipo_doc='FACT' OR reng.tipo_doc='NENT' OR reng.reng_num=1)) AND docV.co_tipo_doc='FACT')
+                            WHEN RTRIM(d.co_tipo_doc) IN ('N/DB', 'N/CR') AND RTRIM(d.doc_orig) = 'COBRO' THEN
+                                (SELECT TOP 1 RTRIM(docV.n_control) FROM saCobroDocReng cd1 LEFT JOIN saCobroDocReng PDC ON cd1.rowguid_reng_ori = PDC.rowguid LEFT JOIN saDocumentoVenta docV ON PDC.nro_doc = docV.nro_doc AND PDC.co_tipo_doc = docV.co_tipo_doc LEFT JOIN saCobro C ON cd1.cob_num = C.cob_num WHERE cd1.nro_doc = d.nro_doc AND cd1.co_tipo_doc = d.co_tipo_doc AND C.anulado = 0)
+                            ELSE ISNULL(RTRIM(orig.n_control), '')
+                        END AS n_control_orig,
+                        CASE
+                            WHEN RTRIM(d.doc_orig) = 'DEVO' THEN
+                                (SELECT TOP 1 docV.total_bruto FROM saDocumentoVenta docV WHERE docV.nro_doc = (SELECT TOP 1 reng.num_doc FROM saDevolucionClienteReng reng WHERE reng.doc_num = d.nro_orig AND (reng.tipo_doc='FACT' OR reng.tipo_doc='NENT' OR reng.reng_num=1)) AND docV.co_tipo_doc='FACT')
+                            WHEN RTRIM(d.co_tipo_doc) IN ('N/DB', 'N/CR') AND RTRIM(d.doc_orig) = 'COBRO' THEN
+                                (SELECT TOP 1 docV.total_bruto FROM saCobroDocReng cd1 LEFT JOIN saCobroDocReng PDC ON cd1.rowguid_reng_ori = PDC.rowguid LEFT JOIN saDocumentoVenta docV ON PDC.nro_doc = docV.nro_doc AND PDC.co_tipo_doc = docV.co_tipo_doc LEFT JOIN saCobro C ON cd1.cob_num = C.cob_num WHERE cd1.nro_doc = d.nro_doc AND cd1.co_tipo_doc = d.co_tipo_doc AND C.anulado = 0)
+                            ELSE ISNULL(orig.total_bruto, 0.0)
+                        END AS subtotal_orig_bs,
+                        CASE
+                            WHEN RTRIM(d.doc_orig) = 'DEVO' THEN
+                                (SELECT TOP 1 docV.monto_imp FROM saDocumentoVenta docV WHERE docV.nro_doc = (SELECT TOP 1 reng.num_doc FROM saDevolucionClienteReng reng WHERE reng.doc_num = d.nro_orig AND (reng.tipo_doc='FACT' OR reng.tipo_doc='NENT' OR reng.reng_num=1)) AND docV.co_tipo_doc='FACT')
+                            WHEN RTRIM(d.co_tipo_doc) IN ('N/DB', 'N/CR') AND RTRIM(d.doc_orig) = 'COBRO' THEN
+                                (SELECT TOP 1 docV.monto_imp FROM saCobroDocReng cd1 LEFT JOIN saCobroDocReng PDC ON cd1.rowguid_reng_ori = PDC.rowguid LEFT JOIN saDocumentoVenta docV ON PDC.nro_doc = docV.nro_doc AND PDC.co_tipo_doc = docV.co_tipo_doc LEFT JOIN saCobro C ON cd1.cob_num = C.cob_num WHERE cd1.nro_doc = d.nro_doc AND cd1.co_tipo_doc = d.co_tipo_doc AND C.anulado = 0)
+                            ELSE ISNULL(orig.monto_imp, 0.0)
+                        END AS iva_orig_bs,
+                        CASE
+                            WHEN RTRIM(d.doc_orig) = 'DEVO' THEN
+                                (SELECT TOP 1 docV.total_neto FROM saDocumentoVenta docV WHERE docV.nro_doc = (SELECT TOP 1 reng.num_doc FROM saDevolucionClienteReng reng WHERE reng.doc_num = d.nro_orig AND (reng.tipo_doc='FACT' OR reng.tipo_doc='NENT' OR reng.reng_num=1)) AND docV.co_tipo_doc='FACT')
+                            WHEN RTRIM(d.co_tipo_doc) IN ('N/DB', 'N/CR') AND RTRIM(d.doc_orig) = 'COBRO' THEN
+                                (SELECT TOP 1 docV.total_neto FROM saCobroDocReng cd1 LEFT JOIN saCobroDocReng PDC ON cd1.rowguid_reng_ori = PDC.rowguid LEFT JOIN saDocumentoVenta docV ON PDC.nro_doc = docV.nro_doc AND PDC.co_tipo_doc = docV.co_tipo_doc LEFT JOIN saCobro C ON cd1.cob_num = C.cob_num WHERE cd1.nro_doc = d.nro_doc AND cd1.co_tipo_doc = d.co_tipo_doc AND C.anulado = 0)
+                            ELSE ISNULL(orig.total_neto, 0.0)
+                        END AS total_orig_bs,
+                        fac.fec_emis AS fac_fec_emis,
+                        ISNULL(RTRIM(fac.n_control), '') AS fac_n_control,
+                        ISNULL(fac.total_bruto, 0.0) AS fac_subtotal_bs,
+                        ISNULL(fac.monto_imp, 0.0) AS fac_iva_bs,
+                        ISNULL(fac.total_neto, 0.0) AS fac_total_bs,
+                        ISNULL(d.total_bruto, 0.0) AS total_bruto,
+                        ISNULL(d.monto_desc_glob, 0.0) AS monto_desc_glob,
+                        ISNULL(RTRIM(d.porc_desc_glob), '') AS porc_desc_glob,
+                        ISNULL(d.monto_reca, 0.0) AS monto_reca,
+                        ISNULL(RTRIM(d.porc_reca), '') AS porc_reca,
+                        ISNULL(d.total_neto, 0.0) AS total_neto,
+                        ISNULL(d.monto_imp, 0.0) AS monto_imp,
+                        ISNULL(d.monto_imp2, 0.0) AS monto_imp2,
+                        ISNULL(d.monto_imp3, 0.0) AS monto_imp3,
+                        ISNULL(d.otros1, 0.0) AS otros1,
+                        ISNULL(d.otros2, 0.0) AS otros2,
+                        ISNULL(d.otros3, 0.0) AS otros3,
+                        ISNULL(d.adicional, 0.0) AS adicional,
+                        ISNULL(d.saldo, 0.0) AS saldo,
+                        ISNULL(RTRIM(d.nro_che), '') AS nro_che,
+                        ISNULL(RTRIM(d.mov_ban), '') AS mov_ban,
+                        ISNULL(RTRIM(d.num_comprobante), '') AS num_comprobante,
+                        ISNULL(RTRIM(d.campo1), '') AS campo1,
+                        ISNULL(RTRIM(d.campo2), '') AS campo2,
+                        ISNULL(RTRIM(d.campo3), '') AS campo3,
+                        ISNULL(RTRIM(d.campo4), '') AS campo4,
+                        ISNULL(RTRIM(d.campo5), '') AS campo5,
+                        ISNULL(RTRIM(d.campo6), '') AS campo6,
+                        ISNULL(RTRIM(d.campo7), '') AS campo7,
+                        ISNULL(RTRIM(d.campo8), '') AS campo8,
+                        ISNULL(RTRIM(d.co_us_in), '') AS co_us_in,
+                        d.fe_us_in,
+                        ISNULL(RTRIM(d.co_us_mo), '') AS co_us_mo,
+                        d.fe_us_mo,
+                        ISNULL(RTRIM(d.co_sucu_in), '') AS co_sucu_in,
+                        ISNULL(RTRIM(d.co_sucu_mo), '') AS co_sucu_mo
+                    FROM saDocumentoVenta d
+                    LEFT JOIN saTipoDocumento t ON d.co_tipo_doc = t.co_tipo_doc
+                    LEFT JOIN saCliente cli ON d.co_cli = cli.co_cli
+                    LEFT JOIN saVendedor ven ON d.co_ven = ven.co_ven
+                    LEFT JOIN saMoneda m ON d.co_mone = m.co_mone
+                    LEFT JOIN saDocumentoVenta orig ON RTRIM(d.nro_orig) = RTRIM(orig.nro_doc) AND RTRIM(d.doc_orig) = RTRIM(orig.co_tipo_doc)
+                    LEFT JOIN saFacturaVenta fac ON RTRIM(d.nro_orig) = RTRIM(fac.doc_num)
+                    WHERE d.co_tipo_doc = 'N/CR'
+                      AND (? = '' OR d.nro_doc LIKE ? OR d.n_control LIKE ? OR d.campo5 LIKE ? OR cli.cli_des LIKE ? OR d.observa LIKE ? OR d.nro_orig LIKE ?)
+                    ORDER BY d.fec_emis DESC, d.nro_doc DESC
+                """;
 
         try (Connection conn = DatabaseConfig.getConnection(DB_PRODUCCION);
-             PreparedStatement ps = conn.prepareStatement(sql)) {
+                PreparedStatement ps = conn.prepareStatement(sql)) {
 
             String pattern = "%" + (filtro != null ? filtro.trim() : "") + "%";
             ps.setInt(1, limit > 0 ? limit : 50);
@@ -320,11 +348,12 @@ public class NotaCreditoDAO {
     public String obtenerAnteriorNumero(String currentDoc, String coTipoDoc) {
         String sql = "SELECT TOP 1 RTRIM(nro_doc) FROM saDocumentoVenta WHERE co_tipo_doc = ? AND nro_doc < ? ORDER BY nro_doc DESC";
         try (Connection conn = DatabaseConfig.getConnection(DB_PRODUCCION);
-             PreparedStatement ps = conn.prepareStatement(sql)) {
+                PreparedStatement ps = conn.prepareStatement(sql)) {
             ps.setString(1, coTipoDoc);
             ps.setString(2, currentDoc);
             try (ResultSet rs = ps.executeQuery()) {
-                if (rs.next()) return rs.getString(1);
+                if (rs.next())
+                    return rs.getString(1);
             }
         } catch (SQLException e) {
             logger.error("Error al obtener doc anterior: {}", e.getMessage(), e);
@@ -335,11 +364,12 @@ public class NotaCreditoDAO {
     public String obtenerSiguienteNumero(String currentDoc, String coTipoDoc) {
         String sql = "SELECT TOP 1 RTRIM(nro_doc) FROM saDocumentoVenta WHERE co_tipo_doc = ? AND nro_doc > ? ORDER BY nro_doc ASC";
         try (Connection conn = DatabaseConfig.getConnection(DB_PRODUCCION);
-             PreparedStatement ps = conn.prepareStatement(sql)) {
+                PreparedStatement ps = conn.prepareStatement(sql)) {
             ps.setString(1, coTipoDoc);
             ps.setString(2, currentDoc);
             try (ResultSet rs = ps.executeQuery()) {
-                if (rs.next()) return rs.getString(1);
+                if (rs.next())
+                    return rs.getString(1);
             }
         } catch (SQLException e) {
             logger.error("Error al obtener doc siguiente: {}", e.getMessage(), e);
@@ -352,14 +382,14 @@ public class NotaCreditoDAO {
      */
     public boolean marcarComoImpresa(String nroDoc, String coTipoDoc, String usuario) {
         String sql = """
-            UPDATE saDocumentoVenta
-            SET impresa = 1,
-                co_us_mo = ISNULL(?, co_us_mo),
-                fe_us_mo = GETDATE()
-            WHERE RTRIM(nro_doc) = ? AND RTRIM(co_tipo_doc) = ?
-        """;
+                    UPDATE saDocumentoVenta
+                    SET impresa = 1,
+                        co_us_mo = ISNULL(?, co_us_mo),
+                        fe_us_mo = GETDATE()
+                    WHERE RTRIM(nro_doc) = ? AND RTRIM(co_tipo_doc) = ?
+                """;
         try (Connection conn = DatabaseConfig.getConnection(DB_PRODUCCION);
-             PreparedStatement ps = conn.prepareStatement(sql)) {
+                PreparedStatement ps = conn.prepareStatement(sql)) {
             ps.setString(1, usuario);
             ps.setString(2, nroDoc.trim());
             ps.setString(3, coTipoDoc.trim());
@@ -372,10 +402,11 @@ public class NotaCreditoDAO {
 
     private String querySingleDoc(String sql, String coTipoDoc) {
         try (Connection conn = DatabaseConfig.getConnection(DB_PRODUCCION);
-             PreparedStatement ps = conn.prepareStatement(sql)) {
+                PreparedStatement ps = conn.prepareStatement(sql)) {
             ps.setString(1, coTipoDoc);
             try (ResultSet rs = ps.executeQuery()) {
-                if (rs.next()) return rs.getString(1);
+                if (rs.next())
+                    return rs.getString(1);
             }
         } catch (SQLException e) {
             logger.error("Error al consultar doc individual: {}", e.getMessage(), e);
@@ -384,7 +415,8 @@ public class NotaCreditoDAO {
     }
 
     /**
-     * Mapea un ResultSet de SQL Server al objeto NotaCreditoModel con todos sus cálculos.
+     * Mapea un ResultSet de SQL Server al objeto NotaCreditoModel con todos sus
+     * cálculos.
      */
     private NotaCreditoModel mapResultSetToModel(ResultSet rs) throws SQLException {
         NotaCreditoModel m = new NotaCreditoModel();
@@ -427,7 +459,8 @@ public class NotaCreditoDAO {
         m.setCoMone(rs.getString("co_mone"));
         m.setMoneDes(rs.getString("mone_des"));
         double tasa = rs.getDouble("tasa");
-        if (tasa <= 0) tasa = 1.0;
+        if (tasa <= 0)
+            tasa = 1.0;
         m.setTasa(tasa);
 
         // Impuesto
@@ -442,23 +475,28 @@ public class NotaCreditoDAO {
         m.setNroOrigRaw(rs.getString("nro_orig_raw"));
 
         Timestamp tsOrig = rs.getTimestamp("fec_emis_orig");
-        if (tsOrig == null) tsOrig = rs.getTimestamp("fac_fec_emis");
+        if (tsOrig == null)
+            tsOrig = rs.getTimestamp("fac_fec_emis");
         m.setFecEmisOrig(tsOrig != null ? tsOrig.toLocalDateTime() : null);
 
         String nCtrlOrig = rs.getString("n_control_orig");
-        if (nCtrlOrig == null || nCtrlOrig.isBlank()) nCtrlOrig = rs.getString("fac_n_control");
+        if (nCtrlOrig == null || nCtrlOrig.isBlank())
+            nCtrlOrig = rs.getString("fac_n_control");
         m.setNControlOrig(nCtrlOrig);
 
         double subOrig = rs.getDouble("subtotal_orig_bs");
-        if (subOrig <= 0) subOrig = rs.getDouble("fac_subtotal_bs");
+        if (subOrig <= 0)
+            subOrig = rs.getDouble("fac_subtotal_bs");
         m.setSubtotalOrigBs(subOrig);
 
         double ivaOrig = rs.getDouble("iva_orig_bs");
-        if (ivaOrig <= 0) ivaOrig = rs.getDouble("fac_iva_bs");
+        if (ivaOrig <= 0)
+            ivaOrig = rs.getDouble("fac_iva_bs");
         m.setIvaOrigBs(ivaOrig);
 
         double totOrig = rs.getDouble("total_orig_bs");
-        if (totOrig <= 0) totOrig = rs.getDouble("fac_total_bs");
+        if (totOrig <= 0)
+            totOrig = rs.getDouble("fac_total_bs");
         m.setTotalOrigBs(totOrig);
 
         // Montos en Bolívares (Base)
@@ -466,7 +504,8 @@ public class NotaCreditoDAO {
         double montoDescBs = rs.getDouble("monto_desc_glob");
         double montoRecaBs = rs.getDouble("monto_reca");
         double ivaBs = rs.getDouble("monto_imp") + rs.getDouble("monto_imp2") + rs.getDouble("monto_imp3");
-        double otrosBs = rs.getDouble("otros1") + rs.getDouble("otros2") + rs.getDouble("otros3") + rs.getDouble("adicional");
+        double otrosBs = rs.getDouble("otros1") + rs.getDouble("otros2") + rs.getDouble("otros3")
+                + rs.getDouble("adicional");
         double totalNetoBs = rs.getDouble("total_neto");
         double saldoBs = rs.getDouble("saldo");
 
@@ -481,10 +520,10 @@ public class NotaCreditoDAO {
 
         // Determinar Base Imponible vs Monto Exento
         if ("7".equals(tipoImp) || ivaBs == 0.0) {
-            m.setMontoExentoBs(totalBrutoBs - montoDescBs + montoRecaBs);
+            m.setMontoExentoBs(totalBrutoBs - montoDescBs + montoRecaBs + otrosBs);
             m.setBaseImponibleBs(0.0);
         } else {
-            m.setMontoExentoBs(0.0);
+            m.setMontoExentoBs(otrosBs);
             m.setBaseImponibleBs(totalBrutoBs - montoDescBs + montoRecaBs);
         }
 

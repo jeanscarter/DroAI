@@ -56,5 +56,16 @@ analisis_usuarios_soporte.txt
 *.dbf
 sync_inspect/
 sincronuevo*/
-scripts/trigger_auto_asignar_lote_devoluciones_JG.sql
-scripts/trigger_auto_asignar_lote_compras_JG.sql
+
+# Database scripts, triggers, backups & dumps
+*.sql
+scripts/
+**/scripts/
+*.mdf
+*.ldf
+*.ndf
+*.bak
+*.dmp
+*.sqlite
+*.sqlite3
+*.db
